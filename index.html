@@ -1,0 +1,2041 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>まめ比べ</title>
+<style>
+/* ラテとカフェの色。真っ黒・純白を使わず、すべて暖色に寄せている。
+   系列色（s1〜s3）は比較画面で3件を見分けるためのもので、
+   色相を赤茶・青緑・金と大きく離し、背景とのコントラストも3:1以上を確保している。 */
+:root{
+  --bg:#fdfaf6; --bg2:#f9f1e9; --card:#ffffff; --text:#332722;
+  --sub:#6f5e54; --mute:#8a7365;
+  --line:#efe4d9; --track:#f2e9e1; --chip:#f7efe8; --chipOn:#9d5c4d; --chipOnText:#fffaf6;
+  --accent:#b5705f; --accent-soft:#f9e9e3; --gold:#c9a227;
+  --s1:#b5705f; --s2:#5b8a8c; --s3:#ad7c14;
+  --warn:#b4762a; --ok:#4f8a6b; --bad:#c05c50;
+  --roast-l:#e6cda4; --roast-m:#bd8a5e; --roast-d:#7a5138;
+  --shadow:0 1px 2px rgba(94,62,44,.05), 0 6px 20px rgba(94,62,44,.07);
+  --shadow-lift:0 2px 6px rgba(94,62,44,.09), 0 14px 34px rgba(94,62,44,.11);
+  --serif:"Hiragino Mincho ProN","Yu Mincho",YuMincho,"Noto Serif JP",serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#1d1714; --bg2:#241c17; --card:#282019; --text:#f7f0e8;
+    --sub:#c9b8aa; --mute:#9c8a7d;
+    --line:#3a3029; --track:#3a3029; --chip:#332a23; --chipOn:#e6bcae; --chipOnText:#2a1f1a;
+    --accent:#dd9c86; --accent-soft:#3a2a24; --gold:#d9b155;
+    --s1:#dd9c86; --s2:#7fb3b5; --s3:#d9b155;
+    --warn:#e0a95e; --ok:#7fb99b; --bad:#e58b7e;
+    --roast-l:#d6b98e; --roast-m:#b1815a; --roast-d:#8a6248;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.34);
+    --shadow-lift:0 2px 6px rgba(0,0,0,.4), 0 14px 34px rgba(0,0,0,.45);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1d1714; --bg2:#241c17; --card:#282019; --text:#f7f0e8;
+  --sub:#c9b8aa; --mute:#9c8a7d;
+  --line:#3a3029; --track:#3a3029; --chip:#332a23; --chipOn:#e6bcae; --chipOnText:#2a1f1a;
+  --accent:#dd9c86; --accent-soft:#3a2a24; --gold:#d9b155;
+  --s1:#dd9c86; --s2:#7fb3b5; --s3:#d9b155;
+  --warn:#e0a95e; --ok:#7fb99b; --bad:#e58b7e;
+  --roast-l:#d6b98e; --roast-m:#b1815a; --roast-d:#8a6248;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.34);
+  --shadow-lift:0 2px 6px rgba(0,0,0,.4), 0 14px 34px rgba(0,0,0,.45);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic UI","Noto Sans JP",sans-serif;
+  background:var(--bg); color:var(--text); font-size:16px; line-height:1.75;
+  letter-spacing:.01em; touch-action:manipulation; -webkit-text-size-adjust:100%;
+  padding-bottom:calc(74px + env(safe-area-inset-bottom));
+  background-image:radial-gradient(120% 60% at 50% 0%, var(--bg2) 0%, transparent 62%);
+  background-attachment:fixed;
+}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;touch-action:manipulation;
+  transition:transform .12s ease, background .18s ease, color .18s ease, box-shadow .18s ease}
+button:active{transform:scale(.97)}
+input,select,textarea{font:inherit;font-size:16px;color:inherit}
+h1,h2,h3,h4{margin:0;line-height:1.4}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+svg{display:block}
+
+/* ===== ヘッダー / タブ ===== */
+.appbar{position:sticky;top:0;z-index:30;
+  background:color-mix(in srgb, var(--bg) 86%, transparent);
+  -webkit-backdrop-filter:saturate(1.6) blur(14px); backdrop-filter:saturate(1.6) blur(14px);
+  border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:6px;padding:10px 14px;min-height:58px}
+.appbar h1{font-family:var(--serif);font-size:21px;font-weight:600;letter-spacing:.09em;flex:1}
+.appbar .ico{width:44px;height:44px;display:grid;place-items:center;border-radius:14px;color:var(--sub)}
+.appbar .ico svg{width:21px;height:21px}
+.appbar .ico:active{background:var(--chip);color:var(--accent)}
+
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;
+  background:color-mix(in srgb, var(--card) 92%, transparent);
+  -webkit-backdrop-filter:blur(16px); backdrop-filter:blur(16px);
+  border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);
+  box-shadow:0 -6px 24px rgba(94,62,44,.06)}
+.tabbar button{flex:1;height:66px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:5px;font-size:10.5px;color:var(--mute);font-weight:700;letter-spacing:.04em;position:relative}
+.tabbar button svg{width:23px;height:23px;stroke-width:1.6}
+.tabbar button[aria-selected="true"]{color:var(--accent)}
+.tabbar button[aria-selected="true"] svg{stroke-width:2}
+.tabbar button[aria-selected="true"]::before{content:"";position:absolute;top:0;width:26px;height:3px;
+  border-radius:0 0 3px 3px;background:var(--accent)}
+main>section{display:none;padding:0 0 28px}
+body[data-view="search"] #v-search,body[data-view="map"] #v-map,
+body[data-view="esp"] #v-esp,body[data-view="my"] #v-my{display:block}
+
+/* ===== 共通パーツ ===== */
+.pad{padding:14px 18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px;margin:0 16px 14px;
+  box-shadow:var(--shadow)}
+.muted{color:var(--sub);font-size:13.5px}
+.tiny{color:var(--mute);font-size:12px;line-height:1.7}
+.row{display:flex;align-items:center;gap:8px}
+.between{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chiprow{display:flex;gap:8px;overflow-x:auto;padding:8px 16px;scrollbar-width:none}
+.chiprow::-webkit-scrollbar{display:none}
+.chip{background:var(--chip);border:1px solid transparent;border-radius:999px;padding:9px 16px;
+  font-size:13.5px;font-weight:700;white-space:nowrap;min-height:42px;display:inline-flex;align-items:center;
+  color:var(--sub);letter-spacing:.02em}
+.chip[aria-pressed="true"]{background:var(--chipOn);color:var(--chipOnText);
+  box-shadow:0 3px 12px color-mix(in srgb, var(--accent) 34%, transparent)}
+.chip:disabled{opacity:.32}
+.btn{background:var(--chipOn);color:var(--chipOnText);border-radius:16px;padding:15px 20px;
+  font-weight:700;font-size:15px;min-height:52px;display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  letter-spacing:.03em;box-shadow:0 4px 16px color-mix(in srgb, var(--accent) 26%, transparent)}
+.btn.ghost{background:var(--chip);color:var(--text);box-shadow:none}
+.btn.wide{width:100%}
+.btn:disabled{opacity:.4;box-shadow:none}
+.searchbar{padding:2px 16px 10px}
+.searchbar input{width:100%;background:var(--card);border:1px solid var(--line);border-radius:16px;
+  padding:13px 16px;min-height:50px;box-shadow:var(--shadow)}
+.searchbar input::placeholder{color:var(--mute)}
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:800;letter-spacing:.05em;
+  padding:4px 11px;border-radius:999px;background:var(--chip);color:var(--sub)}
+.badge.r-light{background:var(--roast-l);color:#573a17}
+.badge.r-mid{background:var(--roast-m);color:#fff6ee}
+.badge.r-dark{background:var(--roast-d);color:#f5e6da}
+
+/* ===== 味バー ===== */
+.tbar{display:grid;grid-template-columns:50px 1fr 56px;align-items:center;gap:10px;min-height:28px}
+.tbar .lb{font-size:12.5px;color:var(--sub);font-weight:700;letter-spacing:.05em}
+.tbar .wd{font-size:11.5px;color:var(--mute);text-align:right;font-weight:600}
+.track{display:block;height:9px;border-radius:5px;background:var(--track);overflow:hidden}
+.fill{height:9px;border-radius:5px;background:var(--s1);display:block;position:relative;
+  transition:width .4s cubic-bezier(.22,.9,.3,1)}
+.fill::after{content:"";position:absolute;inset:0;border-radius:inherit;
+  background:linear-gradient(180deg,rgba(255,255,255,.32),rgba(255,255,255,0) 62%)}
+
+/* ===== 豆カード ===== */
+.bean{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px 16px 15px 20px;
+  margin:0 16px 12px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.bean:active{box-shadow:var(--shadow-lift);transform:scale(.995)}
+.bean::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--roast-m)}
+.bean.r-light::before{background:linear-gradient(180deg,var(--roast-l),color-mix(in srgb,var(--roast-l) 70%,var(--roast-m)))}
+.bean.r-mid::before{background:linear-gradient(180deg,var(--roast-m),color-mix(in srgb,var(--roast-m) 70%,var(--roast-d)))}
+.bean.r-dark::before{background:linear-gradient(180deg,var(--roast-d),#3d281c)}
+.bean h3{font-family:var(--serif);font-size:17.5px;font-weight:600;letter-spacing:.03em;line-height:1.45}
+.bean .meta{font-size:12.5px;color:var(--sub);margin:5px 0 12px;letter-spacing:.02em}
+.bean .foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:14px}
+.price{font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.price small{font-size:10.5px;color:var(--mute);font-weight:600;letter-spacing:.03em}
+.acts{display:flex;gap:8px}
+.iconbtn{width:44px;height:44px;border-radius:14px;background:var(--chip);display:grid;place-items:center;
+  color:var(--sub)}
+.iconbtn svg{width:19px;height:19px}
+.iconbtn[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
+
+/* ===== トレイ ===== */
+#tray{position:fixed;left:0;right:0;bottom:calc(66px + env(safe-area-inset-bottom));z-index:35;
+  background:var(--card);border-top:1px solid var(--line);padding:12px 16px;display:none;
+  align-items:center;gap:10px;box-shadow:0 -8px 28px rgba(94,62,44,.13)}
+#tray.on{display:flex}
+#tray .slots{flex:1;display:flex;gap:7px;overflow-x:auto;scrollbar-width:none}
+#tray .slots::-webkit-scrollbar{display:none}
+#tray .btn{padding:12px 18px;min-height:46px;font-size:14px}
+.slot{background:var(--chip);border-radius:12px;padding:7px 11px;font-size:12px;font-weight:700;
+  white-space:nowrap;display:flex;align-items:center;gap:7px;min-height:38px}
+
+/* ===== シート / モーダル ===== */
+.sheet{position:fixed;inset:0;z-index:60;display:none}
+.sheet.on{display:block}
+.sheet .veil{position:absolute;inset:0;background:rgba(48,30,22,.42);
+  -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+.sheet .panel{position:absolute;left:0;right:0;bottom:0;max-height:88dvh;background:var(--bg);
+  border-radius:28px 28px 0 0;display:flex;flex-direction:column;overflow:hidden;
+  box-shadow:0 -12px 44px rgba(48,30,22,.26);animation:rise .3s cubic-bezier(.22,.9,.3,1)}
+@keyframes rise{from{transform:translateY(22px);opacity:.4}to{transform:none;opacity:1}}
+.sheet .grab{width:44px;height:4px;border-radius:2px;background:var(--line);margin:12px auto 6px}
+.sheet .body{overflow-y:auto;overscroll-behavior:contain;padding:4px 0 12px;flex:1}
+.sheet .foot{border-top:1px solid var(--line);padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+  display:flex;gap:10px;background:var(--card)}
+.sheet strong{font-family:var(--serif);font-size:17px;font-weight:600;letter-spacing:.05em}
+.full{position:fixed;inset:0;z-index:70;background:var(--bg);display:none;flex-direction:column}
+.full.on{display:flex}
+.full .top{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);
+  min-height:56px;background:color-mix(in srgb, var(--bg) 88%, transparent);
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+.full .top .ico{width:44px;height:44px;display:grid;place-items:center;border-radius:14px;color:var(--sub)}
+.full .top .ico svg{width:21px;height:21px}
+.full .top h2{font-family:var(--serif);font-size:16.5px;font-weight:600;letter-spacing:.05em;flex:1;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.full .body{flex:1;overflow-y:auto;padding-bottom:calc(28px + env(safe-area-inset-bottom))}
+
+/* ===== 詳細のヒーロー ===== */
+.hero{position:relative;overflow:hidden;padding:28px 20px 24px;color:#fff8f2}
+.hero.r-light{background:linear-gradient(150deg,#d9b58a,#a9764a)}
+.hero.r-mid{background:linear-gradient(150deg,#b9825a,#7d4f33)}
+.hero.r-dark{background:linear-gradient(150deg,#7a5138,#402a1e)}
+.hero::after{content:"";position:absolute;right:-46px;top:-58px;width:190px;height:190px;border-radius:50%;
+  background:radial-gradient(circle at 32% 32%, rgba(255,255,255,.28), rgba(255,255,255,0) 68%)}
+.hero .eyebrow{font-size:11.5px;letter-spacing:.16em;font-weight:700;opacity:.86;text-transform:uppercase}
+.hero h3{font-family:var(--serif);font-size:25px;font-weight:600;letter-spacing:.04em;margin:8px 0 6px;
+  position:relative;z-index:1;text-shadow:0 1px 8px rgba(60,34,20,.24)}
+.hero .sub{font-size:13px;opacity:.92;position:relative;z-index:1}
+.hero .tags{display:flex;gap:7px;flex-wrap:wrap;margin-top:14px;position:relative;z-index:1}
+.hero .tags span{background:rgba(255,255,255,.19);border:1px solid rgba(255,255,255,.28);
+  border-radius:999px;padding:4px 12px;font-size:11.5px;font-weight:700;letter-spacing:.03em}
+.saying{font-size:15.5px;line-height:1.95;margin:0;padding:20px 20px 6px;letter-spacing:.02em}
+.phero{display:flex;gap:20px;align-items:center;padding:24px 20px}
+.phero .pkg{flex:none;position:relative;z-index:1}
+.hero.onlight{color:#3d2a1c}
+.hero.onlight h3{text-shadow:none}
+.hero.onlight .tags span{background:rgba(255,255,255,.45);border-color:rgba(255,255,255,.62)}
+
+/* ===== 見出し ===== */
+.sect{font-family:var(--serif);font-size:15px;font-weight:600;letter-spacing:.09em;
+  display:flex;align-items:center;gap:10px;margin:0 0 12px}
+.sect::after{content:"";flex:1;height:1px;background:var(--line)}
+.sec-title{font-family:var(--serif);font-size:14px;font-weight:600;color:var(--sub);
+  letter-spacing:.12em;padding:22px 18px 10px}
+
+/* ===== 比較 ===== */
+.legend{display:flex;flex-direction:column;gap:9px;padding:16px 18px;border-bottom:1px solid var(--line)}
+.legend .li{display:flex;align-items:center;gap:10px;font-size:14.5px}
+.key{width:26px;height:26px;border-radius:9px;display:grid;place-items:center;color:#fff;font-size:12px;
+  font-weight:800;flex:none;box-shadow:0 2px 7px rgba(94,62,44,.22)}
+.cmpblock{padding:18px}
+.cmpblock+.cmpblock{border-top:1px solid var(--line)}
+.cmpblock h4{font-family:var(--serif);font-size:15px;font-weight:600;letter-spacing:.07em;margin:0 0 3px}
+.cmprow{display:grid;grid-template-columns:26px 1fr 36px;align-items:center;gap:10px;margin-top:9px}
+.win{font-size:10.5px;font-weight:800;color:var(--ok);margin-left:6px;letter-spacing:.03em}
+
+/* ===== ステッパー ===== */
+.step{display:grid;grid-template-columns:58px 1fr 58px;gap:10px;align-items:center}
+.step button{background:var(--chip);border-radius:16px;height:56px;font-size:23px;font-weight:700;color:var(--accent)}
+.step button:active{background:var(--chipOn);color:var(--chipOnText)}
+.step .val{text-align:center;font-size:25px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.step .val small{display:block;font-size:11px;font-weight:600;color:var(--mute);letter-spacing:.08em}
+.field{margin:0 0 20px}
+.field>label{display:block;font-size:12.5px;font-weight:700;color:var(--sub);margin-bottom:9px;letter-spacing:.06em}
+.seg{display:flex;gap:7px}
+.seg button{flex:1;background:var(--chip);border-radius:15px;min-height:56px;font-size:12.5px;font-weight:700;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:6px;color:var(--sub)}
+.seg button[aria-pressed="true"]{background:var(--chipOn);color:var(--chipOnText);
+  box-shadow:0 4px 14px color-mix(in srgb, var(--accent) 30%, transparent)}
+.seg button .g{font-size:18px}
+.stars{display:flex;gap:5px}
+.stars button{width:48px;height:48px;font-size:27px;color:var(--line)}
+.stars button.on{color:var(--gold)}
+
+/* ===== 提案 ===== */
+.advice{border-radius:20px;padding:18px;margin:0 16px 14px;border:1px solid var(--line);
+  background:linear-gradient(165deg, var(--accent-soft), var(--card) 68%);box-shadow:var(--shadow)}
+.advice .k{font-size:11px;font-weight:800;letter-spacing:.14em;color:var(--warn)}
+.advice .do{font-family:var(--serif);font-size:19px;font-weight:600;margin:9px 0 8px;letter-spacing:.03em;line-height:1.6}
+.advice.ok .k{color:var(--ok)}
+
+/* ===== 収束バー ===== */
+.shotrow{display:grid;grid-template-columns:42px 1fr 40px 32px;align-items:center;gap:9px;
+  padding:8px 0;border-bottom:1px solid var(--line);font-size:12px}
+.shotrow:last-of-type{border-bottom:none}
+.shotrow .bar{height:16px;border-radius:6px;background:var(--track);position:relative;overflow:hidden}
+.shotrow .bar i{position:absolute;left:0;top:0;bottom:0;border-radius:6px;display:block}
+
+/* ===== マップ ===== */
+.mapwrap{padding:0 16px}
+.mapwrap svg{width:100%;height:auto;display:block;background:var(--card);border:1px solid var(--line);
+  border-radius:20px;box-shadow:var(--shadow)}
+.dot{cursor:pointer}
+
+/* 焙煎の深さ（横）× コクの強さ（縦）で並べる一覧。店頭のコーヒーマップと同じ読み方。 */
+.cmap{display:grid;grid-template-columns:22px repeat(3,1fr);margin:0 16px;background:var(--card);
+  border:1px solid var(--line);border-radius:20px;overflow:hidden;box-shadow:var(--shadow)}
+.cmap .corner{background:var(--chip);border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.cmap .zh{font-size:11px;font-weight:800;letter-spacing:.06em;text-align:center;padding:9px 2px;
+  border-bottom:1px solid var(--line)}
+.cmap .zh+.zh{border-left:1px solid var(--line)}
+.cmap .zh.z-l{background:linear-gradient(180deg,color-mix(in srgb,var(--roast-l) 46%,var(--card)),var(--card));color:#6b4a1e}
+.cmap .zh.z-m{background:linear-gradient(180deg,color-mix(in srgb,var(--roast-m) 40%,var(--card)),var(--card));color:#5c3a1e}
+.cmap .zh.z-d{background:linear-gradient(180deg,color-mix(in srgb,var(--roast-d) 40%,var(--card)),var(--card));color:#f2e4d8}
+.cmap .yaxis{background:var(--chip);border-right:1px solid var(--line);writing-mode:vertical-rl;
+  display:flex;align-items:center;justify-content:space-between;padding:14px 0;gap:8px;
+  font-size:9.5px;font-weight:800;letter-spacing:.2em;color:var(--mute)}
+.cmap .col{padding:10px 5px 14px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.cmap .col+.col{border-left:1px solid var(--line)}
+.mapitem{display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 3px;border-radius:13px;
+  text-align:center;width:100%;min-width:0}
+.mapitem:active{background:var(--chip)}
+.mapitem .mi{width:36px;height:auto;flex:none;filter:drop-shadow(0 3px 7px rgba(94,62,44,.22))}
+.mapitem img.mi{height:48px;object-fit:cover;border-radius:6px}
+.mapitem b{font-size:10.5px;font-weight:700;line-height:1.4;word-break:break-word;letter-spacing:0}
+.mapitem em{font-size:9.5px;color:var(--mute);line-height:1.45;font-style:normal;word-break:break-word}
+.mapitem .tag{font-size:8.5px;font-weight:800;letter-spacing:.04em;padding:2px 6px;border-radius:999px;
+  background:var(--accent-soft);color:var(--accent)}
+.cmap .colempty{font-size:10px;color:var(--mute);text-align:center;padding:18px 4px;line-height:1.6}
+.barista{display:flex;gap:12px;align-items:flex-start;margin:14px 16px 0;padding:15px 16px;
+  background:var(--accent-soft);border-radius:18px}
+.barista .bico{width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;flex:none;
+  display:grid;place-items:center;font-size:16px}
+.barista p{margin:0;font-size:12.5px;line-height:1.75;color:var(--sub)}
+
+/* ===== その他 ===== */
+.empty{text-align:center;padding:44px 28px;color:var(--sub)}
+.empty .g{font-size:34px;display:block;margin-bottom:12px;opacity:.55}
+details{border:1px solid var(--line);border-radius:20px;padding:0;margin:0 16px 14px;background:var(--card);
+  box-shadow:var(--shadow);overflow:hidden}
+details>summary{padding:17px 18px;font-family:var(--serif);font-weight:600;font-size:15px;letter-spacing:.06em;
+  cursor:pointer;list-style:none;min-height:52px;display:flex;align-items:center;justify-content:space-between}
+details>summary::-webkit-details-marker{display:none}
+details>summary::after{content:"▾";color:var(--accent);font-size:13px}
+details[open]>summary::after{content:"▴"}
+details .in{padding:0 18px 18px}
+.kv{display:grid;grid-template-columns:88px 1fr;gap:9px 12px;font-size:14px}
+.kv dt{color:var(--sub);font-size:12.5px;font-weight:600;letter-spacing:.04em}
+.kv dd{margin:0}
+.note{background:var(--chip);border-radius:14px;padding:13px 15px;font-size:12.5px;color:var(--sub);line-height:1.8}
+.range{width:100%;height:44px;accent-color:var(--accent)}
+input[type=text],input[type=number],input[type=date],textarea,select{
+  width:100%;background:var(--chip);border:1px solid var(--line);border-radius:14px;padding:13px;min-height:50px}
+input:focus,textarea:focus,select:focus{outline:2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset:1px}
+textarea{min-height:80px;resize:vertical}
+.hr{height:1px;background:var(--line);margin:20px 16px}
+
+/* ===== 産地 / お店 の切り替え ===== */
+.modeswitch{display:flex;background:var(--chip);border-radius:999px;padding:4px;gap:4px}
+.modeswitch button{flex:1;min-height:44px;border-radius:999px;font-size:13.5px;font-weight:700;
+  color:var(--sub);letter-spacing:.04em;display:flex;align-items:center;justify-content:center;gap:6px}
+.modeswitch button svg{width:17px;height:17px}
+.modeswitch button[aria-pressed="true"]{background:var(--card);color:var(--accent);box-shadow:var(--shadow)}
+
+/* ===== 商品カード（パッケージ付き） ===== */
+.prod{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;margin:0 16px 12px;
+  box-shadow:var(--shadow);display:grid;grid-template-columns:66px 1fr;gap:15px;position:relative;overflow:hidden}
+.prod:active{box-shadow:var(--shadow-lift);transform:scale(.995)}
+.pkg{width:66px;height:auto;align-self:start;
+  filter:drop-shadow(0 5px 12px rgba(94,62,44,.24))}
+.prod .shopname{font-size:11px;font-weight:800;letter-spacing:.09em;color:var(--accent)}
+.prod h3{font-family:var(--serif);font-size:16.5px;font-weight:600;letter-spacing:.03em;margin:4px 0 0;line-height:1.45}
+.prod .meta{font-size:12px;color:var(--sub);margin:5px 0 10px}
+.prod .foot{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;margin-top:12px}
+.prod .per{font-size:10.5px;color:var(--mute);font-weight:600;display:block;letter-spacing:.02em}
+.shopcard{display:flex;align-items:center;gap:13px;padding:15px 16px;background:var(--card);
+  border:1px solid var(--line);border-radius:18px;margin:0 16px 10px;box-shadow:var(--shadow);width:calc(100% - 32px)}
+.shopcard .dot2{width:38px;height:38px;border-radius:13px;flex:none;
+  display:grid;place-items:center;color:#fff;font-family:var(--serif);font-size:15px;font-weight:600}
+.shopcard .nm{flex:1;text-align:left}
+.shopcard .nm b{font-family:var(--serif);font-size:15.5px;font-weight:600;letter-spacing:.04em;display:block}
+.shopcard .nm span{font-size:11.5px;color:var(--mute)}
+.shopcard .ct{font-size:12px;color:var(--mute);font-weight:700}
+
+/* ===== 自分で撮った写真 ===== */
+.photobox{position:relative;width:66px;align-self:start}
+.photo{width:66px;height:88px;object-fit:cover;border-radius:11px;display:block;
+  box-shadow:0 5px 13px rgba(94,62,44,.26);background:var(--chip)}
+.phero .photo,.photo.big{width:96px;height:128px;border-radius:15px}
+.phero .photobox{width:96px;flex:none;z-index:1}
+.photobox .cam{position:absolute;right:-7px;bottom:-7px;width:32px;height:32px;border-radius:50%;
+  background:var(--chipOn);color:var(--chipOnText);display:grid;place-items:center;
+  box-shadow:0 3px 10px rgba(94,62,44,.34);border:2px solid var(--card)}
+.photobox .cam svg{width:15px;height:15px}
+.mybadge{display:inline-flex;align-items:center;font-size:10px;font-weight:800;letter-spacing:.08em;
+  padding:4px 10px;border-radius:999px;background:var(--accent-soft);color:var(--accent)}
+
+/* ===== 味を5つのまるで入れる ===== */
+.dots{display:grid;grid-template-columns:48px 1fr 52px;align-items:center;gap:10px;margin-bottom:8px}
+.dots .lb{font-size:12.5px;color:var(--sub);font-weight:700;letter-spacing:.05em}
+.dots .wd{font-size:11.5px;color:var(--mute);text-align:right;font-weight:600}
+.dots .dd{display:flex;gap:7px}
+.dots .dd button{width:40px;height:40px;border-radius:50%;background:var(--track);
+  border:2px solid transparent;padding:0;flex:none}
+.dots .dd button.on{background:var(--accent);border-color:var(--accent)}
+.fab{position:fixed;right:16px;bottom:calc(80px + env(safe-area-inset-bottom));z-index:34;
+  width:auto;padding:0 20px;height:54px;border-radius:27px;background:var(--chipOn);color:var(--chipOnText);
+  display:none;align-items:center;gap:8px;font-weight:700;font-size:14.5px;letter-spacing:.03em;
+  box-shadow:0 6px 22px color-mix(in srgb, var(--accent) 42%, transparent)}
+.fab svg{width:19px;height:19px}
+body[data-view="search"] .fab{display:flex}
+body[data-view="search"] #tray.on ~ .fab{bottom:calc(140px + env(safe-area-inset-bottom))}
+.hr{height:1px;background:var(--line);margin:16px 14px}
+.sec-title{font-size:13px;font-weight:800;color:var(--mute);letter-spacing:.06em;padding:16px 14px 8px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body data-view="search">
+
+<div class="appbar">
+  <h1 id="apptitle">まめ比べ</h1>
+  <button class="ico" id="btn-theme" aria-label="表示テーマを切り替える">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="8.2"/><path d="M12 3.8v16.4a8.2 8.2 0 0 0 0-16.4Z" fill="currentColor" stroke="none"/></svg></button>
+  <button class="ico" id="btn-filter" aria-label="しぼりこむ">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 7h13M18.5 7H21M3 17h5M10.5 17H21"/><circle cx="17" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></svg></button>
+</div>
+
+<main>
+  <section id="v-search">
+    <div class="pad" style="padding-bottom:10px"><div class="modeswitch" id="modeswitch"></div></div>
+    <div class="searchbar"><input type="text" id="q" placeholder="産地・お店・名前でさがす" enterkeyhint="search"></div>
+    <div class="chiprow" id="roastrow"></div>
+    <div class="chiprow" id="moodrow"></div>
+    <div class="pad between" style="padding-top:2px;padding-bottom:6px">
+      <span class="muted" id="count">—</span>
+      <button class="chip" id="btn-sort">おすすめ順 ▾</button>
+    </div>
+    <div id="activefilters" class="chiprow" style="padding-top:0"></div>
+    <div id="list"></div>
+  </section>
+
+  <section id="v-map">
+    <div class="pad" style="padding-bottom:8px"><h2 class="sect" style="margin-bottom:8px">味の地図</h2>
+      <p class="muted" id="maplead" style="margin:0"></p></div>
+    <div class="chiprow" id="axisrow"></div>
+    <div id="mapbody"></div>
+    <div class="pad tiny" id="maphint"></div>
+    <details><summary>味の地図の読み方</summary><div class="in tiny" id="maphelp"></div></details>
+    <details><summary>コーヒーの用語をやさしく</summary><div class="in" id="glossary"></div></details>
+  </section>
+
+  <section id="v-esp">
+    <div class="pad between"><h2 style="font-size:17px">エスプレッソ</h2>
+      <button class="chip" id="btn-gr">機器の設定</button></div>
+    <div id="esp-draft"></div>
+    <div id="esp-advice"></div>
+    <div class="pad"><button class="btn wide" id="btn-newshot">＋ 今日の一杯を記録する</button></div>
+    <div id="esp-best"></div>
+    <div class="sec-title">これまでの調整</div>
+    <div id="esp-history"></div>
+  </section>
+
+  <section id="v-my">
+    <div class="pad"><h2 style="font-size:17px">わたしの記録</h2></div>
+    <div id="my-taste"></div>
+    <div class="sec-title">自分で登録した豆</div>
+    <div id="my-own"></div>
+    <div class="sec-title">お気に入り</div>
+    <div id="my-fav"></div>
+    <div class="sec-title">飲んだ豆</div>
+    <div id="my-log"></div>
+    <div class="sec-title">データ</div>
+    <div id="my-data"></div>
+  </section>
+</main>
+
+<div id="tray">
+  <div class="slots" id="trayslots"></div>
+  <button class="btn" id="btn-compare">くらべる</button>
+</div>
+
+<button class="fab" id="btn-add" aria-label="自分の豆を登録する">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+    <path d="M12 5.5v13M5.5 12h13"/></svg><span>豆を登録</span></button>
+<input type="file" id="photofile" accept="image/*" capture="environment" style="display:none">
+
+<nav class="tabbar" role="tablist">
+  <button role="tab" data-go="search" aria-selected="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="7"/><path d="M20.5 20.5 16.5 16.5"/></svg><span>さがす</span></button>
+  <button role="tab" data-go="map" aria-selected="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 3v17h17"/><circle cx="8.5" cy="15.5" r="1.9"/><circle cx="13" cy="9.5" r="1.9"/>
+      <circle cx="18.5" cy="13" r="1.9"/></svg><span>味の地図</span></button>
+  <button role="tab" data-go="esp" aria-selected="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 9h12v4.5A5.5 5.5 0 0 1 10.5 19h-1A5.5 5.5 0 0 1 4 13.5V9Z"/>
+      <path d="M16 10.5h2.2a2.4 2.4 0 0 1 0 4.8H16"/><path d="M7 3.2v1.6M10.5 2.8v2M14 3.2v1.6"/></svg><span>エスプレッソ</span></button>
+  <button role="tab" data-go="my" aria-selected="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6.5 3H18a1.5 1.5 0 0 1 1.5 1.5v15A1.5 1.5 0 0 1 18 21H6.5A1.5 1.5 0 0 1 5 19.5v-15A1.5 1.5 0 0 1 6.5 3Z"/>
+      <path d="M9 3v18"/><path d="M12.5 8.5h4M12.5 12.5h4"/></svg><span>記録</span></button>
+</nav>
+
+<div class="sheet" id="sheet"><div class="veil" data-close></div>
+  <div class="panel"><div class="grab"></div>
+    <div class="between" style="padding:4px 14px 8px"><strong id="sheet-title">しぼりこむ</strong>
+      <button class="chip" data-close>閉じる</button></div>
+    <div class="body" id="sheet-body"></div>
+    <div class="foot" id="sheet-foot"></div>
+  </div>
+</div>
+
+<div class="full" id="full"><div class="top">
+    <button class="ico" data-closefull aria-label="戻る">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 4.5 8 12l7 7.5"/></svg></button><h2 id="full-title"></h2>
+  </div><div class="body" id="full-body"></div></div>
+
+<script>
+/* =========================================================================
+   豆データ  ―  特定の商品ではなく「産地・精製・焙煎度の代表例」です。
+   商品名を持たないので在庫や商品改廃で古びません。価格だけが時間の影響を
+   受けるため、必ず幅（最小〜最大）で持ち、調べた時点を DATA_META に記します。
+   t = [酸味, 苦味, コク, 甘み, 香り]（各1〜5）
+   ========================================================================= */
+const DATA_META = {
+  compiledAt:"2026-08",
+  priceNote:"価格は2026年8月時点で調べた、100gあたりの一般的な相場の幅です。店や年によって変わります。",
+  tasteNote:"味の数値は、産地・精製方法・焙煎度から導いた目安です。同じ産地でも焙煎する店によって変わります。"
+};
+const BEANS=[
+{id:"b01",name:"エチオピア イルガチェフェ",sub:"ウォッシュト",country:"エチオピア",area:"アフリカ",region:"イルガチェフェ",variety:"在来種",process:"washed",roast:3,t:[5,1,2,4,5],notes:["レモン","ジャスミン","紅茶"],cat:"floral",say:"紅茶みたいにスッキリ。「コーヒーは苦いから苦手」だった人がひっくり返る一杯。",pmin:800,pmax:1500,where:["専門店","通販"],good:["ブラック派","華やかな香りが好き","午後の一杯"],beg:4,brew:["ペーパードリップ"],decaf:false},
+{id:"b02",name:"エチオピア シダモ",sub:"ナチュラル",country:"エチオピア",area:"アフリカ",region:"シダモ",variety:"在来種",process:"natural",roast:3,t:[5,1,3,5,5],notes:["ブルーベリー","赤ワイン","完熟いちご"],cat:"fruity",say:"本当に果物の匂いがします。人に淹れると必ず驚かれる、話のタネになる豆。",pmin:900,pmax:1600,where:["専門店","通販"],good:["ブラック派","甘い香りが好き","来客用"],beg:3,brew:["ペーパードリップ","フレンチプレス"],decaf:false},
+{id:"b03",name:"エチオピア グジ",sub:"アナエロビック（嫌気性発酵）",country:"エチオピア",area:"アフリカ",region:"グジ",variety:"在来種",process:"anaerobic",roast:2,t:[5,1,3,5,5],notes:["熟した果実","シナモン","発酵香"],cat:"fruity",say:"good/badが割れる変化球。日本酒のような発酵の香りがして、好きな人はとことん好き。",pmin:1500,pmax:3000,where:["専門店"],good:["変わり種を試したい","中級者以上"],beg:2,brew:["ペーパードリップ"],decaf:false},
+{id:"b04",name:"エチオピア ハラー",sub:"ナチュラル",country:"エチオピア",area:"アフリカ",region:"ハラー",variety:"在来種",process:"natural",roast:5,t:[4,3,4,4,4],notes:["チョコ","ドライフルーツ","スパイス"],cat:"fruity",say:"昔ながらの「モカ」の味。深めに焼くと果実感とチョコが同居します。",pmin:800,pmax:1400,where:["専門店","通販"],good:["ブラック派","昔ながらの喫茶店の味が好き"],beg:3,brew:["ペーパードリップ","エスプレッソ"],decaf:false},
+{id:"b05",name:"ケニア AA",sub:"ウォッシュト",country:"ケニア",area:"アフリカ",region:"ニエリ他",variety:"SL28 / SL34",process:"washed",roast:4,t:[5,2,4,4,4],notes:["カシス","トマト","黒糖"],cat:"citrus",say:"酸味がガツンと来て、しかもコクもある。淡くない、力強い味が好きな人へ。",pmin:700,pmax:1500,where:["専門店","通販"],good:["ブラック派","はっきりした味が好き","アイスにも"],beg:3,brew:["ペーパードリップ","エスプレッソ"],decaf:false},
+{id:"b06",name:"ルワンダ",sub:"ウォッシュト",country:"ルワンダ",area:"アフリカ",region:"—",variety:"ブルボン",process:"washed",roast:3,t:[4,2,3,4,4],notes:["オレンジ","紅茶","白ぶどう"],cat:"floral",say:"アフリカらしい華やかさがありつつ、クセは控えめ。浅煎りの入門にちょうどいい。",pmin:700,pmax:1300,where:["専門店","通販"],good:["浅煎りを試したい","紅茶が好き"],beg:4,brew:["ペーパードリップ"],decaf:false},
+{id:"b07",name:"タンザニア キリマンジャロ AA",sub:"ウォッシュト",country:"タンザニア",area:"アフリカ",region:"キリマンジャロ",variety:"ブルボン / ケント",process:"washed",roast:5,t:[4,3,3,3,4],notes:["柑橘","すっきりした後味"],cat:"citrus",say:"名前を言えば誰でも知っている定番。爽やかで、朝の一杯に向きます。",pmin:500,pmax:1000,where:["スーパー","専門店","通販"],good:["朝の一杯","定番が好き"],beg:5,brew:["ペーパードリップ"],decaf:false},
+{id:"b08",name:"コロンビア ナリーニョ",sub:"浅煎り / ウォッシュト",country:"コロンビア",area:"中南米",region:"ナリーニョ",variety:"カトゥーラ",process:"washed",roast:3,t:[4,2,3,4,4],notes:["オレンジ","キャラメル"],cat:"citrus",say:"酸味デビューに一番手が届きやすい価格帯。尖っていない優しい酸です。",pmin:600,pmax:1100,where:["専門店","通販"],good:["酸味を試したい","はじめての浅煎り"],beg:4,brew:["ペーパードリップ"],decaf:false},
+{id:"b09",name:"コロンビア ウイラ スプレモ",sub:"ウォッシュト",country:"コロンビア",area:"中南米",region:"ウイラ",variety:"カスティージョ / カトゥーラ",process:"washed",roast:5,t:[3,3,4,4,3],notes:["ナッツ","カラメル","まろやか"],cat:"nutty",say:"優等生。何に合わせても外さないので、迷ったらこれで間違いありません。",pmin:400,pmax:750,where:["スーパー","専門店","通販"],good:["毎日飲む","家族で飲む","ミルクにも"],beg:5,brew:["ペーパードリップ","エスプレッソ"],decaf:false},
+{id:"b10",name:"ブラジル セラード",sub:"パルプドナチュラル",country:"ブラジル",area:"中南米",region:"セラード",variety:"ムンドノーボ / ブルボン",process:"pulped",roast:5,t:[2,3,4,4,3],notes:["ナッツ","ミルクチョコ","香ばしさ"],cat:"nutty",say:"酸味がほとんどなく、香ばしい。「酸っぱいのは嫌」という人の安全地帯です。",pmin:400,pmax:700,where:["スーパー","専門店","通販"],good:["酸味が苦手","毎日飲む","ミルクにも"],beg:5,brew:["ペーパードリップ","エスプレッソ"],decaf:false},
+{id:"b11",name:"ブラジル ショコラ",sub:"深煎り",country:"ブラジル",area:"中南米",region:"—",variety:"ムンドノーボ",process:"natural",roast:7,t:[1,4,5,3,3],notes:["ビターチョコ","焦がしカラメル"],cat:"caramel",say:"どっしり濃い。カフェオレにすると甘さが立って、ミルクに負けません。",pmin:400,pmax:800,where:["スーパー","専門店","通販"],good:["カフェオレにしたい","酸味が苦手","深煎り好き"],beg:4,brew:["ペーパードリップ","エスプレッソ"],decaf:false},
+{id:"b12",name:"グアテマラ アンティグア",sub:"ウォッシュト",country:"グアテマラ",area:"中南米",region:"アンティグア",variety:"ブルボン / カトゥーラ",process:"washed",roast:5,t:[3,3,4,4,4],notes:["完熟チェリー","チョコ","かすかな煙"],cat:"balanced",say:"酸味と苦味がちょうど半々。「コーヒーらしいコーヒー」の代表格です。",pmin:500,pmax:900,where:["スーパー","専門店","通販"],good:["ブラック派","バランス重視","毎日飲む"],beg:5,brew:["ペーパードリップ","エスプレッソ"],decaf:false},
+{id:"b13",name:"グアテマラ ウエウエテナンゴ",sub:"ウォッシュト",country:"グアテマラ",area:"中南米",region:"ウエウエテナンゴ",variety:"ブルボン",process:"washed",roast:4,t:[4,2,4,4,4],notes:["オレンジ","はちみつ","カカオ"],cat:"citrus",say:"アンティグアに慣れたら次はこれ。同じ国でも産地が違うと味が変わると分かります。",pmin:600,pmax:1100,where:["専門店","通販"],good:["ブラック派","産地の違いを知りたい"],beg:4,brew:["ペーパードリップ"],decaf:false},
+{id:"b14",name:"コスタリカ タラス",sub:"ハニー製法",country:"コスタリカ",area:"中南米",region:"タラス",variety:"カトゥーラ / カトゥアイ",process:"honey",roast:4,t:[4,2,4,5,4],notes:["黒糖","アプリコット","シロップ感"],cat:"caramel",say:"砂糖を入れていないのに甘い。「甘み」がどういうことか分かる一杯です。",pmin:700,pmax:1300,where:["専門店","通販"],good:["甘みが好き","ブラック派","おやつと一緒に"],beg:4,brew:["ペーパードリップ"],decaf:false},
+{id:"b15",name:"エルサルバドル パカマラ",sub:"ウォッシュト / ハニー",country:"エルサルバドル",area:"中南米",region:"—",variety:"パカマラ",process:"honey",roast:3,t:[4,2,4,4,4],notes:["白桃","ハーブ","はちみつ"],cat:"floral",say:"豆の粒が驚くほど大きい品種。ふくらみのある、上品な甘さが特徴です。",pmin:900,pmax:1800,where:["専門店"],good:["個性派を探している","ブラック派"],beg:3,brew:["ペーパードリップ"],decaf:false},
+{id:"b16",name:"ホンジュラス",sub:"ウォッシュト",country:"ホンジュラス",area:"中南米",region:"—",variety:"カトゥアイ / パライネマ",process:"washed",roast:4,t:[3,3,3,4,3],notes:["ナッツ","りんご","やさしい甘み"],cat:"nutty",say:"高いスペシャルティに手を出す前に。同じ品質帯で価格が抑えめの穴場です。",pmin:500,pmax:900,where:["専門店","通販"],good:["コスパ重視","毎日飲む"],beg:4,brew:["ペーパードリップ"],decaf:false},
+{id:"b17",name:"ニカラグア",sub:"ウォッシュト",country:"ニカラグア",area:"中南米",region:"ヌエバセゴビア他",variety:"カトゥーラ / マラゴジッペ",process:"washed",roast:4,t:[3,3,4,4,3],notes:["ナッツ","カカオ","穏やかな酸"],cat:"nutty",say:"クセがなく、どんな淹れ方でも破綻しにくい。器具を変えて遊ぶのに向きます。",pmin:500,pmax:950,where:["専門店","通販"],good:["いろんな淹れ方を試したい","毎日飲む"],beg:4,brew:["ペーパードリップ","フレンチプレス"],decaf:false},
+{id:"b18",name:"ペルー オーガニック",sub:"ウォッシュト",country:"ペルー",area:"中南米",region:"—",variety:"ティピカ / ブルボン",process:"washed",roast:5,t:[3,3,3,4,3],notes:["穏やか","木の実","クリーン"],cat:"nutty",say:"有機栽培が多く、生協や自然食品店でよく見かけます。穏やかで飲み飽きません。",pmin:600,pmax:1000,where:["スーパー","通販"],good:["有機を重視","毎日飲む"],beg:5,brew:["ペーパードリップ"],decaf:false},
+{id:"b19",name:"メキシコ チアパス",sub:"ウォッシュト",country:"メキシコ",area:"中南米",region:"チアパス",variety:"ティピカ / ブルボン",process:"washed",roast:4,t:[3,2,3,3,3],notes:["軽やか","ナッツ","すっきり"],cat:"nutty",say:"軽い口当たり。たくさん飲みたい日や、食後に重くしたくないときに。",pmin:500,pmax:900,where:["専門店","通販"],good:["軽い味が好き","食後の一杯"],beg:4,brew:["ペーパードリップ"],decaf:false},
+{id:"b20",name:"パナマ ゲイシャ",sub:"ウォッシュト",country:"パナマ",area:"中南米",region:"ボケテ",variety:"ゲイシャ",process:"washed",roast:2,t:[5,1,2,5,5],notes:["ジャスミン","桃","ベルガモット"],cat:"floral",say:"コーヒーの最高峰と言われる品種。値段も別格なので、記念日に一度どうぞ。",pmin:3000,pmax:8000,where:["専門店"],good:["特別な日に","香りを最優先"],beg:2,brew:["ペーパードリップ"],decaf:false},
+{id:"b21",name:"ボリビア",sub:"ウォッシュト",country:"ボリビア",area:"中南米",region:"カラナビ",variety:"ティピカ",process:"washed",roast:3,t:[4,2,3,4,4],notes:["りんご","フローラル","なめらか"],cat:"floral",say:"生産量が少なく見かけたら買い。透明感のある、静かな華やかさがあります。",pmin:900,pmax:1600,where:["専門店"],good:["浅煎りが好き","珍しい産地を試したい"],beg:3,brew:["ペーパードリップ"],decaf:false},
+{id:"b22",name:"ハワイ コナ",sub:"エクストラファンシー",country:"アメリカ（ハワイ島）",area:"太平洋",region:"コナ",variety:"ティピカ",process:"washed",roast:4,t:[4,2,3,4,5],notes:["上品な酸","フローラル","なめらか"],cat:"balanced",say:"贈り物の定番。なお「コナブレンド」は混合率が1割程度の別物なので表示に注意。",pmin:1500,pmax:3500,where:["専門店","通販"],good:["贈り物","特別な日に"],beg:3,brew:["ペーパードリップ"],decaf:false},
+{id:"b23",name:"ジャマイカ ブルーマウンテン No.1",sub:"ウォッシュト",country:"ジャマイカ",area:"中南米",region:"ブルーマウンテン",variety:"ティピカ",process:"washed",roast:5,t:[3,2,3,4,4],notes:["雑味のなさ","おだやか","上品"],cat:"balanced",say:"日本で長く愛されてきた高級豆。派手さではなく「引っかかりのなさ」が持ち味です。",pmin:1500,pmax:4000,where:["専門店","通販"],good:["贈り物","年配の方へ"],beg:3,brew:["ペーパードリップ"],decaf:false},
+{id:"b24",name:"マンデリン G1",sub:"スマトラ式",country:"インドネシア（スマトラ）",area:"アジア",region:"リントン他",variety:"ティムティム / アテン",process:"sumatra",roast:6,t:[1,5,5,3,4],notes:["ハーブ","杉","土","ダークチョコ"],cat:"spice",say:"独特の土っぽさとコクの塊。ハマる人は一生これ、という中毒性があります。",pmin:700,pmax:1200,where:["専門店","通販"],good:["深煎り好き","酸味が苦手","個性派を探している"],beg:3,brew:["ペーパードリップ","エスプレッソ"],decaf:false},
+{id:"b25",name:"インド モンスーン マラバール",sub:"モンスーン製法",country:"インド",area:"アジア",region:"マラバール",variety:"ケント / S795",process:"monsooned",roast:6,t:[1,4,5,3,4],notes:["スパイス","麦","酸味ほぼゼロ"],cat:"spice",say:"季節風に晒す独特の製法。酸味を完全に消したい人にとっての最終兵器です。",pmin:600,pmax:1000,where:["専門店"],good:["酸味が絶対に苦手","深煎り好き"],beg:3,brew:["ペーパードリップ","エスプレッソ"],decaf:false},
+{id:"b26",name:"イエメン モカ マタリ",sub:"ナチュラル",country:"イエメン",area:"アジア",region:"バニーマタル",variety:"在来種",process:"natural",roast:5,t:[4,3,4,4,5],notes:["熟した果実","チョコ","独特の発酵香"],cat:"fruity",say:"コーヒーの歴史そのもの。野性味のある香りで、飲むというより体験に近い。",pmin:800,pmax:1800,where:["専門店"],good:["クラシックな味が好き","来客用"],beg:3,brew:["ペーパードリップ"],decaf:false},
+{id:"b27",name:"ベトナム ロブスタ",sub:"深煎り",country:"ベトナム",area:"アジア",region:"—",variety:"ロブスタ",process:"natural",roast:8,t:[1,5,5,2,2],notes:["焦がしカラメル","麦茶","強い苦味"],cat:"caramel",say:"練乳を入れるベトナムコーヒー用。カフェイン量も多く、朝の目覚ましに効きます。",pmin:250,pmax:500,where:["通販"],good:["ベトナムコーヒーを作りたい","とにかく苦いのが好き"],beg:3,brew:["エスプレッソ","フレンチプレス"],decaf:false},
+{id:"b28",name:"パプアニューギニア",sub:"ウォッシュト",country:"パプアニューギニア",area:"太平洋",region:"ハイランド",variety:"ティピカ / アルーシャ",process:"washed",roast:4,t:[3,3,3,4,3],notes:["やわらかい酸","ナッツ","丸い甘み"],cat:"balanced",say:"アジア産なのに中南米に近い穏やかさ。日常使いしやすい隠れた実力派です。",pmin:600,pmax:1000,where:["専門店","通販"],good:["毎日飲む","バランス重視"],beg:4,brew:["ペーパードリップ"],decaf:false},
+{id:"b29",name:"東ティモール",sub:"ウォッシュト",country:"東ティモール",area:"アジア",region:"レテフォホ他",variety:"ティピカ / ハイブリッドデティモール",process:"washed",roast:5,t:[3,3,4,3,3],notes:["素朴","ナッツ","ほのかなスパイス"],cat:"nutty",say:"フェアトレードの豆として見かけます。飾り気のない、素朴な味わい。",pmin:600,pmax:1000,where:["通販","スーパー"],good:["フェアトレード重視","毎日飲む"],beg:4,brew:["ペーパードリップ"],decaf:false},
+{id:"b30",name:"デカフェ コロンビア",sub:"マウンテンウォーター製法",country:"コロンビア",area:"中南米",region:"—",variety:"カトゥーラ",process:"washed",roast:5,t:[3,3,3,3,3],notes:["ナッツ","おだやか","クリーン"],cat:"nutty",say:"薬品を使わない水だけの製法。夜に飲みたいとき、妊娠中の方にも。",pmin:700,pmax:1200,where:["専門店","通販"],good:["夜に飲みたい","カフェインを控えたい"],beg:5,brew:["ペーパードリップ"],decaf:true},
+{id:"b31",name:"デカフェ エチオピア",sub:"ウォッシュト",country:"エチオピア",area:"アフリカ",region:"シダモ",variety:"在来種",process:"washed",roast:3,t:[4,2,2,3,4],notes:["柑橘","紅茶","軽やか"],cat:"citrus",say:"カフェインレスでも華やかさは残ります。夜に浅煎りを楽しみたいときに。",pmin:800,pmax:1400,where:["専門店","通販"],good:["夜に飲みたい","浅煎りが好き"],beg:4,brew:["ペーパードリップ"],decaf:true},
+{id:"b32",name:"アイスコーヒー用ブレンド",sub:"深煎り",country:"ブレンド",area:"ブレンド",region:"—",variety:"—",process:"washed",roast:7,t:[1,5,5,3,3],notes:["ビターチョコ","ロースト","キレ"],cat:"caramel",say:"氷で薄まる前提で濃く作られています。夏の水出しはこれ一択。",pmin:400,pmax:800,where:["スーパー","専門店","通販"],good:["アイスで飲む","水出しを作る","酸味が苦手"],beg:5,brew:["水出し","ペーパードリップ"],decaf:false},
+{id:"b33",name:"モカブレンド",sub:"中煎り",country:"ブレンド",area:"ブレンド",region:"—",variety:"—",process:"natural",roast:5,t:[4,3,3,4,4],notes:["チョコ","かすかな果実感"],cat:"fruity",say:"日本の喫茶店の王道。エチオピアやイエメンの豆を軸に配合された定番です。",pmin:500,pmax:900,where:["スーパー","専門店","通販"],good:["昔ながらの喫茶店の味が好き","毎日飲む"],beg:5,brew:["ペーパードリップ"],decaf:false},
+{id:"b34",name:"エスプレッソブレンド",sub:"中深煎り",country:"ブレンド",area:"ブレンド",region:"—",variety:"—",process:"washed",roast:6,t:[2,4,5,4,4],notes:["ダークチョコ","ナッツ","キャラメル"],cat:"caramel",say:"エスプレッソ用に配合された定番。ミルクに負けず、クレマも出やすい。",pmin:600,pmax:1200,where:["専門店","通販"],good:["エスプレッソを淹れる","ラテにしたい","毎日飲む"],beg:5,brew:["エスプレッソ"],decaf:false}
+];
+
+/* =========================================================================
+   実在の商品データ。上の BEANS（産地の代表例）と違い、**こちらは古びる**。
+   価格改定・終売で変わるので、各件に checked（調べた年月）を持たせてある。
+   直すときはこの PRODUCTS 配列だけを差し替えればよい。
+   pkg はパッケージの色。商品写真は権利上使えないので、この色から袋の絵を描いている。
+   ========================================================================= */
+const SHOPS={
+"スターバックス":{color:"#00754a",desc:"焙煎度の幅が広く、袋にロースト区分が明記されていて選びやすい。スーパーでも買える。"},
+"タリーズコーヒー":{color:"#00594c",desc:"ブレンドとシングルオリジンの両輪。スタバより酸味寄りで軽やかな設計が多い。"},
+"ドトールコーヒー":{color:"#7a5a10",desc:"500gの大袋が主力で100g単価が安い。昔ながらの喫茶店ブレンドが得意。"},
+"コメダ珈琲店":{color:"#5b3a1a",desc:"200gで840円前後とチェーン系では屈指の安さ。店で飲むあの中深煎り。"},
+"上島珈琲店":{color:"#3e2b1f",desc:"やや深煎りのアラビカ100%。ミルクに負けないコクが持ち味。"},
+"カルディ":{color:"#d2001a",desc:"手頃で種類が多く、試飲しながら買える。浅煎りから極深煎りまで一通り揃う。"},
+"無印良品":{color:"#7d6a55",desc:"200g490円のオーガニック豆。毎日たっぷり飲む用途に最適。カフェインレスもある。"},
+"成城石井":{color:"#1b3a5c",desc:"アラビカ100%の浅煎り寄り。酸味と甘みのきれいさを求める人に。"},
+"コストコ":{color:"#b60e28",desc:"1kg超の大容量で100gあたり200円を切る。家族で消費するなら最安。"},
+"業務スーパー":{color:"#7b1113",desc:"ラグジュアリッチが360gで900円前後。1杯20円台の価格帯。"},
+"セブンプレミアム":{color:"#d14a05",desc:"粉が中心。近所でいつでも買い足せる手軽さが最大の価値。"},
+"ローソン":{color:"#0068b7",desc:"マチカフェの豆そのものを250gで販売（取扱店舗限定・店頭で挽けません）。"},
+"ファミリーマート":{color:"#00873c",desc:"アラビカ100%のオリジナルブレンド。深煎り配合でコク重視。"},
+"UCC":{color:"#a8880f",desc:"いつ買っても同じ味の安定感。スーパーでの入手性が高い。"},
+"キーコーヒー":{color:"#1f4d3d",desc:"自社農園のトアルコ トラジャが看板。産地までたどれる本格派。"},
+"AGF":{color:"#7a1f2b",desc:"匠焙煎で酸味を抑えたクリアな後味。酸っぱいのが苦手な人に。"},
+"小川珈琲":{color:"#4a2f24",desc:"京都の老舗。使い切りサイズと有機JAS・フェアトレードが充実。"},
+"ハマヤ":{color:"#8e1b3a",desc:"珈琲専門店用シリーズが主力。やや浅めで良質な酸味を残す設計。"},
+"ブルックス":{color:"#2e6f4e",desc:"通販専業。定期便やセットが中心で、まとめ買いに向く。"},
+"猿田彦珈琲":{color:"#a3122c",desc:"100g1,000円前後の深煎り主体。名前の親しみやすさとギフト適性が高い。"},
+"丸山珈琲":{color:"#7a2f1f",desc:"浅煎りから深煎りまで体系化。100g874円と専門店では手を出しやすい。"},
+"堀口珈琲":{color:"#1f3a5f",desc:"定番を#1〜#9で番号化。数字が上がるほど深煎りで重厚になる。"},
+"ONIBUS COFFEE":{color:"#26241f",desc:"東京・奥沢発。どの抽出器具でも成立するバランス設計のブレンドが強い。"},
+"LIGHT UP COFFEE":{color:"#b8860b",desc:"吉祥寺の浅煎り専門系。冷めても甘さが残る焙煎。"},
+"土居珈琲":{color:"#6b4a2f",desc:"小さな焙煎釜で手選別まで行う職人系。完成度で選ぶ人向け。"},
+"澤井珈琲":{color:"#8b1a1a",desc:"500g〜の大袋・福袋が主戦場。焼きたてを大容量で安く。"},
+"珈琲きゃろっと":{color:"#c96a06",desc:"通販専業の自家焙煎。返金保証付きのお試しセットが有名。"}
+};
+const PRODUCTS=[
+{id:"p01",shop:"スターバックス",name:"ハウス ブレンド",origin:"ラテンアメリカ",roastName:"ミディアム ロースト",roast:4,t:[3,3,3,3,4],notes:["ナッツ","ココア"],sizeG:250,price:1480,per100:592,where:["スタバ店舗","スーパー","通販"],pkg:["#1e3932","#00754a"],good:["毎日のブラック","スタバの味を家で"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p02",shop:"スターバックス",name:"パイク プレイス ロースト",origin:"ラテンアメリカ",roastName:"ミディアム ロースト",roast:4,t:[3,3,3,3,3],notes:["ローストナッツ","ココア"],sizeG:250,price:1480,per100:592,where:["スタバ店舗","スーパー","通販"],pkg:["#00754a","#d4a95a"],good:["いつでも飲める定番","来客用"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p03",shop:"スターバックス",name:"ライトノート ブレンド",origin:"ラテンアメリカ",roastName:"ブロンド ロースト",roast:3,t:[2,2,2,4,4],notes:["ミルクチョコレート","モルト"],sizeG:250,price:1480,per100:592,where:["スタバ店舗","スーパー","通販"],pkg:["#e8c37a","#f5efe3"],good:["苦いのが苦手な人","朝の1杯"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p04",shop:"スターバックス",name:"カフェ ベロナ",origin:"ラテンアメリカ／アジア太平洋",roastName:"ダーク ロースト",roast:6,t:[2,4,4,4,4],notes:["ダークココア","キャラメル"],sizeG:250,price:1590,per100:636,where:["スタバ店舗","スーパー","通販"],pkg:["#6b1f3a","#3a0f1e"],good:["チョコと合わせる","夜のリラックス"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p05",shop:"スターバックス",name:"エスプレッソ ロースト",origin:"ラテンアメリカ／アジア太平洋",roastName:"ダーク ロースト",roast:6,t:[2,5,5,3,4],notes:["キャラメル","リッチ"],sizeG:250,price:1590,per100:636,where:["スタバ店舗","スーパー","通販"],pkg:["#2b2118","#7a5230"],good:["ラテ・カフェオレ向き","エスプレッソマシン"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p06",shop:"スターバックス",name:"ディカフェ ハウス ブレンド",origin:"ラテンアメリカ",roastName:"ミディアム ロースト",roast:4,t:[3,3,3,3,3],notes:["ナッツ","ココア"],sizeG:250,price:1590,per100:636,where:["スタバ店舗","通販"],pkg:["#1e3932","#b0793f"],good:["夜でも飲みたい","カフェインを控えたい"],decaf:true,confidence:"A",checked:"2026-08"},
+{id:"p07",shop:"タリーズコーヒー",name:"ハウスブレンド",origin:"ブレンド（コロンビア・グアテマラ等）",roastName:"中煎り",roast:4,t:[3,3,3,3,3],notes:["バランス","ナッツ"],sizeG:200,price:1140,per100:570,where:["タリーズ店舗","通販"],pkg:["#00594c","#c8102e"],good:["毎日のブラック","初めての1袋"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p08",shop:"タリーズコーヒー",name:"フレンチロースト",origin:"ブレンド",roastName:"深煎り",roast:7,t:[1,5,4,2,4],notes:["スモーキー","ビター"],sizeG:200,price:1300,per100:650,where:["タリーズ店舗","通販"],pkg:["#2f2b28","#00594c"],good:["カフェオレ向き","アイスコーヒー"],decaf:false,confidence:"B",checked:"2026-08"},
+{id:"p09",shop:"タリーズコーヒー",name:"エチオピア モカ G1 ウラガ ナチュラル",origin:"エチオピア",roastName:"中煎り",roast:4,t:[5,2,3,4,5],notes:["ベリー","フローラル"],sizeG:150,price:1500,per100:1000,where:["タリーズ店舗","通販"],pkg:["#8a1538","#00594c"],good:["香りを楽しむ","浅め好き"],decaf:false,confidence:"B",checked:"2026-08"},
+{id:"p10",shop:"ドトールコーヒー",name:"ゴールデンモカブレンド",origin:"ブレンド（エチオピア主体）",roastName:"中煎り",roast:4,t:[4,3,3,4,5],notes:["ベリー","ローストナッツ"],sizeG:500,price:2850,per100:570,where:["ドトール店舗","通販"],pkg:["#b8860b","#4a2c17"],good:["香り重視","休日のゆっくり1杯"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p11",shop:"ドトールコーヒー",name:"マイルドブレンド",origin:"ブレンド",roastName:"中煎り",roast:4,t:[3,3,3,3,3],notes:["マイルド","ナッツ"],sizeG:500,price:2781,per100:556,where:["ドトール店舗","通販"],pkg:["#c9a227","#3b2b20"],good:["毎日のブラック","大容量で買いたい"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p12",shop:"ドトールコーヒー",name:"ロイヤルクリスタルブレンド",origin:"ブレンド",roastName:"中深煎り",roast:5,t:[3,4,4,3,4],notes:["コク","ビターチョコ"],sizeG:500,price:3230,per100:646,where:["ドトール店舗","通販"],pkg:["#1f3864","#c0a062"],good:["しっかり濃いめ","来客用"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p13",shop:"ドトールコーヒー",name:"カフェ・ヨーロピアン",origin:"ブレンド",roastName:"深煎り",roast:6,t:[2,5,4,2,4],notes:["ビター","スモーキー"],sizeG:200,price:1130,per100:565,where:["ドトール店舗","通販"],pkg:["#4b2e2b","#d9c39b"],good:["カフェオレ向き","苦味好き"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p14",shop:"コメダ珈琲店",name:"オリジナルブレンド",origin:"ブレンド（4種の生豆）",roastName:"中深煎り",roast:5,t:[2,4,4,3,4],notes:["香ばしい","コク"],sizeG:200,price:840,per100:420,where:["コメダ店舗","通販"],pkg:["#5b3a1a","#e8ded0"],good:["コスパ重視","喫茶店の味が好き"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p15",shop:"上島珈琲店",name:"上島珈琲店ブレンド",origin:"ブレンド（アラビカ100%）",roastName:"やや深煎り",roast:5,t:[2,4,4,3,4],notes:["コク","ビターチョコ"],sizeG:150,price:991,per100:661,where:["上島珈琲店","UCC公式通販"],pkg:["#3e2b1f","#b99451"],good:["黒糖ミルク珈琲風に","ミルクと合わせる"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p16",shop:"カルディ",name:"マイルドカルディ",origin:"ブレンド",roastName:"中煎り",roast:4,t:[3,3,3,3,3],notes:["ナッツ","バランス"],sizeG:200,price:1166,per100:583,where:["カルディ店舗","公式通販"],pkg:["#e2001a","#f7f2e7"],good:["初めての1袋","毎日のブラック"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p17",shop:"カルディ",name:"リッチブレンド",origin:"ブレンド（コロンビア主体）",roastName:"深煎り",roast:6,t:[1,5,5,2,4],notes:["ビターチョコ","重厚"],sizeG:200,price:1274,per100:637,where:["カルディ店舗","公式通販"],pkg:["#3d1f14","#c8102e"],good:["カフェオレ向き","アイスコーヒー"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p18",shop:"カルディ",name:"スペシャルブレンド",origin:"ブレンド",roastName:"中深煎り",roast:5,t:[3,4,4,3,4],notes:["まろやか","ココア"],sizeG:200,price:1274,per100:637,where:["カルディ店舗","公式通販"],pkg:["#8c1d18","#efe6d4"],good:["バランス重視","毎日のブラック"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p19",shop:"カルディ",name:"モーニングブレンド",origin:"ブレンド",roastName:"中煎り",roast:4,t:[4,2,3,3,4],notes:["すっきり","柑橘"],sizeG:200,price:1274,per100:637,where:["カルディ店舗","公式通販"],pkg:["#f0a202","#3b2b20"],good:["朝の1杯","軽めが好き"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p20",shop:"カルディ",name:"イタリアーノ",origin:"ブレンド",roastName:"極深煎り",roast:8,t:[1,5,5,2,4],notes:["スモーキー","カカオ"],sizeG:200,price:1271,per100:636,where:["カルディ店舗","公式通販"],pkg:["#1c1c1c","#00713c"],good:["エスプレッソ","ラテ・カプチーノ"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p21",shop:"無印良品",name:"オーガニックコーヒー オリジナルブレンド",origin:"ブレンド（コロンビア・ホンジュラス）",roastName:"中煎り",roast:4,t:[3,3,3,3,3],notes:["やさしい","ナッツ"],sizeG:200,price:490,per100:245,where:["無印店舗","公式通販","ローソン"],pkg:["#7d6a55","#f2ede4"],good:["圧倒的コスパ","毎日たっぷり飲む"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p22",shop:"無印良品",name:"オーガニックコーヒー ダーク",origin:"ブレンド（オーガニック）",roastName:"深煎り",roast:6,t:[2,4,4,2,3],notes:["ビター","カカオ"],sizeG:200,price:490,per100:245,where:["無印店舗","公式通販"],pkg:["#3b3128","#c9bfae"],good:["カフェオレ向き","コスパ重視"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p23",shop:"無印良品",name:"オーガニックコーヒー カフェインレス",origin:"ブレンド（オーガニック）",roastName:"中煎り",roast:4,t:[3,3,2,3,3],notes:["やさしい","穏やか"],sizeG:200,price:690,per100:345,where:["無印店舗","公式通販"],pkg:["#8fa07a","#f2ede4"],good:["夜でも飲みたい","カフェインを控えたい"],decaf:true,confidence:"A",checked:"2026-08"},
+{id:"p24",shop:"成城石井",name:"成城石井ブレンド",origin:"ブレンド（アラビカ100%）",roastName:"浅煎り",roast:3,t:[4,2,3,4,4],notes:["やわらかな酸味","甘み"],sizeG:180,price:1502,per100:834,where:["成城石井店舗","公式通販"],pkg:["#1b3a5c","#d8cfc0"],good:["浅煎り好き","食後の1杯"],decaf:false,confidence:"B",checked:"2026-08"},
+{id:"p25",shop:"コストコ",name:"カークランド ハウスブレンド",origin:"ブレンド",roastName:"ミディアムロースト",roast:4,t:[3,3,3,3,3],notes:["ナッツ","バランス"],sizeG:1130,price:1948,per100:172,where:["コストコ店舗","コストコ通販"],pkg:["#c8102e","#1a1a1a"],good:["家族で大量消費","1杯単価を下げたい"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p26",shop:"コストコ",name:"カークランド フレンチロースト",origin:"コロンビア・メキシコ",roastName:"フレンチロースト",roast:7,t:[1,5,4,2,4],notes:["スモーキー","ダークチョコ"],sizeG:1130,price:2280,per100:202,where:["コストコ店舗","コストコ通販"],pkg:["#2b2b2b","#8c2f1f"],good:["たくさん飲む","アイス・カフェオレ"],decaf:false,confidence:"B",checked:"2026-08"},
+{id:"p27",shop:"業務スーパー",name:"ラグジュアリッチコーヒー 中深煎り",origin:"ブラジル・コロンビア",roastName:"中深煎り",roast:5,t:[3,4,4,3,3],notes:["香ばしい","ナッツ"],sizeG:360,price:861,per100:239,where:["業務スーパー店舗","公式オンライン"],pkg:["#7b1113","#e0c98a"],good:["1杯20円台のコスパ","とにかく安く"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p28",shop:"業務スーパー",name:"ラグジュアリッチ モカブレンド",origin:"ブレンド（モカ主体）",roastName:"中煎り",roast:4,t:[4,3,3,3,4],notes:["モカ香","ほのかな酸味"],sizeG:360,price:861,per100:239,where:["業務スーパー店舗"],pkg:["#8a5a2b","#efe0c0"],good:["安くて香りも欲しい","毎日のブラック"],decaf:false,confidence:"B",checked:"2026-08"},
+{id:"p29",shop:"セブンプレミアム",name:"THE COFFEE オリジナルブレンド（粉）",origin:"ブレンド",roastName:"中煎り",roast:4,t:[3,3,3,3,3],notes:["バランス","マイルド"],sizeG:180,price:494,per100:274,where:["セブンイレブン","イトーヨーカドー"],pkg:["#e35205","#1d1d1b"],good:["近所で気軽に","コスパ重視"],decaf:false,confidence:"B",checked:"2026-08"},
+{id:"p30",shop:"ローソン",name:"マチカフェ ホットコーヒー用豆",origin:"ブレンド（アラビカ100%）",roastName:"中深煎り",roast:5,t:[3,4,4,3,4],notes:["コク","ナッツ"],sizeG:250,price:900,per100:360,where:["ローソン（取扱店舗限定）"],pkg:["#0068b7","#ffffff"],good:["マチカフェの味を家で","ミルが必要"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p31",shop:"ファミリーマート",name:"オリジナルブレンド",origin:"ブレンド（アラビカ100%）",roastName:"中深煎り",roast:5,t:[2,4,4,3,4],notes:["まろやか","香ばしい"],sizeG:180,price:875,per100:486,where:["ファミリーマート"],pkg:["#009a44","#0068b7"],good:["買い置き用","近所で気軽に"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p32",shop:"UCC",name:"ゴールドスペシャル スペシャルブレンド",origin:"ブレンド",roastName:"中煎り",roast:4,t:[3,3,3,3,3],notes:["バランス","ナッツ"],sizeG:230,price:1035,per100:450,where:["スーパー","公式通販"],pkg:["#c8a415","#7b1113"],good:["いつでも同じ味","毎日のブラック"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p33",shop:"UCC",name:"ゴールドスペシャル リッチブレンド",origin:"ブレンド",roastName:"深煎り",roast:6,t:[2,4,4,3,4],notes:["コク","ビターチョコ"],sizeG:230,price:1035,per100:450,where:["スーパー","公式通販"],pkg:["#5c1a1a","#c8a415"],good:["カフェオレ向き","しっかり濃いめ"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p34",shop:"キーコーヒー",name:"トアルコ トラジャ",origin:"インドネシア（トラジャ）",roastName:"中煎り",roast:4,t:[4,3,4,4,5],notes:["フローラル","柑橘","キャラメル"],sizeG:200,price:3024,per100:1512,where:["公式通販","百貨店"],pkg:["#1f4d3d","#c8a165"],good:["特別な1杯","贈り物"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p35",shop:"キーコーヒー",name:"スペシャルブレンド（缶）",origin:"ブレンド（ブラジル・コロンビア）",roastName:"中煎り",roast:4,t:[3,3,4,3,3],notes:["バランス","コク"],sizeG:320,price:1361,per100:425,where:["スーパー","通販"],pkg:["#c8102e","#f0e9dc"],good:["缶で保存したい","定番の安心感"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p36",shop:"AGF",name:"ちょっと贅沢な珈琲店 スペシャル・ブレンド",origin:"ブレンド",roastName:"中深煎り（匠焙煎）",roast:5,t:[2,4,4,3,4],notes:["低酸味","クリアな後味"],sizeG:250,price:880,per100:352,where:["スーパー","通販"],pkg:["#7a1f2b","#d4b483"],good:["酸味が苦手な人","毎日のブラック"],decaf:false,confidence:"B",checked:"2026-08"},
+{id:"p37",shop:"小川珈琲",name:"小川プレミアムブレンド",origin:"ブラジル・メキシコ・コロンビア・エチオピア",roastName:"中深煎り",roast:5,t:[3,4,4,3,4],notes:["芳醇","やわらか"],sizeG:160,price:699,per100:437,where:["スーパー","公式通販"],pkg:["#4a2f24","#c9a227"],good:["京都の喫茶店の味","毎日のブラック"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p38",shop:"小川珈琲",name:"有機珈琲 フェアトレード モカブレンド",origin:"ブレンド（エチオピア主体・有機JAS）",roastName:"中煎り",roast:4,t:[4,3,3,4,5],notes:["モカ香","ベリー"],sizeG:160,price:629,per100:393,where:["スーパー","公式通販"],pkg:["#6b8e4e","#f0e6d2"],good:["オーガニック志向","香り重視"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p39",shop:"ハマヤ",name:"珈琲専門店用 モカブレンド",origin:"ブレンド（モカベース）",roastName:"やや浅煎り",roast:3,t:[4,2,3,4,5],notes:["赤ワイン様の香り","上品な酸味"],sizeG:200,price:1129,per100:565,where:["公式オンライン","一部スーパー"],pkg:["#8e1b3a","#e7dcc6"],good:["酸味が好き","香りを楽しむ"],decaf:false,confidence:"B",checked:"2026-08"},
+{id:"p40",shop:"ブルックス",name:"有機栽培コーヒー",origin:"ブレンド（有機栽培）",roastName:"中煎り",roast:4,t:[4,3,3,3,4],notes:["上品な酸味","クリーン"],sizeG:200,price:1180,per100:590,where:["公式通販"],pkg:["#2e6f4e","#f3ead6"],good:["オーガニック志向","定期便で切らさない"],decaf:false,confidence:"B",checked:"2026-08"},
+{id:"p41",shop:"猿田彦珈琲",name:"大吉ブレンド",origin:"ブレンド（グアテマラ・ボリビア等）",roastName:"深煎り",roast:6,t:[2,4,5,4,4],notes:["ビターチョコ","ナッツ"],sizeG:100,price:980,per100:980,where:["猿田彦店舗","公式通販"],pkg:["#c8102e","#f5f1e6"],good:["1日の始まりに","贈り物"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p42",shop:"猿田彦珈琲",name:"猿田彦フレンチ",origin:"ブレンド",roastName:"深煎り（フレンチ）",roast:7,t:[1,5,5,3,4],notes:["スモーキー","カカオ"],sizeG:100,price:1080,per100:1080,where:["猿田彦店舗","公式通販"],pkg:["#2b2b2b","#c8102e"],good:["カフェオレ向き","苦味好き"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p43",shop:"猿田彦珈琲",name:"ディカフェ エチオピア Bombe Natural",origin:"エチオピア",roastName:"深煎り",roast:6,t:[3,4,4,4,4],notes:["ベリー","チョコ"],sizeG:100,price:980,per100:980,where:["猿田彦店舗","公式通販"],pkg:["#5b8c5a","#f5f1e6"],good:["夜のリラックス","カフェインを控えたい"],decaf:true,confidence:"A",checked:"2026-08"},
+{id:"p44",shop:"丸山珈琲",name:"丸山珈琲のブレンド",origin:"ブレンド",roastName:"深煎り",roast:6,t:[2,4,5,4,4],notes:["ダークチョコレート","コク"],sizeG:100,price:874,per100:874,where:["丸山珈琲店舗","公式通販"],pkg:["#7a2f1f","#efe7d8"],good:["スペシャルティ入門","毎日のブラック"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p45",shop:"丸山珈琲",name:"さわやかブレンド",origin:"ブレンド",roastName:"浅煎り",roast:3,t:[5,1,2,4,5],notes:["柑橘","フローラル"],sizeG:100,price:874,per100:874,where:["丸山珈琲店舗","公式通販"],pkg:["#7fb3d5","#f7f4ec"],good:["浅煎り好き","アイスでも"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p46",shop:"丸山珈琲",name:"モカブレンド 茜すみれ",origin:"ブレンド（エチオピア主体）",roastName:"中煎り",roast:4,t:[4,2,3,5,5],notes:["ベリー","華やか"],sizeG:100,price:874,per100:874,where:["丸山珈琲店舗","公式通販"],pkg:["#8e5572","#f7f4ec"],good:["香り重視","モカ好き"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p47",shop:"堀口珈琲",name:"CLASSIC #1 BRIGHT & SILKY",origin:"ブレンド",roastName:"浅煎り",roast:3,t:[5,1,3,4,5],notes:["明るい酸","シルキー"],sizeG:200,price:1836,per100:918,where:["堀口珈琲店舗","公式通販"],pkg:["#d9e3f0","#1f3a5f"],good:["浅煎り好き","食後の1杯"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p48",shop:"堀口珈琲",name:"CLASSIC #5 SMOOTH & CHOCOLATY",origin:"ブレンド",roastName:"中煎り",roast:4,t:[3,3,4,4,4],notes:["チョコレート","なめらか"],sizeG:200,price:1836,per100:918,where:["堀口珈琲店舗","公式通販"],pkg:["#6b4226","#efe6d6"],good:["バランス重視","毎日のブラック"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p49",shop:"堀口珈琲",name:"CLASSIC #7 BITTERSWEET & FULL-BODIED",origin:"ブレンド",roastName:"深煎り",roast:6,t:[2,5,5,4,4],notes:["ビタースイート","フルボディ"],sizeG:200,price:1836,per100:918,where:["堀口珈琲店舗","公式通販"],pkg:["#3a2318","#c8a165"],good:["深煎りの王道","カフェオレにも"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p50",shop:"ONIBUS COFFEE",name:"オニバスブレンド",origin:"ブラジル・グアテマラ・エチオピア",roastName:"中煎り",roast:4,t:[3,3,4,4,4],notes:["チョコレート","ワイン","クリーミー"],sizeG:200,price:1080,per100:540,where:["ONIBUS店舗","公式通販"],pkg:["#1c1c1c","#f2efe9"],good:["どの淹れ方でも","スペシャルティ入門"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p51",shop:"ONIBUS COFFEE",name:"シティローストブレンド",origin:"ブラジル・ルワンダ",roastName:"シティロースト",roast:5,t:[3,4,4,4,4],notes:["カカオ","ナッツ"],sizeG:200,price:1102,per100:551,where:["ONIBUS店舗","公式通販"],pkg:["#4a3428","#f2efe9"],good:["ミルクと合わせる","毎日のブラック"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p52",shop:"LIGHT UP COFFEE",name:"タンザニア Tembo Tembo",origin:"タンザニア",roastName:"浅煎り",roast:2,t:[5,1,2,4,5],notes:["やわらかい","フローラル"],sizeG:150,price:1700,per100:1133,where:["LIGHT UP店舗","公式通販"],pkg:["#f2c14e","#ffffff"],good:["浅煎り好き","産地の違いを楽しむ"],decaf:false,confidence:"B",checked:"2026-08"},
+{id:"p53",shop:"LIGHT UP COFFEE",name:"ペルー Quero Finca",origin:"ペルー",roastName:"浅煎り",roast:2,t:[4,1,2,5,5],notes:["甘い","フルーティ"],sizeG:150,price:2000,per100:1333,where:["LIGHT UP店舗","公式通販"],pkg:["#e07a5f","#ffffff"],good:["甘さを楽しむ","ハンドドリップ"],decaf:false,confidence:"B",checked:"2026-08"},
+{id:"p54",shop:"土居珈琲",name:"「小さな焙煎」人気銘柄セット",origin:"グアテマラ カペティロ農園ほか",roastName:"中深煎り",roast:5,t:[3,4,4,4,5],notes:["甘み","香ばしさ"],sizeG:200,price:2733,per100:1367,where:["公式通販"],pkg:["#6b4a2f","#f0e8d8"],good:["贈り物","焙煎の違いを味わう"],decaf:false,confidence:"A",checked:"2026-08"},
+{id:"p55",shop:"澤井珈琲",name:"ビクトリーブレンド",origin:"ブレンド",roastName:"中深煎り",roast:5,t:[2,4,5,3,4],notes:["チョコレート","濃厚"],sizeG:500,price:1780,per100:356,where:["公式通販"],pkg:["#8b1a1a","#e8d9b5"],good:["大容量で安く","毎日たっぷり飲む"],decaf:false,confidence:"B",checked:"2026-08"},
+{id:"p56",shop:"珈琲きゃろっと",name:"初回限定お試しセット",origin:"グアテマラ＋季節のおすすめ",roastName:"中煎り・中深煎り",roast:5,t:[3,4,4,4,5],notes:["甘み","クリーン"],sizeG:400,price:2138,per100:535,where:["公式通販"],pkg:["#f08c00","#ffffff"],good:["スペシャルティ入門","焼きたてを試したい"],decaf:false,confidence:"A",checked:"2026-08"}
+];
+/* =========================================================================
+   状態。localStorage は「いつか消えるもの」として扱い、書き出し機能を必ず添える。
+   schemaVersion は後から項目を増やしたときの変換のために最初から入れておく。
+   ========================================================================= */
+const LS='mamekurabe.v1';
+const DEF=()=>({schemaVersion:2,fav:[],log:{},pref:null,shots:[],
+  /* myBeans は自分で登録した豆。PRODUCTS とまったく同じ形にしてあるので、
+     一覧・絞り込み・比較・抽出記録のコードをそのまま共用できる。
+     photos は id ごとの写真（JPEGのdataURL）。撮った時点で縮小して入れる。 */
+  myBeans:[], photos:{},
+  /* 初期値は tatsu の機材に合わせてある。設定画面からいつでも変えられる。
+     espMin/espMax は「エスプレッソに実際に使う目盛りの範囲」。ソリス スカラプラスは
+     21段階あるが極細挽きは1〜4なので、ここが狭い。提案の刻みはこの範囲から計算する。 */
+  grinder:{name:'ソリス スカラプラス',unit:'目盛り',min:1,max:21,step:1,finer:'down',espMin:1,espMax:5},
+  machine:{name:'デロンギ EM450J',basketMm:51,capacityG:14,bottomless:true},
+  cmp:[],mode:'origin',filter:{mood:[],roast:[],area:[],shop:[],pmax:8000},
+  sort:'reco',theme:null,lastExport:null});
+/* 古い保存データを読んでも壊れないように、足りない項目を補ってから使う */
+function migrate(d){
+  d=Object.assign(DEF(),d||{});
+  d.grinder=Object.assign(DEF().grinder,d.grinder||{});
+  d.machine=Object.assign(DEF().machine,d.machine||{});
+  d.filter=Object.assign(DEF().filter,d.filter||{});
+  if(!Array.isArray(d.myBeans))d.myBeans=[];
+  if(!d.photos||typeof d.photos!=='object')d.photos={};
+  d.schemaVersion=2;
+  return d;
+}
+let S;
+try{S=migrate(JSON.parse(localStorage.getItem(LS)||'{}'))}catch(e){S=DEF()}
+const save=()=>{try{localStorage.setItem(LS,JSON.stringify(S));return true}catch(e){return false}};
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const byId=id=>BEANS.find(b=>b.id===id);
+/* 抽出記録では、産地の豆とお店の商品のどちらも選べる。焙煎度さえ取れれば提案は動く。 */
+const anyById=id=>BEANS.find(b=>b.id===id)||allProducts().find(p=>p.id===id)||null;
+
+/* ===== 用語・表記 ===== */
+const TL=['酸味','苦味','コク','甘み','香り'];
+const TH=['果物のような爽やかさ','舌の奥にくる強さ','口に残る濃さ・重さ','冷めてくると分かる甘さ','立ちのぼる華やかさ'];
+const RN=['ライト','シナモン','ミディアム','ハイ','シティ','フルシティ','フレンチ','イタリアン'];
+const PROC={washed:'ウォッシュト（水洗い）',natural:'ナチュラル（天日干し）',honey:'ハニー製法',
+  anaerobic:'アナエロビック（嫌気性発酵）',pulped:'パルプドナチュラル',sumatra:'スマトラ式',monsooned:'モンスーン製法'};
+const PROC_SAY={
+  washed:'果肉を洗い落としてから乾かす方法。雑味が少なく、酸味がきれいに出ます。',
+  natural:'実をつけたまま天日で干す方法。果実の甘い香りが強く出て、個性的になります。',
+  honey:'果肉を少しだけ残して乾かす方法。ウォッシュトとナチュラルの中間で、甘みが乗ります。',
+  anaerobic:'酸素を抜いた容器で発酵させる新しい方法。ワインや日本酒のような香りが出ます。',
+  pulped:'ブラジルに多い方法。ナッツのような香ばしさとバランスの良さが出ます。',
+  sumatra:'インドネシア独特の方法。土やハーブのような、他にはない風味が出ます。',
+  monsooned:'インドで季節風に晒す方法。酸味がほとんど消えて、まろやかになります。'};
+/* 8段階を3つに丸める。ライト〜ミディアム=浅、ハイ〜シティ=中、フルシティ以降=深。 */
+const ICON={
+  heart:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20.3S4.8 15.7 4.8 10.5A3.9 3.9 0 0 1 12 7.4a3.9 3.9 0 0 1 7.2 3.1c0 5.2-7.2 9.8-7.2 9.8Z"/></svg>',
+  heartOn:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 20.3S4.8 15.7 4.8 10.5A3.9 3.9 0 0 1 12 7.4a3.9 3.9 0 0 1 7.2 3.1c0 5.2-7.2 9.8-7.2 9.8Z"/></svg>',
+  plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></svg>',
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg>',
+  back:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4.5 8 12l7 7.5"/></svg>',
+  bean:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><ellipse cx="12" cy="12" rx="6.4" ry="9" transform="rotate(38 12 12)"/><path d="M8.4 16.6C10 14 14 10 15.6 7.4"/></svg>',
+  shop:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5V19a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9.5"/><path d="M3 6.5 4.6 4h14.8L21 6.5a2.6 2.6 0 0 1-4.5 2 2.6 2.6 0 0 1-4.5 0 2.6 2.6 0 0 1-4.5 0 2.6 2.6 0 0 1-4.5-2Z"/></svg>',
+  cam:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5h3.2l1.4-2.2h8.8l1.4 2.2H21v11H3z"/><circle cx="12" cy="14" r="3.6"/></svg>',
+  trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5h16M9.5 6.5V4h5v2.5M6.5 6.5 7.5 20h9l1-13.5M10 10v6M14 10v6"/></svg>',
+  edit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17z"/><path d="M14.5 6.5 17.5 9.5"/></svg>'
+};
+const grp=r=>r<=3?'浅':r<=5?'中':'深';
+const grpFull=r=>({'浅':'浅煎り','中':'中煎り','深':'深煎り'})[grp(r)];
+const rcls=r=>r<=3?'r-light':r<=6?'r-mid':'r-dark';
+const word=v=>v<=2?'ひかえめ':v===3?'ふつう':'つよめ';
+const yen=n=>'¥'+n.toLocaleString();
+const SERIES=['var(--s1)','var(--s2)','var(--s3)'];
+const KEYS=['A','B','C'];
+
+const MOODS=[
+  {id:'clean', label:'すっきり',       fn:b=>b.t[2]<=3&&b.roast<=5},
+  {id:'sweet', label:'甘い',           fn:b=>b.t[3]>=4},
+  {id:'body',  label:'コクしっかり',   fn:b=>b.t[2]>=4},
+  {id:'floral',label:'華やか',         fn:b=>b.t[4]>=4},
+  {id:'noacid',label:'酸味は苦手',     fn:b=>b.t[0]<=2},
+  {id:'milk',  label:'ミルクに合う',   fn:b=>b.t[2]>=4&&b.roast>=5},
+  {id:'ice',   label:'アイスラテ向き', fn:b=>b.t[2]>=4&&b.roast>=6},
+  {id:'esp',   label:'エスプレッソ向き',fn:b=>b.brew.includes('エスプレッソ')},
+  {id:'decaf', label:'カフェインレス', fn:b=>b.decaf},
+  {id:'cheap', label:'ふだん使い',     fn:b=>b.pmax<=900}
+];
+const AREAS=['アフリカ','中南米','アジア','太平洋','ブレンド'];
+const SORTS=[['reco','おすすめ順'],['cheap','安い順'],['acid','酸味が強い順'],['body','コクが強い順']];
+
+/* =========================================================================
+   絞り込みと並べ替え
+   ========================================================================= */
+function passMood(b){return S.filter.mood.every(m=>{const M=MOODS.find(x=>x.id===m);return M?M.fn(b):true})}
+function matchAll(b,q){
+  const f=S.filter;
+  if(!passMood(b))return false;
+  if(f.roast.length&&!f.roast.includes(grp(b.roast)))return false;
+  if(f.area.length&&!f.area.includes(b.area))return false;
+  if(b.pmin>f.pmax)return false;
+  if(q){const s=[b.name,b.sub,b.country,b.region,b.variety,b.say,...b.notes,...b.good].join(' ');
+    if(!s.toLowerCase().includes(q.toLowerCase()))return false;}
+  return true;
+}
+function prefScore(b){
+  const p=S.pref; if(!p)return 5-b.beg;
+  const rg=grp(b.roast)==='浅'?1:grp(b.roast)==='中'?2:3;
+  return Math.abs(b.t[0]-p.a)*1.4+Math.abs(b.t[2]-p.body)*1.0+Math.abs(rg-p.roast)*0.8;
+}
+function sortList(a){
+  const s=S.sort;
+  if(s==='cheap')return a.sort((x,y)=>x.pmin-y.pmin);
+  if(s==='acid') return a.sort((x,y)=>y.t[0]-x.t[0]||x.pmin-y.pmin);
+  if(s==='body') return a.sort((x,y)=>y.t[2]-x.t[2]||x.pmin-y.pmin);
+  return a.sort((x,y)=>prefScore(x)-prefScore(y)||y.beg-x.beg);
+}
+const query=()=>($('#q')&&$('#q').value||'').trim();
+function filtered(){return sortList(BEANS.filter(b=>matchAll(b,query())))}
+
+/* 0件のときに「どれを外せば見つかるか」を返す。行き止まりを作らないため。 */
+function relaxSuggest(){
+  const q=query(), f=S.filter, tries=[];
+  if(f.pmax<8000)tries.push(['値段の条件をゆるめる',()=>{S.filter.pmax=8000}]);
+  if(f.mood.length)tries.push(['「'+MOODS.find(x=>x.id===f.mood[f.mood.length-1]).label+'」を外す',()=>{S.filter.mood.pop()}]);
+  if(f.roast.length)tries.push(['焙煎の条件を外す',()=>{S.filter.roast=[]}]);
+  if(f.area.length)tries.push(['産地の条件を外す',()=>{S.filter.area=[]}]);
+  for(const[label,apply]of tries){
+    const bk=JSON.parse(JSON.stringify(S.filter));apply();
+    const n=BEANS.filter(b=>matchAll(b,q)).length;const ok=n>0;
+    S.filter=bk;
+    if(ok)return{label,apply,n};
+  }
+  return null;
+}
+
+/* =========================================================================
+   描画パーツ
+   ========================================================================= */
+function tbar(i,v,color){
+  return '<div class="tbar"><span class="lb">'+TL[i]+'</span>'+
+    '<span class="track"><i class="fill" style="width:'+(v/5*100)+'%;background:'+(color||'var(--s1)')+'"></i></span>'+
+    '<span class="wd">'+word(v)+'</span></div>';
+}
+function beanCard(b){
+  const fav=S.fav.includes(b.id), inCmp=S.cmp.includes(b.id);
+  return '<article class="bean '+rcls(b.roast)+'" data-act="detail" data-id="'+b.id+'">'+
+    '<div class="between"><h3>'+esc(b.name)+'</h3>'+
+      '<span class="badge '+rcls(b.roast)+'">'+grpFull(b.roast)+'</span></div>'+
+    '<p class="meta">'+esc(b.sub)+' ／ '+esc(b.notes.slice(0,3).join('・'))+'</p>'+
+    tbar(0,b.t[0])+tbar(2,b.t[2])+
+    '<div class="foot"><span class="price">'+yen(b.pmin)+'〜'+yen(b.pmax)+' <small>／100g目安</small></span>'+
+    '<span class="acts">'+
+      '<button class="iconbtn" data-act="fav" data-id="'+b.id+'" aria-pressed="'+fav+'" aria-label="お気に入り">'+(fav?ICON.heartOn:ICON.heart)+'</button>'+
+      '<button class="iconbtn" data-act="cmp" data-id="'+b.id+'" aria-pressed="'+inCmp+'" aria-label="くらべる に追加">'+(inCmp?ICON.check:ICON.plus)+'</button>'+
+    '</span></div></article>';
+}
+
+/* パッケージの絵。商品写真は権利上使えないので、袋の形と色だけで再現している。
+   ロゴや商標は一切描かない。色はブランドの基調色を PRODUCTS の pkg に持たせてある。 */
+function shade(hex,d){
+  const n=parseInt(hex.slice(1),16);
+  const f=v=>Math.max(0,Math.min(255,v+d));
+  return '#'+[f(n>>16),f((n>>8)&255),f(n&255)].map(v=>v.toString(16).padStart(2,'0')).join('');
+}
+function pkgSvg(p,size){
+  const big=size==='big', mini=size==='mini';
+  const a=(p.pkg&&p.pkg[0])||'#8a6a55', b=(p.pkg&&p.pkg[1])||'#e0cdb5', gid='pg'+p.id+(size||'');
+  return '<svg class="pkg'+(mini?' mi':'')+'"'+(big?' style="width:96px"':'')+' viewBox="0 0 64 90" aria-hidden="true">'+
+    '<defs><linearGradient id="'+gid+'" x1="0" y1="0" x2="1" y2="1">'+
+      '<stop offset="0" stop-color="'+shade(a,16)+'"/><stop offset="1" stop-color="'+shade(a,-24)+'"/></linearGradient></defs>'+
+    '<rect x="7" y="13" width="50" height="73" rx="5" fill="url(#'+gid+')"/>'+
+    '<rect x="4.5" y="4" width="55" height="11" rx="3.5" fill="'+shade(b,-6)+'"/>'+
+    '<rect x="9" y="7" width="46" height="2.4" rx="1.2" fill="#fff" opacity=".33"/>'+
+    '<rect x="7" y="47" width="50" height="15" fill="'+b+'" opacity=".92"/>'+
+    '<circle cx="32" cy="33" r="4.6" fill="#fff" opacity=".34"/>'+
+    '<rect x="15" y="68" width="23" height="3" rx="1.5" fill="#fff" opacity=".42"/>'+
+    '<rect x="15" y="75" width="15" height="3" rx="1.5" fill="#fff" opacity=".26"/>'+
+    '<rect x="7" y="13" width="9" height="73" fill="#fff" opacity=".07"/></svg>';
+}
+/* お店の商品と、自分で登録した豆をひとつなぎに扱う */
+const allProducts=()=>PRODUCTS.concat(S.myBeans||[]);
+const byPid=id=>allProducts().find(p=>p.id===id);
+function shopInfo(n){
+  if(SHOPS[n])return SHOPS[n];
+  let h=0;for(let i=0;i<n.length;i++)h=(h*31+n.charCodeAt(i))>>>0;
+  return {color:'hsl('+(15+h%45)+' 40% 36%)',desc:'自分で登録したお店'};
+}
+const photoOf=id=>S.photos&&S.photos[id];
+/* 商品にも豆と同じ絞り込みを効かせるため、MOODS が読む形に合わせる */
+const asBean=p=>({t:p.t,roast:p.roast,decaf:!!p.decaf,pmin:p.per100,pmax:p.per100,
+  brew:p.roast>=5?['エスプレッソ','ペーパードリップ']:['ペーパードリップ']});
+/* 写真があれば写真、なければ袋の絵。どちらもタップでカメラを開ける。 */
+function pkgView(p,big){
+  const ph=photoOf(p.id);
+  return '<span class="photobox" data-act="shoot" data-id="'+p.id+'">'+
+    (ph?'<img class="photo'+(big?' big':'')+'" src="'+ph+'" alt="'+esc(p.name)+'のパッケージ">':pkgSvg(p,big?'big':null))+
+    '<span class="cam">'+ICON.cam+'</span></span>';
+}
+function prodCard(p){
+  const fav=S.fav.includes(p.id);
+  return '<article class="prod" data-act="pdetail" data-id="'+p.id+'">'+pkgView(p)+
+    '<div><div class="shopname">'+esc(p.shop||'（お店なし）')+(p.mine?' <span class="mybadge">自分で登録</span>':'')+
+    '</div><h3>'+esc(p.name)+'</h3>'+
+    '<p class="meta">'+esc(p.origin)+' ／ '+grpFull(p.roast)+(p.roastName?'（'+esc(p.roastName)+'）':'')+'</p>'+
+    tbar(0,p.t[0])+tbar(2,p.t[2])+
+    '<div class="foot"><span class="price">'+yen(p.price)+' <small>/'+p.sizeG+'g</small>'+
+      '<span class="per">100gあたり '+yen(p.per100)+(p.confidence==='B'?'（参考）':'')+'</span></span>'+
+      '<span class="acts"><button class="iconbtn" data-act="fav" data-id="'+p.id+'" aria-pressed="'+fav+
+      '" aria-label="お気に入り">'+(fav?ICON.heartOn:ICON.heart)+'</button></span></div></div></article>';
+}
+const favCard=id=>{const b=byId(id);if(b)return beanCard(b);const p=byPid(id);return p?prodCard(p):''};
+
+function prodFiltered(){
+  const q=query(),f=S.filter;
+  const a=allProducts().filter(p=>{
+    if(f.shop.length&&!f.shop.includes(p.shop||'（お店なし）'))return false;
+    if(f.roast.length&&!f.roast.includes(grp(p.roast)))return false;
+    if(p.per100>f.pmax)return false;
+    if(f.mood.length){const ab=asBean(p);if(!f.mood.every(m=>{const M=MOODS.find(x=>x.id===m);return M?M.fn(ab):true}))return false}
+    if(q){const s=[p.shop,p.name,p.origin,p.roastName,...(p.notes||[]),...(p.good||[])].join(' ');
+      if(!s.toLowerCase().includes(q.toLowerCase()))return false}
+    return true;
+  });
+  const s=S.sort;
+  if(s==='cheap')return a.sort((x,y)=>x.per100-y.per100);
+  if(s==='acid') return a.sort((x,y)=>y.t[0]-x.t[0]||x.per100-y.per100);
+  if(s==='body') return a.sort((x,y)=>y.t[2]-x.t[2]||x.per100-y.per100);
+  if(S.pref)return a.sort((x,y)=>prefScore(asBean(x))-prefScore(asBean(y)));
+  return a.sort((x,y)=>x.shop.localeCompare(y.shop,'ja')||x.per100-y.per100);
+}
+function shopCounts(){
+  const c={};allProducts().forEach(p=>{const k=p.shop||'（お店なし）';c[k]=(c[k]||0)+1});
+  /* 自分で登録したお店を上に出す。自分のデータのほうが用があるため。 */
+  const mine=new Set((S.myBeans||[]).map(p=>p.shop||'（お店なし）'));
+  return Object.entries(c).sort((a,b)=>(mine.has(b[0])?1:0)-(mine.has(a[0])?1:0)||b[1]-a[1]);
+}
+function renderMode(){
+  $('#modeswitch').innerHTML=[['origin','産地でさがす',ICON.bean],['shop','お店でさがす',ICON.shop]]
+    .map(m=>'<button data-act="mode" data-v="'+m[0]+'" aria-pressed="'+(S.mode===m[0])+'">'+
+      m[2]+'<span>'+m[1]+'</span></button>').join('');
+}
+function renderRoastRow(){
+  $('#roastrow').innerHTML='<span class="chip" style="background:none;color:var(--mute);padding:0 2px">焙煎</span>'+
+    [['浅','浅煎り'],['中','中煎り'],['深','深煎り']].map(r=>
+      '<button class="chip" data-act="f" data-k="roast" data-v="'+r[0]+'" aria-pressed="'+
+      S.filter.roast.includes(r[0])+'">'+r[1]+'</button>').join('')+
+    '<button class="chip" data-act="opensort">'+esc(SORTS.find(s=>s[0]===S.sort)[1])+' ▾</button>';
+}
+function renderMoods(){
+  if(S.mode==='shop'){
+    const sc=shopCounts();
+    $('#moodrow').innerHTML=sc.length?
+      '<span class="chip" style="background:none;color:var(--mute);padding:0 2px">お店</span>'+
+      sc.map(([nm,n])=>'<button class="chip" data-act="f" data-k="shop" data-v="'+esc(nm)+'" aria-pressed="'+
+        S.filter.shop.includes(nm)+'">'+esc(nm)+'<span style="opacity:.6;margin-left:5px">'+n+'</span></button>').join(''):'';
+    return;
+  }
+  const pref=S.pref?'好みを変える':'好みを3問で教える';
+  $('#moodrow').innerHTML='<button class="chip" data-act="diag" aria-pressed="'+!!S.pref+'">'+pref+'</button>'+
+    MOODS.map(m=>'<button class="chip" data-act="mood" data-id="'+m.id+'" aria-pressed="'+
+      S.filter.mood.includes(m.id)+'">'+m.label+'</button>').join('');
+}
+function renderActive(){
+  const f=S.filter,tags=[];
+  f.area.forEach(a=>tags.push(['area',a,a]));
+  if(f.pmax<8000)tags.push(['pmax','',yen(f.pmax)+'以下']);
+  const any=tags.length||f.mood.length||f.roast.length||f.shop.length;
+  $('#activefilters').innerHTML=any?
+    tags.map(t=>'<button class="chip" aria-pressed="true" data-act="untag" data-k="'+t[0]+'" data-v="'+esc(t[1])+'">'+
+      esc(t[2])+' ✕</button>').join('')+'<button class="chip" data-act="clearall">条件をすべて解除</button>':'';
+}
+function renderList(){
+  renderMode();renderRoastRow();renderMoods();renderActive();
+  $('#btn-sort').textContent=SORTS.find(s=>s[0]===S.sort)[1]+' ▾';
+
+  if(S.mode==='shop'){
+    const sc=shopCounts(), total=allProducts().length;
+    /* 店を選ぶ前は、お店の一覧を見せる。ここが「リストから店を選ぶ」入口。 */
+    if(!S.filter.shop.length&&!query()){
+      $('#count').textContent=sc.length+'店 ／ '+total+'種';
+      $('#list').innerHTML='<div class="pad" style="padding-top:2px;padding-bottom:10px">'+
+        '<p class="muted" style="margin:0">お店を選ぶと、そこで買える豆が並びます。'+
+        '載っていない豆は、右下の「豆を登録」から自分で追加できます。</p></div>'+
+        sc.map(([nm,n])=>{const i=shopInfo(nm);
+          return '<button class="shopcard" data-act="f" data-k="shop" data-v="'+esc(nm)+'">'+
+            '<span class="dot2" style="background:'+i.color+'">'+esc(nm.slice(0,1))+'</span>'+
+            '<span class="nm"><b>'+esc(nm)+'</b><span>'+esc(i.desc||'')+'</span></span>'+
+            '<span class="ct">'+n+'種 ›</span></button>'}).join('');
+      renderTray();return;
+    }
+    const a=prodFiltered();
+    $('#count').textContent=a.length+'件';
+    let head='';
+    if(S.filter.shop.length){
+      const nm=S.filter.shop[0],i=shopInfo(nm);
+      head='<div class="pad" style="padding-bottom:4px">'+
+        '<button class="chip" data-act="allshops">‹ すべてのお店</button></div>'+
+        (S.filter.shop.length===1?'<div class="pad" style="padding-top:8px;padding-bottom:4px">'+
+          '<h2 class="sect">'+esc(nm)+'</h2>'+(i.desc?'<p class="muted" style="margin:-6px 0 0">'+esc(i.desc)+'</p>':'')+'</div>':'');
+    }
+    $('#list').innerHTML=head+(a.length?a.map(prodCard).join(''):
+      '<div class="empty"><span class="g">🫙</span>条件に合う商品がありませんでした。<div style="margin-top:14px">'+
+      '<button class="btn ghost" data-act="clearall">条件をすべて解除</button></div></div>');
+    renderTray();return;
+  }
+
+  const a=filtered();
+  $('#count').textContent=a.length+'件';
+  if(!a.length){
+    const r=relaxSuggest();
+    $('#list').innerHTML='<div class="empty"><span class="g">🫙</span>条件に合う豆がありませんでした。'+
+      (r?'<div style="margin-top:14px"><button class="btn ghost" data-act="relax">'+esc(r.label)+'（'+r.n+'件）</button></div>':'')+'</div>';
+  }else $('#list').innerHTML=a.map(beanCard).join('');
+  renderTray();
+}
+function renderTray(){
+  const t=$('#tray');
+  if(!S.cmp.length){t.classList.remove('on');return}
+  t.classList.add('on');
+  $('#trayslots').innerHTML=S.cmp.map((id,i)=>{const b=byId(id);return b?
+    '<span class="slot"><span class="key" style="background:'+SERIES[i]+'">'+KEYS[i]+'</span>'+
+    esc(b.name.slice(0,9))+'<button data-act="cmp" data-id="'+id+'" aria-label="外す" style="padding:0 4px">✕</button></span>':''}).join('');
+  $('#btn-compare').disabled=S.cmp.length<2;
+  $('#btn-compare').textContent=S.cmp.length<2?'あと'+(2-S.cmp.length)+'件':'くらべる';
+}
+
+/* =========================================================================
+   豆の詳細
+   ========================================================================= */
+function espRecipe(b){
+  const g=grp(b.roast);
+  const T={'浅':{r:'1:2.0〜1:2.6',t:'28〜36秒',g:'細かめ'},
+           '中':{r:'1:1.8〜1:2.2',t:'25〜32秒',g:'中間'},
+           '深':{r:'1:1.4〜1:1.9',t:'20〜27秒',g:'粗め'}}[g];
+  return T;
+}
+function openDetail(id){
+  const b=byId(id);if(!b)return;
+  const log=S.log[b.id], fav=S.fav.includes(b.id), R=espRecipe(b);
+  let h='<div class="hero '+rcls(b.roast)+'">'+
+    '<div class="eyebrow">'+esc(b.country)+'</div>'+
+    '<h3>'+esc(b.name)+'</h3>'+
+    '<div class="sub">'+esc(b.sub)+(b.region&&b.region!=='—'?' ／ '+esc(b.region):'')+'</div>'+
+    '<div class="tags"><span>'+grpFull(b.roast)+'</span><span>'+RN[b.roast-1]+'</span>'+
+    (b.decaf?'<span>カフェインレス</span>':'')+'<span>'+yen(b.pmin)+'〜／100g</span></div></div>'+
+    '<p class="saying">'+esc(b.say)+'</p>';
+
+  h+='<div class="card"><h3 class="sect">味のプロフィール</h3><div>'+
+     b.t.map((v,i)=>tbar(i,v)).join('')+'</div>'+
+     '<div class="chips" style="margin-top:14px">'+b.notes.map(n=>'<span class="chip">'+esc(n)+'</span>').join('')+'</div>'+
+     '<p class="tiny" style="margin-top:12px">'+esc(DATA_META.tasteNote)+'</p></div>';
+
+  h+='<div class="card"><dl class="kv">'+
+     '<dt>産地</dt><dd>'+esc(b.country)+(b.region&&b.region!=='—'?' ／ '+esc(b.region):'')+'</dd>'+
+     '<dt>品種</dt><dd>'+esc(b.variety)+'</dd>'+
+     '<dt>精製方法</dt><dd>'+esc(PROC[b.process]||b.sub)+'</dd>'+
+     '<dt>焙煎度</dt><dd>'+grpFull(b.roast)+'（'+RN[b.roast-1]+'／8段階中'+b.roast+'）</dd>'+
+     '<dt>値段の目安</dt><dd>'+yen(b.pmin)+'〜'+yen(b.pmax)+' ／100g</dd>'+
+     '<dt>買える場所</dt><dd>'+esc(b.where.join('、'))+'</dd>'+
+     '<dt>向く淹れ方</dt><dd>'+esc(b.brew.join('、'))+'</dd>'+
+     '<dt>こんな人に</dt><dd>'+esc(b.good.join('、'))+'</dd>'+
+     '</dl><div class="note" style="margin-top:12px">'+esc(PROC_SAY[b.process]||'')+'</div>'+
+     '<p class="tiny" style="margin-top:8px">'+esc(DATA_META.priceNote)+'（'+DATA_META.compiledAt+'調べ）</p></div>';
+
+  h+='<div class="card"><h3 class="sect">エスプレッソで淹れるなら</h3>'+
+     '<dl class="kv"><dt>レシオ</dt><dd>'+R.r+'</dd><dt>抽出時間</dt><dd>'+R.t+'</dd>'+
+     '<dt>挽き目</dt><dd>'+R.g+'</dd></dl>'+
+     '<p class="tiny" style="margin-top:8px">浅煎りの豆は硬くて成分が出にくいので細かく長めに。深煎りはスカスカで出やすいので粗く短めに、が基本です。</p>'+
+     '<div class="note" style="margin-top:10px">アイスカフェラテにするなら、氷とミルクで薄まるぶん<b>レシオを短め（濃いめ）に切る</b>のが正解です。'+
+     '上の下限からさらに0.2ほど短くしてみてください。'+(b.roast>=6?'この豆は深めに焼かれているので、ミルクに負けません。':
+     'ミルクに負けやすい焙煎度なので、アイスラテには中深煎り以上のほうが向きます。')+'</div>'+
+     '<button class="btn wide" style="margin-top:12px" data-act="shotwith" data-id="'+b.id+'">この豆で抽出を記録する</button></div>';
+
+  h+='<div class="card"><h3 class="sect">飲んだ感想を残す</h3>'+
+     '<p class="tiny" style="margin:-4px 0 12px">記録が溜まるほど「わたしの記録」で好みの傾向が見えてきます。</p>'+
+     '<div class="seg" data-grp="rate">'+
+     [['◎','また買う'],['○','ふつう'],['×','もういい']].map(o=>
+      '<button data-act="rate" data-id="'+b.id+'" data-v="'+o[0]+'" aria-pressed="'+(log&&log.rate===o[0])+'">'+
+      '<span class="g">'+o[0]+'</span>'+o[1]+'</button>').join('')+'</div>'+
+     '<textarea id="logmemo" placeholder="ひとこと（任意）" style="margin-top:10px">'+esc(log&&log.memo||'')+'</textarea>'+
+     '<button class="btn ghost wide" style="margin-top:8px" data-act="savememo" data-id="'+b.id+'">ひとことを保存</button></div>';
+
+  h+='<div class="pad" style="display:flex;gap:10px">'+
+     '<button class="btn ghost" style="flex:1" data-act="fav" data-id="'+b.id+'">'+(fav?'♥ お気に入り解除':'♡ お気に入り')+'</button>'+
+     '<button class="btn ghost" style="flex:1" data-act="cmp" data-id="'+b.id+'">'+(S.cmp.includes(b.id)?'✓ くらべる中':'＋ くらべる')+'</button></div>';
+
+  openFull(b.name,h,{t:'bean',id:b.id});
+}
+
+/* 商品の詳細。パッケージの色からヒーローの背景を作り、明るい色なら文字色を反転する。 */
+function lum(hex){const n=parseInt(hex.slice(1),16);
+  return (0.2126*(n>>16)+0.7152*((n>>8)&255)+0.0722*(n&255))/255}
+function nearestBeans(p,n){
+  return BEANS.map(b=>({b,d:b.t.reduce((s,v,i)=>s+Math.abs(v-p.t[i]),0)+Math.abs(b.roast-p.roast)*0.9}))
+    .sort((x,y)=>x.d-y.d).slice(0,n).map(x=>x.b);
+}
+function openProd(id){
+  const p=byPid(id);if(!p)return;
+  const log=S.log[p.id], fav=S.fav.includes(p.id);
+  const a=(p.pkg&&p.pkg[0])||'#8a6a55', light=lum(a)>0.62;
+  const R=espRecipe({roast:p.roast});
+
+  let h='<div class="hero phero'+(light?' onlight':'')+'" style="background:linear-gradient(150deg,'+
+    shade(a,14)+','+shade(a,-44)+')">'+pkgView(p,true)+
+    '<div style="position:relative;z-index:1"><div class="eyebrow">'+esc(p.shop||'（お店なし）')+
+    (p.mine?' ・自分で登録':'')+'</div>'+
+    '<h3 style="margin:6px 0 4px">'+esc(p.name)+'</h3>'+
+    '<div class="sub">'+esc(p.origin)+'</div>'+
+    '<div class="tags"><span>'+grpFull(p.roast)+'</span>'+
+    (p.roastName?'<span>'+esc(p.roastName)+'</span>':'')+
+    (p.decaf?'<span>カフェインレス</span>':'')+'</div></div></div>';
+
+  if(p.price>0)h+='<div class="card"><h3 class="sect">値段</h3>'+
+     '<div class="row" style="align-items:baseline;gap:12px"><span style="font-size:28px;font-weight:700;'+
+     'font-variant-numeric:tabular-nums">'+yen(p.price)+'</span><span class="muted">'+p.sizeG+'g</span></div>'+
+     '<p class="muted" style="margin:6px 0 0">100gあたり <b>'+yen(p.per100)+'</b></p>'+
+     '<p class="tiny" style="margin-top:10px">'+(
+       p.confidence==='MY'?'自分で登録した値段です（'+esc(p.checked||'')+'）。':
+       p.confidence==='A'?'この価格は'+esc(p.checked||DATA_META.compiledAt)+'時点で確認したものです。'+
+         '値上げや内容量の変更があるので、最新は店頭・公式サイトでご確認ください。':
+       '実在する商品ですが、価格は目安です（'+esc(p.checked||DATA_META.compiledAt)+'時点）。'+
+         '最新は店頭・公式サイトでご確認ください。')+'</p></div>';
+
+  h+='<div class="card"><h3 class="sect">味のプロフィール</h3><div>'+
+     p.t.map((v,i)=>tbar(i,v)).join('')+'</div>'+
+     (p.notes&&p.notes.length?'<div class="chips" style="margin-top:14px">'+
+       p.notes.map(n=>'<span class="chip">'+esc(n)+'</span>').join('')+'</div>':'')+
+     '<p class="tiny" style="margin-top:12px">'+esc(DATA_META.tasteNote)+'</p></div>';
+
+  h+='<div class="card"><dl class="kv">'+
+     '<dt>お店</dt><dd>'+esc(p.shop)+'</dd>'+
+     '<dt>産地</dt><dd>'+esc(p.origin)+'</dd>'+
+     '<dt>焙煎度</dt><dd>'+grpFull(p.roast)+'（'+RN[p.roast-1]+'）'+(p.roastName?'／'+esc(p.roastName):'')+'</dd>'+
+     '<dt>買える場所</dt><dd>'+esc((p.where||[]).join('、'))+'</dd>'+
+     (p.good&&p.good.length?'<dt>こんな人に</dt><dd>'+esc(p.good.join('、'))+'</dd>':'')+
+     '</dl></div>';
+
+  h+='<div class="card"><h3 class="sect">エスプレッソで淹れるなら</h3>'+
+     '<dl class="kv"><dt>レシオ</dt><dd>'+R.r+'</dd><dt>抽出時間</dt><dd>'+R.t+'</dd>'+
+     '<dt>挽き目</dt><dd>'+R.g+'</dd></dl>'+
+     '<button class="btn wide" style="margin-top:14px" data-act="shotwithp" data-id="'+p.id+'">この豆で抽出を記録する</button></div>';
+
+  const near=nearestBeans(p,3);
+  h+='<div class="pad" style="padding-bottom:2px"><h3 class="sect">味が近い産地の豆</h3>'+
+     '<p class="muted" style="margin:-6px 0 0">この商品の味に近いのはこのあたりです。産地から選ぶときの目印になります。</p></div>'+
+     near.map(beanCard).join('');
+
+  h+='<div class="card"><h3 class="sect">飲んだ感想を残す</h3>'+
+     '<div class="seg">'+[['◎','また買う'],['○','ふつう'],['×','もういい']].map(o=>
+      '<button data-act="rate" data-id="'+p.id+'" data-v="'+o[0]+'" aria-pressed="'+(log&&log.rate===o[0])+'">'+
+      '<span class="g">'+o[0]+'</span>'+o[1]+'</button>').join('')+'</div>'+
+     '<textarea id="logmemo" placeholder="ひとこと（任意）" style="margin-top:12px">'+esc(log&&log.memo||'')+'</textarea>'+
+     '<button class="btn ghost wide" style="margin-top:8px" data-act="savememo" data-id="'+p.id+'">ひとことを保存</button></div>';
+
+  if(p.mine&&p.memo)h+='<div class="card"><h3 class="sect">メモ</h3><p style="margin:0;white-space:pre-wrap">'+
+     esc(p.memo)+'</p></div>';
+
+  h+='<div class="pad" style="display:flex;gap:10px;flex-wrap:wrap">'+
+     (p.mine?'<button class="btn ghost" style="flex:1;min-width:44%;gap:8px" data-act="myedit" data-id="'+p.id+
+       '">'+ICON.edit+'編集する</button>':'')+
+     '<button class="btn ghost" style="flex:1;min-width:44%" data-act="fav" data-id="'+p.id+'">'+
+     (fav?'♥ お気に入りから外す':'♡ お気に入りに入れる')+'</button></div>'+
+     (photoOf(p.id)?'<div class="pad" style="padding-top:0"><button class="btn ghost wide" data-act="delphoto" '+
+       'data-id="'+p.id+'" style="color:var(--bad);gap:8px">'+ICON.trash+'写真を消す</button></div>':'');
+  openFull(p.name,h,{t:'prod',id:p.id});
+}
+
+/* =========================================================================
+   くらべる（横スクロールを使わず、属性ごとに縦へ積む）
+   ========================================================================= */
+function openCompare(){
+  const list=S.cmp.map(byId).filter(Boolean);
+  if(list.length<2)return;
+  let h='<div class="legend">'+list.map((b,i)=>
+    '<div class="li"><span class="key" style="background:'+SERIES[i]+'">'+KEYS[i]+'</span>'+
+    '<span style="flex:1">'+esc(b.name)+'</span><span class="badge '+rcls(b.roast)+'">'+grpFull(b.roast)+'</span></div>').join('')+'</div>';
+
+  TL.forEach((label,i)=>{
+    const mx=Math.max(...list.map(b=>b.t[i]));
+    h+='<div class="cmpblock"><h4>'+label+'</h4><p class="tiny">'+TH[i]+'</p>'+
+      list.map((b,j)=>'<div class="cmprow"><span class="key" style="background:'+SERIES[j]+'">'+KEYS[j]+'</span>'+
+        '<span class="track"><i class="fill" style="width:'+(b.t[i]/5*100)+'%;background:'+SERIES[j]+'"></i></span>'+
+        '<span class="wd tiny">'+b.t[i]+(b.t[i]===mx?'<span class="win">最</span>':'')+'</span></div>').join('')+
+      '</div>';
+  });
+
+  const mn=Math.min(...list.map(b=>b.pmin));
+  h+='<div class="cmpblock"><h4>値段（100gあたりの目安）</h4>'+
+    list.map((b,j)=>'<div class="cmprow" style="grid-template-columns:24px 1fr auto">'+
+      '<span class="key" style="background:'+SERIES[j]+'">'+KEYS[j]+'</span>'+
+      '<span style="font-size:14px">'+yen(b.pmin)+'〜'+yen(b.pmax)+'</span>'+
+      '<span class="tiny">'+(b.pmin===mn?'<span class="win">いちばん安い</span>':'')+'</span></div>').join('')+'</div>';
+
+  [['焙煎',b=>grpFull(b.roast)+'（'+RN[b.roast-1]+'）'],
+   ['精製',b=>PROC[b.process]||b.sub],
+   ['産地',b=>b.country],
+   ['向く淹れ方',b=>b.brew.join('、')],
+   ['フレーバー',b=>b.notes.join('・')],
+   ['ひとこと',b=>b.say]].forEach(([label,fn])=>{
+    h+='<div class="cmpblock"><h4>'+label+'</h4>'+list.map((b,j)=>
+      '<div class="cmprow" style="grid-template-columns:24px 1fr;align-items:start;margin-top:8px">'+
+      '<span class="key" style="background:'+SERIES[j]+'">'+KEYS[j]+'</span>'+
+      '<span style="font-size:14px;line-height:1.6">'+esc(fn(b))+'</span></div>').join('')+'</div>';
+  });
+
+  h+='<div class="pad" style="display:flex;gap:8px;flex-wrap:wrap">'+list.map((b,j)=>
+    '<button class="btn ghost" style="flex:1;min-width:44%" data-act="detail" data-id="'+b.id+'">'+KEYS[j]+'を見る</button>').join('')+'</div>';
+  openFull('くらべる（'+list.length+'件）',h);
+}
+
+/* =========================================================================
+   味の地図
+   ========================================================================= */
+let mapY=0, mapView='grid';
+const MAPAX=[[0,'酸味'],[2,'コク'],[3,'甘み'],[4,'香り']];
+/* 「さがす」でどちらを見ているかに合わせて、産地の豆かお店の商品かを切り替える */
+function mapTargets(){return S.mode==='shop'?prodFiltered():filtered()}
+const isProd=x=>!!x.pkg;
+
+function miniBean(b){
+  const c=b.roast<=3?'var(--roast-l)':b.roast<=5?'var(--roast-m)':'var(--roast-d)';
+  return '<svg class="mi" viewBox="0 0 40 54" aria-hidden="true">'+
+    '<ellipse cx="20" cy="27" rx="13.5" ry="20" fill="'+c+'"/>'+
+    '<path d="M13.5 42C16.5 34 24 20 27 12" stroke="rgba(255,255,255,.55)" stroke-width="2.4" '+
+    'fill="none" stroke-linecap="round"/></svg>';
+}
+function mapIcon(x){
+  if(!isProd(x))return miniBean(x);
+  const ph=photoOf(x.id);
+  return ph?'<img class="mi" src="'+ph+'" alt="">':pkgSvg(x,'mini');
+}
+/* セルに1つだけ添える手がかり。多いと文字だらけになるので、上から1つ選んで終わり。 */
+function mapTag(x){
+  const good=(x.good||[]).join(' ');
+  if(x.decaf)return '<span class="tag">カフェインレス</span>';
+  if(x.beg>=5)return '<span class="tag">はじめてに</span>';
+  if(/アイス|水出し/.test(good+(x.brew||[]).join(' ')))return '<span class="tag">アイスに</span>';
+  if(/ラテ|カフェオレ|ミルク/.test(good))return '<span class="tag">ミルクに</span>';
+  if(/エスプレッソ/.test(good+(x.brew||[]).join(' ')))return '<span class="tag">エスプレッソ</span>';
+  return '';
+}
+function mapCell(x){
+  const note=(x.notes||[]).slice(0,2).join('・');
+  return '<button class="mapitem" data-act="'+(isProd(x)?'pdetail':'detail')+'" data-id="'+x.id+'">'+
+    mapIcon(x)+'<b>'+esc(x.name)+'</b>'+(note?'<em>'+esc(note)+'</em>':'')+mapTag(x)+'</button>';
+}
+function renderGridMap(){
+  const items=mapTargets();
+  const cols={'浅':[],'中':[],'深':[]};
+  items.forEach(x=>{const g=grp(x.roast);if(cols[g])cols[g].push(x)});
+  /* 縦は上が「すっきり」、下へ行くほど「しっかり」。コクが同じなら苦味の弱い順。 */
+  Object.keys(cols).forEach(k=>cols[k].sort((a,b)=>a.t[2]-b.t[2]||a.t[1]-b.t[1]||b.t[0]-a.t[0]));
+  const col=k=>'<div class="col">'+(cols[k].length?cols[k].map(mapCell).join(''):
+    '<div class="colempty">この あたりの豆は<br>いま出ていません</div>')+'</div>';
+  $('#mapbody').innerHTML='<div class="cmap">'+
+    '<div class="corner"></div><div class="zh z-l">軽やか</div>'+
+    '<div class="zh z-m">ほどよい</div><div class="zh z-d">深み</div>'+
+    '<div class="yaxis"><span>すっきり</span><span>しっかり</span></div>'+
+    col('浅')+col('中')+col('深')+'</div>'+
+    '<div class="barista"><span class="bico">☕</span><p>横に進むほど深く焼かれていて、'+
+    '苦味とコクが増え、酸味は減ります。縦は下へ行くほど口に残る重さが出ます。'+
+    '<b>気に入った豆の場所を覚えておくと、次はその近くを選べば外れません。</b>'+
+    'ひとつ隣に動かすくらいが、冒険しすぎずに好みを広げるコツです。</p></div>';
+  $('#maphint').textContent='いま '+items.length+'件を表示中'+
+    (S.mode==='shop'?'（お店の商品）':'（産地の代表例）')+'。「さがす」の絞り込みがそのまま効いています。';
+}
+function renderScatter(){
+  const W=340,H=280,L=40,R=14,T=16,B=38;
+  const px=r=>L+(r-1)/7*(W-L-R), py=v=>H-B-(v-1)/4*(H-T-B);
+  let g='';
+  for(let v=1;v<=5;v++){g+='<line x1="'+L+'" y1="'+py(v)+'" x2="'+(W-R)+'" y2="'+py(v)+'" stroke="var(--line)" stroke-width="1"/>'+
+    '<text x="'+(L-7)+'" y="'+(py(v)+4)+'" font-size="10" fill="var(--mute)" text-anchor="end">'+v+'</text>'}
+  [[1,'浅'],[4,'中'],[7,'深']].forEach(function(z){
+    g+='<text x="'+px(z[0])+'" y="'+(H-B+16)+'" font-size="11" fill="var(--mute)" text-anchor="middle">'+z[1]+'煎り</text>'});
+  const shown=mapTargets();
+  shown.forEach((b,i)=>{
+    const seed=(parseInt(String(b.id).replace(/\D/g,''),10)||i)+i;
+    const jx=((seed*37)%9-4)*1.6, jy=((seed*17)%7-3)*1.6;
+    const fav=S.fav.includes(b.id);
+    g+='<circle class="dot" data-act="'+(isProd(b)?'pdetail':'detail')+'" data-id="'+b.id+'" cx="'+(px(b.roast)+jx)+
+      '" cy="'+(py(b.t[mapY])+jy)+'" r="'+(fav?9.5:7)+'" fill="'+(fav?'var(--s1)':'var(--s2)')+
+      '" fill-opacity="'+(fav?1:.72)+'" stroke="var(--card)" stroke-width="2.2"><title>'+esc(b.name)+'</title></circle>';
+  });
+  g+='<text x="'+(W-R)+'" y="'+(T+2)+'" font-size="10" fill="var(--mute)" text-anchor="end">たて＝'+
+     MAPAX.find(a=>a[0]===mapY)[1]+'　よこ＝焙煎</text>';
+  $('#mapbody').innerHTML='<div class="mapwrap"><svg viewBox="0 0 '+W+' '+H+
+    '" role="img" aria-label="豆の味の分布図">'+g+'</svg></div>';
+  $('#maphint').innerHTML='いま '+shown.length+'件を表示中。'+(S.fav.length?'大きい赤茶の点はお気に入りです。':'');
+}
+function renderMap(){
+  $('#axisrow').innerHTML=
+    [['grid','ならべて見る'],['scatter','散らばりで見る']].map(v=>
+      '<button class="chip" data-act="mapview" data-v="'+v[0]+'" aria-pressed="'+(mapView===v[0])+'">'+
+      v[1]+'</button>').join('')+
+    (mapView==='scatter'?'<span class="chip" style="background:none;color:var(--mute);padding:0 2px">たて</span>'+
+      MAPAX.map(a=>'<button class="chip" data-act="mapax" data-v="'+a[0]+'" aria-pressed="'+(mapY===a[0])+'">'+
+      a[1]+'</button>').join(''):'');
+  $('#maplead').textContent=mapView==='grid'?
+    '横は焙煎の深さ、縦はコクの強さです。お店に貼ってあるコーヒーマップと同じ読み方で選べます。':
+    '近くにある豆どうしは味が似ています。点をタップすると詳しく見られます。';
+  if(mapView==='grid')renderGridMap();else renderScatter();
+  $('#maphelp').innerHTML='よこ軸は焙煎の深さ、たて軸はコク（散らばり表示では選んだ味）の強さです。'+
+    '<br><br>右へ行くほど深く焼かれていて、苦味とコクが増え、酸味は減っていきます。'+
+    'ふつう、左上（浅煎りで軽い）と右下（深煎りで重い）に豆が集まります。'+
+    '<br><br>気に入った豆の位置を覚えておくと、次に選ぶとき「その近く」を探せばだいたい外れません。'+
+    '逆に、まだ飲んだことのない場所の豆を選ぶと、新しい発見があります。'+
+    '<br><br>「さがす」で産地とお店を切り替えると、この地図に並ぶ中身も入れ替わります。';
+}
+
+/* =========================================================================
+   エスプレッソ（ダイヤルイン記録）
+   ========================================================================= */
+const TARGET={'浅':{rmin:2.0,rmax:2.6,tmin:28,tmax:36},'中':{rmin:1.8,rmax:2.2,tmin:25,tmax:32},'深':{rmin:1.4,rmax:1.9,tmin:20,tmax:27}};
+const G=()=>S.grinder, M=()=>S.machine;
+/* エスプレッソに実際に使う目盛りの範囲。ソリス スカラプラスは21段階あるが、
+   極細挽きは1〜4しかない。全体の範囲で刻みを決めると、範囲外の提案が出てしまう。 */
+const espLo=()=>Math.min(G().espMin,G().espMax);
+const espHi=()=>Math.max(G().espMin,G().espMax);
+const clampEsp=v=>Math.min(espHi(),Math.max(espLo(),+(+v).toFixed(2)));
+const dirFine=()=>G().finer==='down'?-1:1;
+const finer=(v,n)=>clampEsp(v+dirFine()*n*G().step);
+const coarser=(v,n)=>clampEsp(v-dirFine()*n*G().step);
+const espSteps=()=>Math.max(1,Math.round((espHi()-espLo())/G().step));
+const bigStep=()=>Math.max(1,Math.round(espSteps()*0.25));
+const atFinest=v=>G().finer==='down'?v<=espLo()+1e-9:v>=espHi()-1e-9;
+const atCoarsest=v=>G().finer==='down'?v>=espHi()-1e-9:v<=espLo()+1e-9;
+
+/* 挽き目を動かしたいが、使える範囲の端まで来ていることがある。
+   そこで「もっと細かく」と言い続けても実行できないので、粉の量に切り替える。
+   粉を増やせば抵抗が増えて時間が伸び、減らせば縮む。挽き目と同じ効果が得られる。 */
+function grindOr(sh,fine,n,why,prep){
+  const u=G().unit, R=(k,d,t,nx)=>({k,why,doIt:d,tip:t,next:nx||null});
+  if(fine&&!atFinest(sh.grindValue))
+    return R('挽き目','挽き目を '+(n*G().step)+u+' ぶん細かく（'+sh.grindValue+' → '+finer(sh.grindValue,n)+'）',
+      '細かくすると湯が通りにくくなり、時間が伸びて成分が多く溶け出します。',{grindValue:finer(sh.grindValue,n)});
+  if(!fine&&!atCoarsest(sh.grindValue))
+    return R('挽き目','挽き目を '+(n*G().step)+u+' ぶん粗く（'+sh.grindValue+' → '+coarser(sh.grindValue,n)+'）',
+      '粗くすると湯が早く抜け、出しすぎを抑えられます。',{grindValue:coarser(sh.grindValue,n)});
+  const nd=+(sh.doseG+(fine?0.5:-0.5)).toFixed(1);
+  return R('粉の量','粉を '+nd+'g に'+(fine?'増やす':'減らす'),
+    '挽き目はもう'+(fine?'いちばん細かい（'+espLo()+u+'）':'いちばん粗い（'+espHi()+u+'）')+'ところなので、粉の量で抵抗を変えます。'+
+    (fine?'粉を増やすと湯が通りにくくなり、時間が伸びます。':'粉を減らすと湯が通りやすくなり、時間が縮みます。'),
+    {doseG:nd});
+}
+
+/* 一度に変えるのは1つだけ。だから提案も必ず1つに絞る。
+   物理的な異常 → 抽出時間 → 味 の順に見る。時間が目標から外れているうちは、
+   味の議論をしても意味がないため。 */
+function advise(sh){
+  const b=anyById(sh.beanId), g=grp(b?b.roast:5), T=TARGET[g], m=M();
+  const ratio=sh.yieldG/sh.doseG, flow=sh.yieldG/sh.timeSec, big=bigStep();
+  const fill=m.capacityG?sh.doseG/m.capacityG:1;
+  const R=(k,why,doIt,tip,next)=>({k,why,doIt,tip,next:next||null});
+  const PREP='細い針で粉を全体にほぐし（WDT）、表面を平らにしてから、まっすぐ水平に押し固めてください。'+
+    (m.bottomless?'ボトムレスなので、抽出中に横へ飛び散らないかを見れば、うまくいったか一目で分かります。':'')+
+    '一定圧のタンパーを使っているなら、押す力ではなく「ほぐし」と「水平」が原因です。';
+
+  /* レイヤー0：物理的な異常。味を聞く前に止める */
+  if(fill>1.15)return R('粉の量','バスケット（'+m.basketMm+'mm・約'+m.capacityG+'g）に対して粉が多すぎます',
+    '粉を '+(sh.doseG-1).toFixed(1)+'g に減らす',
+    '粉が多すぎると、乾いた粉が上の部品に触れて、必ず湯の通り道ができます。',{doseG:+(sh.doseG-1).toFixed(1)});
+  if(fill<0.65)return R('粉の量','バスケットに対して粉が少なすぎます',
+    '粉を '+m.capacityG.toFixed(1)+'g まで増やす','粉が少ないと湯が素通りして、薄く水っぽくなります。',{doseG:+m.capacityG});
+  if(sh.spray)return R('粉の準備','抽出中に横へ飛び散った＝湯の通り道ができています',
+    '挽き目は変えず、粉のほぐし方を直す',PREP+'ここで挽き目をいじると、かえって悪くなります。');
+  if(flow>2.5||sh.timeSec<12)
+    return grindOr(sh,true,big,'湯が一気に抜けています（'+flow.toFixed(1)+'g/秒）',PREP);
+  if(sh.timeSec>50&&ratio<1.0)
+    return grindOr(sh,false,big,'詰まってほとんど落ちていません',PREP);
+
+  /* レイヤー1：抽出時間を目標帯に入れる */
+  const tw='（'+sh.timeSec+'秒／目標 '+T.tmin+'〜'+T.tmax+'秒）';
+  if(sh.timeSec<T.tmin-4)return grindOr(sh,true,Math.min(2,big+1),'抽出が速すぎます'+tw,PREP);
+  if(sh.timeSec<T.tmin)   return grindOr(sh,true,1,'少し速めです'+tw,PREP);
+  if(sh.timeSec>T.tmax+4) return grindOr(sh,false,Math.min(2,big+1),'抽出が遅すぎます'+tw,PREP);
+  if(sh.timeSec>T.tmax)   return grindOr(sh,false,1,'少し遅めです'+tw,PREP);
+
+  /* レイヤー2：時間は合っている。ここから味で判断する */
+  if(sh.bal>=1&&sh.str<=-1)
+    return R('粉の準備','「苦いのに薄い」は、出しすぎと出し足りないが同時に起きているサインです',
+      '挽き目は変えず、粉のほぐし方を直す',PREP);
+  if(sh.bal<=-1){
+    if(ratio<T.rmax-0.2)return R('抽出量','酸っぱい＝まだ成分が出きっていません',
+      '抽出量を '+Math.round(sh.doseG*(ratio+0.2))+'g まで伸ばす','同じ粉からもう少し引き出します。',
+      {yieldG:+(sh.doseG*(ratio+0.2)).toFixed(1)});
+    return grindOr(sh,true,1,'酸っぱい＝まだ成分が出きっていません',PREP);
+  }
+  if(sh.bal>=1){
+    if(ratio>T.rmin+0.2)return R('抽出量','苦い＝出しすぎです',
+      '抽出量を '+Math.round(sh.doseG*(ratio-0.2))+'g で止める','雑味が出る前に切ります。',
+      {yieldG:+(sh.doseG*(ratio-0.2)).toFixed(1)});
+    return grindOr(sh,false,1,'苦い＝出しすぎです',PREP);
+  }
+  if(sh.str<=-1)return R('抽出量','味の方向は良いですが薄いです',
+    '抽出量を '+Math.round(sh.doseG*(ratio-0.3))+'g に減らす',
+    'バランスは崩さず濃さだけ上げます。アイスラテにするなら、ここは短めに切るのが正解です。',
+    {yieldG:+(sh.doseG*(ratio-0.3)).toFixed(1)});
+  if(sh.str>=1)return R('抽出量','味の方向は良いですが濃すぎます',
+    '抽出量を '+Math.round(sh.doseG*(ratio+0.3))+'g まで伸ばす','薄めます。',
+    {yieldG:+(sh.doseG*(ratio+0.3)).toFixed(1)});
+  return R('完成','目標どおりのショットです（1:'+ratio.toFixed(1)+'／'+sh.timeSec+'秒）',
+    'この設定を、この豆のベストとして覚えておく',
+    '次に同じ豆を買ったとき、ここから始めればダイヤルインは一発で終わります。');
+}
+/* 同じ手を3回打って★が伸びていないなら、別の変数に切り替えるよう促す */
+function stuck(){
+  const d=S.shots.filter(s=>s.status==='done').slice(-3);
+  if(d.length<3)return false;
+  return d.every(s=>s.adv&&s.adv.k==='挽き目')&&d[2].rating<=d[0].rating;
+}
+function lastDone(){return [...S.shots].reverse().find(s=>s.status==='done')}
+function draft(){return S.shots.find(s=>s.status==='draft')}
+
+function renderEsp(){
+  const d=draft();
+  $('#esp-draft').innerHTML=d?
+    '<div class="card" style="border-color:var(--warn)"><strong style="font-size:14px">☕ 味の評価まち</strong>'+
+    '<p class="muted" style="margin:4px 0 10px">'+esc((anyById(d.beanId)||{name:'豆'}).name)+'　'+
+    d.doseG+'g → '+d.yieldG+'g／'+d.timeSec+'秒</p>'+
+    '<button class="btn wide" data-act="taste" data-id="'+d.id+'">飲んだ感想を入れる</button></div>':'';
+
+  const L=lastDone();
+  if(L&&L.adv){
+    const a=L.adv;
+    $('#esp-advice').innerHTML='<div class="advice'+(a.k==='完成'?' ok':'')+'">'+
+      '<div class="k">つぎの一手 ／ '+esc(a.k)+'</div>'+
+      '<div class="muted" style="font-size:13px">'+esc(a.why)+'</div>'+
+      '<div class="do">'+esc(a.doIt)+'</div>'+
+      '<p class="tiny">'+esc(a.tip)+'</p>'+
+      (stuck()?'<div class="note" style="margin-top:10px">挽き目を3回続けて調整しても良くなっていません。挽き目ではなく、抽出量か粉の量を変えてみてください。豆が焙煎直後で若すぎる可能性もあります。</div>':'')+
+      (a.next?'<button class="btn wide" style="margin-top:12px" data-act="applyadv">この通りに設定して記録する</button>':
+        '<button class="btn ghost wide" style="margin-top:12px" data-act="newshot">同じ設定でもう一杯</button>')+
+      '</div>';
+  }else $('#esp-advice').innerHTML='';
+
+  const best={};
+  S.shots.filter(s=>s.status==='done'&&s.rating>=4).forEach(s=>{
+    if(!best[s.beanId]||s.rating>=best[s.beanId].rating)best[s.beanId]=s});
+  const bs=Object.values(best);
+  $('#esp-best').innerHTML=bs.length?'<div class="sec-title">うまくいったレシピ</div>'+bs.map(s=>{
+    const b=anyById(s.beanId);return '<div class="card"><div class="between"><strong>'+
+    esc(b?b.name:'—')+'</strong><span style="color:var(--gold)">'+'★'.repeat(s.rating)+'</span></div>'+
+    '<p class="muted" style="margin:6px 0 10px">粉 '+s.doseG+'g → '+s.yieldG+'g（1:'+(s.yieldG/s.doseG).toFixed(1)+
+    '）／'+s.timeSec+'秒／挽き目 '+s.grindValue+G().unit+'</p>'+
+    '<button class="btn ghost wide" data-act="reuse" data-id="'+s.id+'">このレシピで淹れる</button></div>'}).join(''):'';
+
+  const done=S.shots.filter(s=>s.status==='done').slice(-10);
+  $('#esp-history').innerHTML=done.length?'<div class="card">'+done.map(s=>{
+    const col=s.bal<0?'var(--s2)':s.bal>0?'var(--s1)':'var(--ok)';
+    const w=Math.min(100,s.timeSec/45*100);
+    return '<div class="shotrow"><span class="tiny">'+new Date(s.at).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'})+'</span>'+
+      '<span class="bar"><i style="width:'+w+'%;background:'+col+'"></i></span>'+
+      '<span class="tiny" style="text-align:right">'+s.timeSec+'秒</span>'+
+      '<span class="tiny" style="text-align:right">'+(s.rating?'★'+s.rating:'—')+'</span></div>'}).join('')+
+    '<p class="tiny" style="margin-top:12px">棒の長さ＝抽出時間。<span style="color:var(--s2);font-weight:700">青緑</span>＝酸っぱい／'+
+    '<span style="color:var(--ok);font-weight:700">緑</span>＝ちょうど／<span style="color:var(--s1);font-weight:700">赤茶</span>＝苦い。'+
+    '緑がそろってきたら、その豆のダイヤルインは完了です。</p></div>':
+    '<div class="empty" style="padding:24px"><span class="g">☕</span>まだ記録がありません。<br>1杯目を記録すると、次にどう調整すればいいかを提案します。'+
+    '<p class="tiny" style="margin-top:16px;text-align:left">いまの設定<br>'+
+    '・'+esc(M().name)+'（'+M().basketMm+'mm・約'+M().capacityG+'g'+(M().bottomless?'・ボトムレス':'')+'）<br>'+
+    '・'+esc(G().name)+'（エスプレッソに使う範囲 '+espLo()+'〜'+espHi()+esc(G().unit)+'）</p></div>';
+}
+
+/* 記録フォーム */
+let form={};
+function shotSheet(pre){
+  const g=G(), m=M(), last=[...S.shots].reverse()[0];
+  form=Object.assign({beanId:(BEANS.find(b=>b.brew.includes('エスプレッソ'))||BEANS[0]).id,
+    doseG:m.capacityG,yieldG:+(m.capacityG*2).toFixed(1),timeSec:28,
+    grindValue:+((espLo()+espHi())/2).toFixed(1)},
+    last?{beanId:last.beanId,doseG:last.doseG,yieldG:last.yieldG,timeSec:last.timeSec,grindValue:last.grindValue}:{},pre||{});
+  const step=(k,label,unit,dec)=>'<div class="field"><label>'+label+'</label><div class="step">'+
+    '<button data-act="st" data-k="'+k+'" data-d="-1">−</button>'+
+    '<span class="val" id="f-'+k+'">'+form[k].toFixed(dec)+'<small>'+unit+'</small></span>'+
+    '<button data-act="st" data-k="'+k+'" data-d="1">＋</button></div></div>';
+  const body='<div class="pad">'+
+    '<div class="field"><label>豆</label><select id="f-bean">'+
+      ((S.myBeans||[]).length?'<optgroup label="自分で登録した豆">'+S.myBeans.map(p=>'<option value="'+p.id+'"'+
+        (p.id===form.beanId?' selected':'')+'>'+esc((p.shop?p.shop+' ':'')+p.name)+'</option>').join('')+'</optgroup>':'')+
+      '<optgroup label="お店の商品">'+PRODUCTS.map(p=>'<option value="'+p.id+'"'+
+        (p.id===form.beanId?' selected':'')+'>'+esc(p.shop+' '+p.name)+'</option>').join('')+'</optgroup>'+
+      '<optgroup label="産地から">'+BEANS.map(b=>'<option value="'+b.id+'"'+
+        (b.id===form.beanId?' selected':'')+'>'+esc(b.name)+'</option>').join('')+'</optgroup></select></div>'+
+    step('doseG','粉の量（ドーズ）','g',1)+
+    step('yieldG','出来上がりの量','g',1)+
+    step('timeSec','抽出時間','秒',0)+
+    '<div class="field"><label>抽出時間をすばやく</label><div class="chips">'+
+      [20,24,26,28,30,32,36].map(v=>'<button class="chip" data-act="setsec" data-v="'+v+'">'+v+'秒</button>').join('')+'</div></div>'+
+    step('grindValue','挽き目','',1)+
+    '<div class="note">'+esc(m.name)+'（'+m.basketMm+'mm・約'+m.capacityG+'g）／'+esc(g.name)+
+    '：エスプレッソに使うのは '+espLo()+'〜'+espHi()+esc(g.unit)+'、数字が'+(g.finer==='down'?'小さい':'大きい')+
+    'ほど細かい設定です。違う場合は「機器の設定」で直してください。</div>'+
+    '<div class="note" style="margin-top:10px" id="f-calc"></div></div>';
+  openSheet('抽出を記録する',body,
+    '<button class="btn ghost" data-close style="flex:1">やめる</button><button class="btn" data-act="saveshot" style="flex:2">保存する</button>',
+    ()=>{$('#f-bean').onchange=e=>{form.beanId=e.target.value;calc()};calc()});
+}
+function calc(){
+  const r=form.yieldG/form.doseG, f=form.yieldG/form.timeSec, fill=form.doseG/M().capacityG;
+  let warn='';
+  if(f>2.5)warn='<br>⚠ 流れが速すぎます（挽き目が粗すぎるか、湯の通り道ができています）';
+  else if(f<0.7)warn='<br>⚠ 流れが遅すぎます（挽き目が細かすぎるか、粉が多すぎます）';
+  if(fill>1.15)warn+='<br>⚠ '+M().basketMm+'mmバスケット（約'+M().capacityG+'g）に対して粉が多すぎます';
+  else if(fill<0.65)warn+='<br>⚠ バスケットに対して粉が少なすぎます';
+  const el=$('#f-calc');if(el)el.innerHTML='レシオ <b>1:'+r.toFixed(1)+'</b>　／　流量 <b>'+f.toFixed(1)+'</b> g/秒'+warn;
+}
+function stepField(k,d){
+  const inc={doseG:0.1,yieldG:0.5,timeSec:1,grindValue:G().step}[k];
+  const dec={doseG:1,yieldG:1,timeSec:0,grindValue:1}[k];
+  form[k]=Math.max(0,+(form[k]+d*inc).toFixed(2));
+  const el=$('#f-'+k);
+  if(el)el.innerHTML=form[k].toFixed(dec)+'<small>'+({doseG:'g',yieldG:'g',timeSec:'秒',grindValue:''})[k]+'</small>';
+  calc();
+  if(navigator.vibrate)navigator.vibrate(8);
+}
+function saveShot(){
+  const s=Object.assign({id:'s'+Date.now(),at:Date.now(),status:'draft',bal:0,str:0,rating:0,spray:false,adv:null},form);
+  const d=draft();if(d)S.shots=S.shots.filter(x=>x.id!==d.id);
+  S.shots.push(s);save();closeSheet();renderEsp();tasteSheet(s.id);
+}
+function tasteSheet(id){
+  const s=S.shots.find(x=>x.id===id);if(!s)return;
+  const seg=(k,opts)=>'<div class="seg">'+opts.map(o=>'<button data-act="tset" data-k="'+k+'" data-v="'+o[0]+
+    '" aria-pressed="'+(s[k]===o[0])+'"><span class="g">'+o[1]+'</span>'+o[2]+'</button>').join('')+'</div>';
+  const body='<div class="pad">'+
+    (M().bottomless?'<div class="field"><label>抽出中、横に飛び散りましたか？</label><div class="seg">'+
+      '<button data-act="spray" data-v="0" aria-pressed="'+(!s.spray)+'"><span class="g">◎</span>まっすぐ落ちた</button>'+
+      '<button data-act="spray" data-v="1" aria-pressed="'+(!!s.spray)+'"><span class="g">💦</span>飛び散った</button></div>'+
+      '<p class="tiny" style="margin-top:6px">ボトムレスなので目で見えます。飛び散っていたら、味より先に粉の詰め方を直します。'+
+      'いちばん確実なサインなので、挽き目を触る前にこちらを直してください。</p></div>':'')+
+    '<div class="field"><label>味の傾向</label>'+
+      seg('bal',[[-2,'😖','すごく酸っぱい'],[-1,'🙂','やや酸っぱい'],[0,'◎','ちょうどいい'],[1,'🙁','やや苦い'],[2,'😖','すごく苦い']])+'</div>'+
+    '<div class="field"><label>濃さ</label>'+
+      seg('str',[[-1,'💧','薄い'],[0,'◎','ちょうど'],[1,'⬛','濃い']])+
+      '<p class="tiny" style="margin-top:6px">「苦いのに薄い」と感じたら、両方を正直に選んでください。原因の切り分けに使います。</p></div>'+
+    '<div class="field"><label>総合</label><div class="stars">'+
+      [1,2,3,4,5].map(n=>'<button data-act="star" data-v="'+n+'" class="'+(s.rating>=n?'on':'')+'">★</button>').join('')+'</div></div></div>';
+  openSheet('飲んだ感想',body,
+    '<button class="btn wide" data-act="donetaste" data-id="'+id+'">記録して、次の一手を見る</button>');
+}
+function grinderSheet(){
+  const g=G(), m=M();
+  const body='<div class="pad">'+
+    '<div class="sec-title" style="padding:0 0 8px">グラインダー</div>'+
+    '<div class="field"><label>機種名</label><input type="text" id="g-name" value="'+esc(g.name)+'"></div>'+
+    '<div class="field"><label>目盛りの呼び方</label><div class="seg">'+
+      [['クリック','カチカチ段階'],['目盛り','数字が書いてある'],['回転','無段階リング']].map(o=>
+      '<button data-act="gset" data-k="unit" data-v="'+o[0]+'" aria-pressed="'+(g.unit===o[0])+'">'+
+      '<span class="g">'+o[0]+'</span>'+o[1]+'</button>').join('')+'</div></div>'+
+    '<div class="field"><label>細かくなる向き</label><div class="seg">'+
+      [['down','数字が小さいほど細かい'],['up','数字が大きいほど細かい']].map(o=>
+      '<button data-act="gset" data-k="finer" data-v="'+o[0]+'" aria-pressed="'+(g.finer===o[0])+'">'+o[1]+'</button>').join('')+
+      '</div><p class="tiny" style="margin-top:6px">これが正しいと、提案が「細かく／粗く」を間違えません。</p></div>'+
+    '<div class="field"><label>目盛り全体の範囲</label>'+
+      '<div class="row"><input type="number" id="g-min" value="'+g.min+'" inputmode="decimal" style="flex:1">'+
+      '<span>〜</span><input type="number" id="g-max" value="'+g.max+'" inputmode="decimal" style="flex:1"></div></div>'+
+    '<div class="field"><label>そのうち<b>エスプレッソに使う範囲</b></label>'+
+      '<div class="row"><input type="number" id="g-emin" value="'+g.espMin+'" inputmode="decimal" style="flex:1">'+
+      '<span>〜</span><input type="number" id="g-emax" value="'+g.espMax+'" inputmode="decimal" style="flex:1"></div>'+
+      '<p class="tiny" style="margin-top:6px">ここが提案のいちばん大事な設定です。'+
+      'ソリス スカラプラスは21段階ありますが、極細挽き（エスプレッソ用）は1〜4あたりだけです。'+
+      '全体の21段階で刻みを計算すると「5目盛り細かく」のような実行できない提案が出てしまうので、'+
+      '<b>実際に使う狭い範囲</b>を入れてください。範囲の端まで来たら、提案は自動で粉の量の調整に切り替わります。</p></div>'+
+    '<div class="field"><label>いちばん小さい調整の幅</label>'+
+      '<input type="number" id="g-step" value="'+g.step+'" step="0.25" inputmode="decimal"></div>'+
+    '<div class="hr" style="margin:20px 0"></div>'+
+    '<div class="sec-title" style="padding:0 0 8px">エスプレッソマシン</div>'+
+    '<div class="field"><label>機種名</label><input type="text" id="m-name" value="'+esc(m.name)+'"></div>'+
+    '<div class="field"><label>バスケットの直径（mm）</label>'+
+      '<input type="number" id="m-mm" value="'+m.basketMm+'" inputmode="decimal"></div>'+
+    '<div class="field"><label>バスケットの容量（g）</label>'+
+      '<input type="number" id="m-cap" value="'+m.capacityG+'" step="0.5" inputmode="decimal">'+
+      '<p class="tiny" style="margin-top:6px">51mmのバスケットは14g前後、58mmなら18g前後が目安です。'+
+      'ここを入れておくと、粉の入れすぎ・少なすぎを自動で警告します。</p></div>'+
+    '<div class="field"><label>ポルタフィルターの種類</label><div class="seg">'+
+      [['1','ボトムレス（底が抜けている）'],['0','ふつう（注ぎ口がある）']].map(o=>
+      '<button data-act="mset" data-k="bottomless" data-v="'+o[0]+'" aria-pressed="'+((o[0]==='1')===!!m.bottomless)+'">'+o[1]+'</button>').join('')+
+      '</div><p class="tiny" style="margin-top:6px">ボトムレスなら、抽出中に横へ飛び散るかどうかで'+
+      '湯の通り道（チャネリング）が目で見えます。記録画面でそれを聞くようになります。</p></div>'+
+    '</div>';
+  openSheet('機器の設定',body,'<button class="btn wide" data-act="gsave">保存する</button>');
+}
+/* ボタンを押すたびにシートを描き直すので、入力中のテキストが消えないよう先に読み取る */
+function readGear(){
+  const g=S.grinder,m=S.machine;
+  const raw=id=>{const e=$('#'+id);return e&&typeof e.value==='string'?e.value:null};
+  const num=(id,def)=>{const x=raw(id);return x===null||x===''||isNaN(+x)?def:+x};
+  const str=(id,def)=>{const x=raw(id);return x===null?def:(x.trim()||def)};
+  g.name=str('g-name',g.name);
+  g.min=num('g-min',g.min); g.max=num('g-max',g.max);
+  g.espMin=num('g-emin',g.espMin); g.espMax=num('g-emax',g.espMax);
+  g.step=Math.max(0.05,num('g-step',g.step)||1);
+  if(g.max<=g.min)g.max=g.min+10;
+  if(g.espMax===g.espMin)g.espMax=g.espMin+g.step*3;
+  m.name=str('m-name',m.name);
+  m.basketMm=num('m-mm',m.basketMm);
+  m.capacityG=Math.max(1,num('m-cap',m.capacityG));
+}
+
+/* =========================================================================
+   写真 ―― 撮った写真は縮めてから端末の中だけに保存する。外へは一切送らない。
+   localStorage は数MBで頭打ちなので、長辺520px・JPEG品質0.72まで落としている
+   （1枚おおよそ30〜60KB）。保存に失敗したら元に戻して、理由を伝える。
+   ========================================================================= */
+let shootTarget=null;
+function compressImage(file,maxW,q){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=()=>{const img=new Image();
+      img.onload=()=>{
+        const sc=Math.min(1,maxW/(img.width||maxW));
+        const c=document.createElement('canvas');
+        c.width=Math.max(1,Math.round((img.width||maxW)*sc));
+        c.height=Math.max(1,Math.round((img.height||maxW)*sc));
+        const x=c.getContext('2d');
+        x.fillStyle='#ffffff';x.fillRect(0,0,c.width,c.height);
+        x.drawImage(img,0,0,c.width,c.height);
+        try{res(c.toDataURL('image/jpeg',q))}catch(err){rej(err)}
+      };
+      img.onerror=()=>rej(new Error('画像を読み込めませんでした'));
+      img.src=r.result;};
+    r.onerror=()=>rej(new Error('ファイルを読み込めませんでした'));
+    r.readAsDataURL(file);
+  });
+}
+function photoBytes(){let n=0;const P=S.photos||{};for(const k in P)n+=P[k].length;return Math.round(n*0.75)}
+function setPhoto(id,data){
+  const old=(S.photos||{})[id];
+  S.photos[id]=data;
+  if(save())return true;
+  if(old)S.photos[id]=old;else delete S.photos[id];save();
+  alert('写真を保存できませんでした。端末の保存容量がいっぱいのようです。\n'+
+        '「記録」タブでデータを書き出してから、いらない写真を消してください。');
+  return false;
+}
+function delPhoto(id){delete S.photos[id];save()}
+
+/* =========================================================================
+   自分で豆を登録する（お店の一覧に載っていない豆のためのテンプレ）
+   PRODUCTS とまったく同じ形で保存するので、一覧・比較・抽出記録がそのまま使える。
+   ========================================================================= */
+let myForm=null;
+function newMyBean(){return{
+  id:'m'+Date.now(),mine:true,shop:'',name:'',origin:'',roastName:'',roast:5,
+  t:[3,3,3,3,3],notes:[],sizeG:200,price:0,per100:0,where:['自分で登録'],
+  pkg:['#8a6a55','#e0cdb5'],good:[],decaf:false,confidence:'MY',
+  checked:new Date().toISOString().slice(0,7),memo:'',_new:true}}
+function readMyForm(){
+  if(!myForm)return;
+  const raw=id=>{const e=$('#'+id);return e&&typeof e.value==='string'?e.value:null};
+  const s=(id,d)=>{const x=raw(id);return x===null?d:x};
+  const n=(id,d)=>{const x=raw(id);return x===null||x===''||isNaN(+x)?d:+x};
+  myForm.name=s('my-name',myForm.name).trim();
+  myForm.shop=s('my-shop',myForm.shop).trim();
+  myForm.origin=s('my-origin',myForm.origin).trim();
+  myForm.sizeG=n('my-size',myForm.sizeG);
+  myForm.price=n('my-price',myForm.price);
+  myForm.memo=s('my-memo',myForm.memo);
+  myForm.notes=s('my-notes',(myForm.notes||[]).join('、')).split(/[、,，\s]+/).filter(Boolean).slice(0,5);
+}
+function perLabel(f){
+  return f.sizeG>0&&f.price>0?'100gあたり '+yen(Math.round(f.price/f.sizeG*100)):
+    '内容量と値段を両方入れると、100gあたりの値段を出します';
+}
+function myBeanSheet(editId){
+  const ex=editId?(S.myBeans||[]).find(x=>x.id===editId):null;
+  myForm=ex?Object.assign(JSON.parse(JSON.stringify(ex)),{_new:false}):newMyBean();
+  renderMyForm();
+}
+function renderMyForm(){
+  const f=myForm;if(!f)return;
+  const dotRow=i=>'<div class="dots"><span class="lb">'+TL[i]+'</span><span class="dd">'+
+    [1,2,3,4,5].map(v=>'<button data-act="mydot" data-i="'+i+'" data-v="'+v+'" class="'+
+      (f.t[i]>=v?'on':'')+'" aria-label="'+TL[i]+'を'+v+'にする"></button>').join('')+
+    '</span><span class="wd">'+word(f.t[i])+'</span></div>';
+  const body='<div class="pad">'+
+    '<div class="row" style="gap:16px;margin-bottom:22px;align-items:flex-start">'+pkgView(f,true)+
+      '<div><p class="muted" style="margin:0 0 6px">左をタップして<b>袋の写真</b>を撮ると、一覧にも詳細にも写真が出ます。</p>'+
+      '<p class="tiny" style="margin:0">写真は自動で小さくしてから、この端末の中だけに保存されます。どこにも送信されません。</p></div></div>'+
+    '<div class="field"><label>豆の名前（これだけは必須）</label>'+
+      '<input type="text" id="my-name" value="'+esc(f.name)+'" placeholder="例：スペシャルブレンド"></div>'+
+    '<div class="field"><label>お店</label><input type="text" id="my-shop" list="shoplist" value="'+esc(f.shop)+
+      '" placeholder="例：近所の自家焙煎店"><datalist id="shoplist">'+
+      Object.keys(SHOPS).map(s=>'<option value="'+esc(s)+'">').join('')+'</datalist>'+
+      '<p class="tiny" style="margin-top:6px">同じ名前で登録すると、その店の棚にまとまって並びます。</p></div>'+
+    '<div class="field"><label>産地</label><input type="text" id="my-origin" value="'+esc(f.origin)+
+      '" placeholder="例：エチオピア／ブレンド"></div>'+
+    '<div class="field"><label>焙煎度：<b id="my-roastlabel">'+grpFull(f.roast)+'（'+RN[f.roast-1]+'）</b></label>'+
+      '<input type="range" class="range" id="my-roast" min="1" max="8" step="1" value="'+f.roast+'">'+
+      '<p class="tiny" style="margin-top:2px">左がいちばん浅く、右がいちばん深い焙煎です。'+
+      '袋に「中深煎り」などと書いてあれば、それに合わせてください。ここでエスプレッソの目標時間が変わります。</p></div>'+
+    '<div class="field"><label>味（飲んだ印象で。あとから直せます）</label>'+[0,1,2,3,4].map(dotRow).join('')+'</div>'+
+    '<div class="field"><label>内容量と値段</label>'+
+      '<div class="row"><input type="number" id="my-size" value="'+(f.sizeG||'')+'" inputmode="decimal" placeholder="200" style="flex:1"><span>g</span>'+
+      '<input type="number" id="my-price" value="'+(f.price||'')+'" inputmode="decimal" placeholder="1200" style="flex:1"><span>円</span></div>'+
+      '<p class="tiny" style="margin-top:6px" id="my-per">'+perLabel(f)+'</p></div>'+
+    '<div class="field"><label>フレーバー（読点で区切る）</label>'+
+      '<input type="text" id="my-notes" value="'+esc((f.notes||[]).join('、'))+'" placeholder="ナッツ、チョコ"></div>'+
+    '<div class="field"><label>カフェイン</label><div class="seg">'+
+      [['0','ふつう'],['1','カフェインレス']].map(o=>'<button data-act="mydecaf" data-v="'+o[0]+
+      '" aria-pressed="'+((o[0]==='1')===!!f.decaf)+'">'+o[1]+'</button>').join('')+'</div></div>'+
+    '<div class="field"><label>メモ</label><textarea id="my-memo" placeholder="どこで買ったか、また買いたいかなど">'+
+      esc(f.memo||'')+'</textarea></div>'+
+    (f._new?'':'<button class="btn ghost wide" data-act="mydel" data-id="'+f.id+
+      '" style="color:var(--bad);gap:8px">'+ICON.trash+'この豆を消す</button>')+
+    '</div>';
+  openSheet(f._new?'豆を登録する':'豆を編集する',body,
+    '<button class="btn ghost" data-close style="flex:1">やめる</button>'+
+    '<button class="btn" data-act="mysave" style="flex:2">保存する</button>',
+    ()=>{
+      const r=$('#my-roast');
+      if(r)r.oninput=e=>{myForm.roast=+e.target.value;
+        const l=$('#my-roastlabel');if(l)l.textContent=grpFull(myForm.roast)+'（'+RN[myForm.roast-1]+'）'};
+      ['my-size','my-price'].forEach(id=>{const e=$('#'+id);if(e)e.oninput=()=>{
+        readMyForm();const el=$('#my-per');if(el)el.textContent=perLabel(myForm)}});
+    });
+}
+function saveMyBean(){
+  readMyForm();
+  if(!myForm.name){alert('豆の名前だけは入れてください。あとの項目は空でも保存できます。');return}
+  myForm.per100=myForm.sizeG>0&&myForm.price>0?Math.round(myForm.price/myForm.sizeG*100):0;
+  if(!myForm.origin)myForm.origin='—';
+  myForm.roastName=grpFull(myForm.roast)+'（'+RN[myForm.roast-1]+'）';
+  myForm.checked=new Date().toISOString().slice(0,7);
+  const saved=Object.assign({},myForm);delete saved._new;
+  const i=(S.myBeans||[]).findIndex(x=>x.id===saved.id);
+  if(i>=0)S.myBeans[i]=saved;else S.myBeans.push(saved);
+  if(!save()){alert('保存できませんでした。端末の容量がいっぱいのようです。');return}
+  const id=saved.id;myForm=null;closeSheet();
+  S.mode='shop';S.filter=Object.assign(DEF().filter,{shop:[saved.shop||'（お店なし）']});
+  save();setView('search');renderList();openProd(id);
+}
+function deleteMyBean(id){
+  if(!confirm('この豆を消します。写真と感想も一緒に消えます。よろしいですか？'))return;
+  S.myBeans=(S.myBeans||[]).filter(x=>x.id!==id);
+  delete S.photos[id];delete S.log[id];
+  S.fav=S.fav.filter(x=>x!==id);S.cmp=S.cmp.filter(x=>x!==id);
+  S.filter.shop=[];myForm=null;save();closeSheet();closeFull();renderAll();
+}
+
+/* =========================================================================
+   わたしの記録
+   ========================================================================= */
+function renderMy(){
+  const logs=Object.entries(S.log).filter(([id,l])=>l.rate);
+  const good=logs.filter(([,l])=>l.rate==='◎').map(([id])=>byId(id)).filter(Boolean);
+  let h='';
+  if(good.length>=3){
+    const top=(fn)=>{const c={};good.forEach(b=>{const k=fn(b);c[k]=(c[k]||0)+1});
+      const e=Object.entries(c).sort((a,b)=>b[1]-a[1])[0];return e?e[0]+'（'+e[1]+'／'+good.length+'件）':'—'};
+    const avg=i=>(good.reduce((s,b)=>s+b.t[i],0)/good.length).toFixed(1);
+    h='<div class="card"><strong style="font-size:15px">あなたの好みの傾向</strong>'+
+      '<p class="muted" style="margin:4px 0 12px">「◎また買う」を付けた'+good.length+'件から割り出しました。</p>'+
+      '<dl class="kv"><dt>よく選ぶ産地</dt><dd>'+esc(top(b=>b.area))+'</dd>'+
+      '<dt>よく選ぶ焙煎</dt><dd>'+esc(top(b=>grpFull(b.roast)))+'</dd>'+
+      '<dt>よく選ぶ精製</dt><dd>'+esc(top(b=>PROC[b.process]||b.sub))+'</dd></dl>'+
+      '<div style="margin-top:12px">'+[0,2,3].map(i=>tbar(i,+avg(i),'var(--s3)')).join('')+'</div>'+
+      '<p class="tiny" style="margin-top:8px">これが「あなたの平均的な好み」です。店で豆を選ぶとき、この形に近いものを探すと外れにくくなります。</p></div>';
+  }else{
+    h='<div class="card"><strong style="font-size:15px">好みの傾向</strong>'+
+      '<p class="muted" style="margin-top:6px">豆の詳細画面で「◎また買う」を3件つけると、あなたの好みの共通点をここに出します。'+
+      '（いま '+good.length+' 件）</p></div>';
+  }
+  $('#my-taste').innerHTML=h;
+
+  const mine=S.myBeans||[];
+  $('#my-own').innerHTML=(mine.length?mine.map(prodCard).join(''):
+    '<div class="empty" style="padding:20px"><span class="g">📝</span>お店の一覧に載っていない豆は、'+
+    '自分で登録できます。<br>写真も一緒に残せます。</div>')+
+    '<div class="pad" style="padding-top:4px"><button class="btn ghost wide" data-act="addmy">＋ 豆を登録する</button></div>';
+
+  $('#my-fav').innerHTML=S.fav.length?S.fav.map(favCard).filter(Boolean).join(''):
+    '<div class="empty" style="padding:20px"><span class="g">♡</span>気になる豆に♡を付けると、ここに並びます。</div>';
+
+  $('#my-log').innerHTML=logs.length?logs.map(([id,l])=>{const b=anyById(id);if(!b)return'';
+    return '<div class="card" data-act="'+(byId(id)?'detail':'pdetail')+'" data-id="'+id+'"><div class="between">'+
+      '<strong>'+esc(b.shop?b.shop+' '+b.name:b.name)+'</strong><span style="font-size:20px">'+l.rate+'</span></div>'+
+      (l.memo?'<p class="muted" style="margin-top:6px">'+esc(l.memo)+'</p>':'')+'</div>'}).join(''):
+    '<div class="empty" style="padding:20px"><span class="g">📔</span>まだ記録がありません。</div>';
+
+  const days=S.lastExport?Math.floor((Date.now()-S.lastExport)/86400000):null;
+  $('#my-data').innerHTML='<div class="card">'+
+    '<p class="muted" style="margin:0 0 10px">記録はこの端末のブラウザの中だけに保存されています。'+
+    '<b>ブラウザのデータを消すと、記録も消えます。</b>ときどき書き出して保管してください。</p>'+
+    (days===null?'<div class="note" style="margin-bottom:10px">まだ一度も書き出していません。</div>':
+      days>=7?'<div class="note" style="margin-bottom:10px;color:var(--warn)">最後の書き出しから'+days+'日たっています。</div>':
+      '<div class="note" style="margin-bottom:10px">最後の書き出しから'+days+'日。</div>')+
+    '<div class="note" style="margin-bottom:10px">自分で登録した豆 '+(S.myBeans||[]).length+'件／'+
+      '写真 '+Object.keys(S.photos||{}).length+'枚（約'+Math.round(photoBytes()/1024)+'KB）'+
+      (photoBytes()>3.2*1024*1024?'<br><b>写真がかなり多くなっています。</b>これ以上増やせないかもしれません。'+
+        '書き出してから、いらない写真を消してください。':'')+'</div>'+
+    '<button class="btn wide" data-act="backup">記録の控えをとる（文字でコピー）</button>'+
+    /* ウェブに公開したページからはファイルを保存できない。押しても何も起きない
+       ボタンを見せないよう、保存できる場面でだけ出す。 */
+    (canDownload()?
+      '<button class="btn ghost wide" style="margin-top:8px" data-act="export">ファイルに書き出す（写真も込み）</button>'+
+      '<button class="btn ghost wide" style="margin-top:8px" data-act="importbtn">ファイルから読み込む</button>'+
+      '<input type="file" id="importfile" accept="application/json" style="display:none">'+
+      '<p class="tiny" style="margin-top:10px">ファイルには写真も含まれます。'+
+      'スマホから使うときは、上の「控えをとる」のほうが確実です。</p>'
+      :
+      '<p class="tiny" style="margin-top:10px">この画面はウェブ上のページとして開かれているため、'+
+      'ファイルの保存はできません。<b>「控えをとる」で文字をコピーして保管してください。</b>'+
+      '写真は文字にできないので控えには入りませんが、この端末の中には残ります。</p>')+
+    '<p class="tiny" style="margin-top:10px">豆の情報は'+DATA_META.compiledAt+'時点で調べたものです。'+
+    '特定の商品ではなく産地・精製・焙煎度の代表例なので、商品の入れ替わりでは古くなりません。値段だけは相場が動きます。</p></div>';
+}
+
+/* =========================================================================
+   好み診断（3問）
+   ========================================================================= */
+const QS=[
+  {q:'コーヒーは何で飲むことが多いですか？',a:[['ブラック',{body:3}],['少しミルクを入れる',{body:4}],['カフェオレ・ラテ',{body:5}]]},
+  {q:'紅茶やフルーツのような酸味は好きですか？',a:[['好き',{a:5}],['ふつう',{a:3}],['苦手',{a:1}]]},
+  {q:'どちらが近いですか？',a:[['すっきり軽いのが好み',{roast:1}],['ちょうど中間',{roast:2}],['どっしり濃いのが好み',{roast:3}]]}
+];
+let qi=0,qacc={};
+function diagSheet(){
+  qi=0;qacc={a:3,body:4,roast:2};nextQ();
+}
+function nextQ(){
+  if(qi>=QS.length){S.pref=qacc;S.sort='reco';save();closeSheet();renderList();
+    openSheet('好みを覚えました','<div class="pad"><p>「おすすめ順」があなたの好みに合わせて並び替わりました。</p>'+
+      '<div class="card" style="margin:14px 0 0">'+tbar(0,qacc.a,'var(--s3)')+tbar(2,qacc.body,'var(--s3)')+
+      '<p class="tiny" style="margin-top:8px">あとで「好みを変える」からやり直せます。</p></div></div>',
+      '<button class="btn wide" data-close>豆を見る</button>');return}
+  const Q=QS[qi];
+  openSheet('好みを教えてください（'+(qi+1)+'/'+QS.length+'）',
+    '<div class="pad"><p style="font-size:17px;font-weight:700;margin:0 0 14px">'+Q.q+'</p>'+
+    Q.a.map((o,i)=>'<button class="btn ghost wide" style="margin-bottom:10px;justify-content:flex-start" data-act="qa" data-i="'+i+'">'+o[0]+'</button>').join('')+
+    '</div>','<button class="btn ghost wide" data-close>スキップ</button>');
+}
+
+/* =========================================================================
+   シート / 全画面
+   ========================================================================= */
+let sheetMount=null;
+function openSheet(title,body,foot,onMount){
+  $('#sheet-title').textContent=title;$('#sheet-body').innerHTML=body;
+  $('#sheet-foot').innerHTML=foot||'<button class="btn wide" data-close>閉じる</button>';
+  $('#sheet').classList.add('on');sheetMount=onMount||null;if(onMount)onMount();
+}
+const closeSheet=()=>{
+  /* 登録をやめたときは、そのとき撮った写真も残さない */
+  if(myForm&&myForm._new&&(S.photos||{})[myForm.id])delPhoto(myForm.id);
+  myForm=null;
+  $('#sheet').classList.remove('on');sheetMount=null;
+};
+let fullCtx=null;
+function openFull(title,body,ctx){$('#full-title').textContent=title;$('#full-body').innerHTML=body;
+  $('#full').classList.add('on');$('#full-body').scrollTop=0;fullCtx=ctx||null}
+const closeFull=()=>{$('#full').classList.remove('on');fullCtx=null};
+/* 写真を入れ替えたあと、いま見えている画面だけを描き直す */
+function refreshAfterPhoto(id){
+  renderList();renderMy();
+  if(myForm&&myForm.id===id){readMyForm();renderMyForm();return}
+  if(fullCtx&&fullCtx.id===id){if(fullCtx.t==='prod')openProd(id);else openDetail(id)}
+}
+
+function filterSheet(){
+  const f=S.filter;
+  const grpChips=(k,arr,lab)=>'<div class="field"><label>'+lab+'</label><div class="chips">'+
+    arr.map(v=>{const on=f[k].includes(v);
+      const bk=JSON.parse(JSON.stringify(f));
+      bk[k]=on?bk[k].filter(x=>x!==v):bk[k].concat(v);
+      const save0=S.filter;S.filter=bk;const n=BEANS.filter(b=>matchAll(b,query())).length;S.filter=save0;
+      return '<button class="chip" data-act="f" data-k="'+k+'" data-v="'+esc(v)+'" aria-pressed="'+on+'"'+
+        (n===0&&!on?' disabled':'')+'>'+esc(k==='roast'?v+'煎り':v)+'</button>'}).join('')+'</div></div>';
+  const body='<div class="pad">'+
+    '<div class="field"><label>今の気分</label><div class="chips">'+
+      MOODS.map(m=>'<button class="chip" data-act="f" data-k="mood" data-v="'+m.id+'" aria-pressed="'+
+        f.mood.includes(m.id)+'">'+m.label+'</button>').join('')+'</div></div>'+
+    grpChips('roast',['浅','中','深'],'焙煎ぐあい')+
+    '<p class="tiny" style="margin:-10px 0 16px">深く焼くほど苦味とコクが増え、酸味は減ります。</p>'+
+    grpChips('area',AREAS,'産地')+
+    '<div class="field"><label>値段の上限（100gあたり）：<b id="pv">'+yen(f.pmax)+'</b></label>'+
+      '<input type="range" class="range" id="prange" min="300" max="8000" step="100" value="'+f.pmax+'"></div>'+
+    '<div class="note">値段は必ず100gあたりに揃えて比べています。袋の内容量がバラバラのまま並べると、比較そのものが意味を失うためです。</div>'+
+    '</div>';
+  openSheet('しぼりこむ',body,
+    '<button class="btn ghost" data-act="clearall" style="flex:1">条件をクリア</button>'+
+    '<button class="btn" data-close style="flex:2" id="applybtn">'+filtered().length+'件を見る</button>',
+    ()=>{const r=$('#prange');r.oninput=e=>{S.filter.pmax=+e.target.value;$('#pv').textContent=yen(S.filter.pmax);
+      $('#applybtn').textContent=filtered().length+'件を見る';};
+      r.onchange=()=>{save();renderList();refreshSheetCounts()}});
+}
+function refreshSheetCounts(){if($('#sheet').classList.contains('on')&&$('#sheet-title').textContent==='しぼりこむ')filterSheet()}
+
+function sortSheet(){
+  openSheet('並べ替え','<div class="pad">'+SORTS.map(s=>
+    '<button class="btn ghost wide" style="margin-bottom:10px;justify-content:flex-start" data-act="sort" data-v="'+s[0]+'">'+
+    (S.sort===s[0]?'✓ ':'　')+s[1]+(s[0]==='reco'&&!S.pref?'（3問に答えると精度が上がります）':'')+'</button>').join('')+
+    '<p class="tiny">「安い順」は100gあたりの目安価格で並べています。</p></div>','<button class="btn wide" data-close>閉じる</button>');
+}
+
+/* =========================================================================
+   イベント
+   ========================================================================= */
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-act],[data-close],[data-closefull],[data-go]');
+  if(!t)return;
+  if(t.hasAttribute('data-close')){closeSheet();return}
+  if(t.hasAttribute('data-closefull')){closeFull();return}
+  if(t.dataset.go){setView(t.dataset.go);return}
+  const a=t.dataset.act,id=t.dataset.id;
+
+  if(a==='detail'){if(e.target.closest('[data-act="fav"],[data-act="cmp"]'))return;openDetail(id)}
+  else if(a==='pdetail'){if(e.target.closest('[data-act="fav"]'))return;openProd(id)}
+  else if(a==='mode'){S.mode=t.dataset.v;S.filter.shop=[];save();$('#q').value='';renderList()}
+  else if(a==='allshops'){S.filter.shop=[];save();renderList();window.scrollTo(0,0)}
+  else if(a==='opensort'){sortSheet()}
+  else if(a==='shotwithp'){closeFull();setView('esp');shotSheet({beanId:id})}
+  else if(a==='fav'){e.stopPropagation();
+    S.fav=S.fav.includes(id)?S.fav.filter(x=>x!==id):[id].concat(S.fav);save();
+    renderList();if($('#full').classList.contains('on'))openDetail(id);renderMy();renderMap()}
+  else if(a==='cmp'){e.stopPropagation();
+    if(S.cmp.includes(id))S.cmp=S.cmp.filter(x=>x!==id);
+    else if(S.cmp.length>=3){alert('くらべられるのは3件までです。どれかを外してください。');return}
+    else S.cmp.push(id);
+    save();renderList();if($('#full').classList.contains('on')&&$('#full-title').textContent.startsWith('くらべる'))
+      (S.cmp.length>=2?openCompare():closeFull());else if($('#full').classList.contains('on'))openDetail(id)}
+  else if(a==='mood'||a==='f'){const k=a==='mood'?'mood':t.dataset.k,v=a==='mood'?id:t.dataset.v;
+    S.filter[k]=S.filter[k].includes(v)?S.filter[k].filter(x=>x!==v):S.filter[k].concat(v);
+    save();renderList();renderMap();refreshSheetCounts()}
+  else if(a==='untag'){const k=t.dataset.k;
+    if(k==='pmax')S.filter.pmax=8000;else S.filter[k]=S.filter[k].filter(x=>x!==t.dataset.v);
+    save();renderList();renderMap()}
+  else if(a==='clearall'){S.filter=DEF().filter;save();closeSheet();$('#q').value='';renderList();renderMap()}
+  else if(a==='relax'){const r=relaxSuggest();if(r){r.apply();save();renderList();renderMap()}}
+  else if(a==='sort'){S.sort=t.dataset.v;save();closeSheet();renderList()}
+  else if(a==='mapax'){mapY=+t.dataset.v;renderMap()}
+  else if(a==='mapview'){mapView=t.dataset.v;renderMap();window.scrollTo(0,0)}
+  else if(a==='diag'){diagSheet()}
+  else if(a==='qa'){const o=QS[qi].a[+t.dataset.i][1];Object.assign(qacc,o);qi++;nextQ()}
+  else if(a==='rate'){const cur=S.log[id]||{},me=$('#logmemo');
+    S.log[id]=Object.assign({},cur,{rate:cur.rate===t.dataset.v?'':t.dataset.v,
+      memo:me?me.value:(cur.memo||''),at:Date.now()});
+    save();openDetail(id);renderMy()}
+  else if(a==='savememo'){const m=$('#logmemo').value;
+    S.log[id]=Object.assign({rate:''},S.log[id],{memo:m,at:Date.now()});save();renderMy();
+    t.textContent='保存しました';setTimeout(()=>{t.textContent='ひとことを保存'},1200)}
+  else if(a==='shotwith'){closeFull();setView('esp');shotSheet({beanId:id})}
+  else if(a==='newshot'){shotSheet()}
+  else if(a==='st'){stepField(t.dataset.k,+t.dataset.d)}
+  else if(a==='setsec'){form.timeSec=+t.dataset.v;$('#f-timeSec').innerHTML=form.timeSec+'<small>秒</small>';calc()}
+  else if(a==='saveshot'){saveShot()}
+  else if(a==='taste'){tasteSheet(id)}
+  else if(a==='tset'){const s=S.shots.find(x=>x.status==='draft');if(!s)return;
+    s[t.dataset.k]=+t.dataset.v;save();tasteSheet(s.id)}
+  else if(a==='spray'){const s=S.shots.find(x=>x.status==='draft');if(!s)return;
+    s.spray=t.dataset.v==='1';save();tasteSheet(s.id)}
+  else if(a==='star'){const s=S.shots.find(x=>x.status==='draft');if(!s)return;
+    s.rating=+t.dataset.v;save();tasteSheet(s.id)}
+  else if(a==='donetaste'){const s=S.shots.find(x=>x.id===id);if(!s)return;
+    s.status='done';s.adv=advise(s);save();closeSheet();renderEsp();setView('esp')}
+  else if(a==='applyadv'){const L=lastDone();shotSheet(Object.assign({beanId:L.beanId,doseG:L.doseG,
+    yieldG:L.yieldG,timeSec:L.timeSec,grindValue:L.grindValue},L.adv.next))}
+  else if(a==='reuse'){const s=S.shots.find(x=>x.id===id);if(s)shotSheet({beanId:s.beanId,doseG:s.doseG,
+    yieldG:s.yieldG,timeSec:s.timeSec,grindValue:s.grindValue})}
+  else if(a==='gr'){grinderSheet()}
+  else if(a==='gset'){readGear();S.grinder[t.dataset.k]=t.dataset.v;save();grinderSheet()}
+  else if(a==='mset'){readGear();S.machine.bottomless=t.dataset.v==='1';save();grinderSheet()}
+  else if(a==='gsave'){readGear();save();closeSheet();renderEsp()}
+  else if(a==='export'){exportJSON()}
+  else if(a==='importbtn'){$('#importfile').click()}
+  else if(a==='shoot'){e.stopPropagation();shootTarget=id;$('#photofile').click()}
+  else if(a==='delphoto'){if(confirm('この写真を消しますか？')){delPhoto(id);refreshAfterPhoto(id)}}
+  else if(a==='myedit'){closeFull();myBeanSheet(id)}
+  else if(a==='mysave'){saveMyBean()}
+  else if(a==='mydel'){deleteMyBean(id)}
+  else if(a==='addmy'){myBeanSheet()}
+  else if(a==='backup'){backupSheet()}
+  else if(a==='copytext'){copyBackup(t)}
+  else if(a==='pastetext'){pasteBackup()}
+  else if(a==='mydot'){if(!myForm)return;
+    const i=+t.dataset.i,v=+t.dataset.v,row=t.closest('.dots');
+    myForm.t[i]=v;
+    Array.prototype.forEach.call(row.querySelectorAll('.dd button'),(b,k)=>b.classList.toggle('on',k<v));
+    row.querySelector('.wd').textContent=word(v)}
+  else if(a==='mydecaf'){if(!myForm)return;
+    myForm.decaf=t.dataset.v==='1';
+    Array.prototype.forEach.call(t.parentNode.children,b=>b.setAttribute('aria-pressed',b===t))}
+});
+$('#btn-add').onclick=()=>myBeanSheet();
+$('#btn-filter').onclick=filterSheet;
+$('#btn-sort').onclick=sortSheet;
+$('#btn-gr').onclick=grinderSheet;
+$('#btn-newshot').onclick=()=>shotSheet();
+$('#btn-compare').onclick=openCompare;
+$('#q').oninput=()=>{renderList();renderMap()};
+$('#btn-theme').onclick=()=>{
+  const cur=document.documentElement.getAttribute('data-theme');
+  const next=cur==='dark'?'light':cur==='light'?'':'dark';
+  if(next)document.documentElement.setAttribute('data-theme',next);
+  else document.documentElement.removeAttribute('data-theme');
+  S.theme=next;save();renderMap()};
+
+/* ブラウザによってはファイルの保存がそもそもできない（スマホや、公開ページとして
+   開いたとき）。そこで文字にして持ち出せる経路を必ず用意しておく。
+   写真は文字にすると膨大になるので、こちらには含めない。 */
+/* パソコンで直接ファイルを開いているときだけ、ファイルの保存ができる。
+   ウェブに公開したページの中ではブラウザが保存を止めるので、文字の控えに一本化する。 */
+function canDownload(){
+  try{return location.protocol==='file:'}catch(e){return false}
+}
+function backupSheet(){
+  const light=Object.assign({},S,{photos:{}});
+  const json=JSON.stringify(light);
+  const body='<div class="pad">'+
+    '<p class="muted" style="margin:0 0 12px">下の文字をすべてコピーして、メモ帳やメールに貼って保管してください。'+
+    '別の端末では、下段に貼り付ければそのまま戻せます。</p>'+
+    '<textarea id="bk-text" readonly style="min-height:130px;font-size:11.5px;line-height:1.5">'+esc(json)+'</textarea>'+
+    '<button class="btn wide" style="margin-top:10px" data-act="copytext">この文字をコピーする</button>'+
+    '<div class="note" style="margin-top:12px">豆の登録・感想・抽出の記録・設定がすべて入っています（'+
+    Math.round(json.length/1024)+'KB）。<b>写真だけは文字にできないので入っていません。</b>'+
+    '写真ごと残したいときは、パソコンで「ファイルに書き出す」を使ってください。</div>'+
+    '<div class="hr" style="margin:22px 0"></div>'+
+    '<label style="display:block;font-size:12.5px;font-weight:700;color:var(--sub);margin-bottom:9px;'+
+    'letter-spacing:.06em">保管しておいた文字から戻す</label>'+
+    '<textarea id="bk-in" placeholder="ここに貼り付けてください" style="min-height:100px;font-size:11.5px"></textarea>'+
+    '<button class="btn ghost wide" style="margin-top:10px" data-act="pastetext">貼り付けた内容で戻す</button>'+
+    '</div>';
+  openSheet('記録の控え',body);
+}
+function copyBackup(btn){
+  const el=$('#bk-text');if(!el)return;
+  const done=()=>{btn.textContent='コピーしました';S.lastExport=Date.now();save();
+    setTimeout(()=>{btn.textContent='この文字をコピーする'},1600)};
+  const manual=()=>{
+    try{el.focus();el.select();
+      if(document.execCommand&&document.execCommand('copy'))return done();
+    }catch(e){}
+    alert('自動でコピーできませんでした。上の枠を長押しして、すべて選んでコピーしてください。');
+  };
+  if(navigator.clipboard&&navigator.clipboard.writeText)
+    navigator.clipboard.writeText(el.value).then(done,manual);
+  else manual();
+}
+function pasteBackup(){
+  const el=$('#bk-in');const v=el&&el.value?el.value.trim():'';
+  if(!v){alert('先に、保管しておいた文字を貼り付けてください。');return}
+  let d;
+  try{d=JSON.parse(v)}
+  catch(e){alert('読み取れませんでした。文字が途中で切れていないか確かめてください。');return}
+  if(!d||typeof d!=='object'){alert('この文字は記録の控えではないようです。');return}
+  if(!confirm('いまこの端末にある記録は上書きされます。よろしいですか？'))return;
+  const keepPhotos=S.photos||{};
+  S=migrate(d);
+  /* 控えに写真は入っていないので、いま端末にある写真はそのまま残す */
+  Object.keys(keepPhotos).forEach(k=>{if(!S.photos[k])S.photos[k]=keepPhotos[k]});
+  save();closeSheet();renderAll();alert('記録を戻しました。');
+}
+function exportJSON(){
+  try{
+    const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download='まめ比べ_backup_'+new Date().toISOString().slice(0,10)+'.json';
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    S.lastExport=Date.now();save();renderMy();
+  }catch(err){alert('書き出しに失敗しました：'+err.message)}
+}
+document.addEventListener('change',e=>{
+  if(e.target.id==='photofile'){
+    const f=e.target.files&&e.target.files[0];e.target.value='';
+    const id=shootTarget;shootTarget=null;
+    if(!f||!id)return;
+    compressImage(f,520,0.72).then(d=>{if(setPhoto(id,d))refreshAfterPhoto(id)})
+      .catch(err=>alert('写真を取り込めませんでした：'+err.message));
+    return;
+  }
+  if(e.target.id!=='importfile')return;
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{try{
+    const d=JSON.parse(r.result);
+    if(!d||typeof d!=='object')throw new Error('形式が違います');
+    if(!confirm('読み込むと、いまの記録は上書きされます。よろしいですか？'))return;
+    S=migrate(d);save();renderAll();alert('読み込みました。');
+  }catch(err){alert('読み込めませんでした：'+err.message)}};
+  r.readAsText(f);e.target.value='';
+});
+
+/* ===== ビュー切替 ===== */
+function setView(v){
+  document.body.dataset.view=v;
+  document.querySelectorAll('.tabbar button').forEach(b=>b.setAttribute('aria-selected',b.dataset.go===v));
+  $('#apptitle').textContent={search:'まめ比べ',map:'味の地図',esp:'エスプレッソ',my:'わたしの記録'}[v];
+  $('#btn-filter').style.display=(v==='search'||v==='map')?'grid':'none';
+  if(v==='map')renderMap();if(v==='esp')renderEsp();if(v==='my')renderMy();
+  window.scrollTo(0,0);
+}
+
+/* ===== 用語集 ===== */
+$('#glossary').innerHTML=[
+  ['精製方法（せいせい）','コーヒーの実から種（＝豆）を取り出す方法のこと。<b>味に一番効く要素のひとつ</b>で、同じ産地でもこれが違うと別物になります。'],
+  ['ウォッシュト','果肉を洗い落としてから乾かす方法。雑味が少なく、酸味がきれいに出ます。'],
+  ['ナチュラル','実をつけたまま天日で干す方法。果実の甘い香りが強く出ます。'],
+  ['ハニー製法','果肉を少し残して乾かす方法。上のふたつの中間で、甘みが乗ります。蜂蜜は使いません。'],
+  ['焙煎度（ばいせんど）','豆をどれだけ深く焼いたか。日本では8段階（ライト／シナモン／ミディアム／ハイ／シティ／フルシティ／フレンチ／イタリアン）で呼びます。<b>深く焼くほど苦味とコクが増え、酸味は減ります。</b>'],
+  ['フレーバーノート','「ブルーベリー」「ジャスミン」など、感じられる香りを他の食べ物にたとえた言葉。<b>その材料が入っているわけではありません。</b>'],
+  ['シングルオリジン','ひとつの国・地域・農園の豆だけで作られたもの。産地の個性がそのまま出ます。'],
+  ['ブレンド','複数の豆を混ぜたもの。味を安定させたり、狙った方向に作り込んだりできます。'],
+  ['スペシャルティコーヒー','産地までたどれて、品質評価が高い豆のこと。おおむね100gあたり700円以上の帯になります。'],
+  ['ブリューレシオ','エスプレッソで「粉の量：出来上がりの量」の比率。18gの粉から36g出せば1:2です。'],
+  ['ダイヤルイン','エスプレッソで、挽き目や量を少しずつ調整して、その豆のちょうどいい設定を探し当てる作業のこと。']
+].map(g=>'<div style="margin-bottom:14px"><strong style="font-size:14px">'+g[0]+'</strong>'+
+  '<p class="tiny" style="margin-top:3px">'+g[1]+'</p></div>').join('');
+
+/* ===== 起動 ===== */
+function renderAll(){renderList();renderMap();renderEsp();renderMy()}
+if(S.theme)document.documentElement.setAttribute('data-theme',S.theme);
+renderAll();setView('search');
+if(!S.pref&&!Object.keys(S.log).length&&!S.shots.length)setTimeout(diagSheet,400);
+</script>
+</body>
+</html>
