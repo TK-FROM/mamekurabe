@@ -252,11 +252,14 @@ body[data-view="esp"] #v-esp,body[data-view="my"] #v-my{display:block}
 .advice.ok .k{color:var(--ok)}
 
 /* ===== 収束バー ===== */
-.shotrow{display:grid;grid-template-columns:42px 1fr 40px 32px;align-items:center;gap:9px;
-  padding:8px 0;border-bottom:1px solid var(--line);font-size:12px}
+.shotrow{display:grid;grid-template-columns:40px 1fr 38px 30px 30px;align-items:center;gap:8px;
+  padding:7px 0;border-bottom:1px solid var(--line);font-size:12px}
 .shotrow:last-of-type{border-bottom:none}
 .shotrow .bar{height:16px;border-radius:6px;background:var(--track);position:relative;overflow:hidden}
 .shotrow .bar i{position:absolute;left:0;top:0;bottom:0;border-radius:6px;display:block}
+.shotrow button{min-height:30px;border-radius:8px}
+.shotrow button svg{width:15px;height:15px}
+.shotrow button:active{background:var(--chip);color:var(--bad)}
 
 /* ===== マップ ===== */
 .mapwrap{padding:0 16px}
@@ -476,7 +479,9 @@ body[data-view="search"] #tray.on ~ .fab{bottom:calc(140px + env(safe-area-inset
 <button class="fab" id="btn-add" aria-label="自分の豆を登録する">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
     <path d="M12 5.5v13M5.5 12h13"/></svg><span>豆を登録</span></button>
-<input type="file" id="photofile" accept="image/*" capture="environment" style="display:none">
+<!-- capture を付けるとカメラが直接立ち上がってしまい、保存済みの写真を選べない。
+     付けないことで「写真を撮る／フォトライブラリから選ぶ」を毎回選択できる。 -->
+<input type="file" id="photofile" accept="image/*" style="display:none">
 
 <nav class="tabbar" role="tablist">
   <button role="tab" data-go="search" aria-selected="true">
@@ -1380,7 +1385,9 @@ function grindOr(sh,fine,n,why,prep){
    味の議論をしても意味がないため。 */
 function advise(sh){
   const b=anyById(sh.beanId), g=grp(b?b.roast:5), T=TARGET[g], m=M();
-  const ratio=sh.yieldG/sh.doseG, flow=sh.yieldG/sh.timeSec, big=bigStep();
+  /* 抽出時間は記録しないことがある。その場合は時間の判定を飛ばして、味だけで見る。 */
+  const ratio=sh.yieldG/sh.doseG, hasTime=sh.timeSec>0, big=bigStep();
+  const flow=hasTime?sh.yieldG/sh.timeSec:0;
   const fill=m.capacityG?sh.doseG/m.capacityG:1;
   const R=(k,why,doIt,tip,next)=>({k,why,doIt,tip,next:next||null});
   const PREP='細い針で粉を全体にほぐし（WDT）、表面を平らにしてから、まっすぐ水平に押し固めてください。'+
@@ -1395,17 +1402,18 @@ function advise(sh){
     '粉を '+m.capacityG.toFixed(1)+'g まで増やす','粉が少ないと湯が素通りして、薄く水っぽくなります。',{doseG:+m.capacityG});
   if(sh.spray)return R('粉の準備','抽出中に横へ飛び散った＝湯の通り道ができています',
     '挽き目は変えず、粉のほぐし方を直す',PREP+'ここで挽き目をいじると、かえって悪くなります。');
-  if(flow>2.5||sh.timeSec<12)
-    return grindOr(sh,true,big,'湯が一気に抜けています（'+flow.toFixed(1)+'g/秒）',PREP);
-  if(sh.timeSec>50&&ratio<1.0)
-    return grindOr(sh,false,big,'詰まってほとんど落ちていません',PREP);
-
-  /* レイヤー1：抽出時間を目標帯に入れる */
-  const tw='（'+sh.timeSec+'秒／目標 '+T.tmin+'〜'+T.tmax+'秒）';
-  if(sh.timeSec<T.tmin-4)return grindOr(sh,true,Math.min(2,big+1),'抽出が速すぎます'+tw,PREP);
-  if(sh.timeSec<T.tmin)   return grindOr(sh,true,1,'少し速めです'+tw,PREP);
-  if(sh.timeSec>T.tmax+4) return grindOr(sh,false,Math.min(2,big+1),'抽出が遅すぎます'+tw,PREP);
-  if(sh.timeSec>T.tmax)   return grindOr(sh,false,1,'少し遅めです'+tw,PREP);
+  /* レイヤー1：抽出時間を目標帯に入れる。時間を測っていなければ丸ごと飛ばす。 */
+  if(hasTime){
+    if(flow>2.5||sh.timeSec<12)
+      return grindOr(sh,true,big,'湯が一気に抜けています（'+flow.toFixed(1)+'g/秒）',PREP);
+    if(sh.timeSec>50&&ratio<1.0)
+      return grindOr(sh,false,big,'詰まってほとんど落ちていません',PREP);
+    const tw='（'+sh.timeSec+'秒／目標 '+T.tmin+'〜'+T.tmax+'秒）';
+    if(sh.timeSec<T.tmin-4)return grindOr(sh,true,Math.min(2,big+1),'抽出が速すぎます'+tw,PREP);
+    if(sh.timeSec<T.tmin)   return grindOr(sh,true,1,'少し速めです'+tw,PREP);
+    if(sh.timeSec>T.tmax+4) return grindOr(sh,false,Math.min(2,big+1),'抽出が遅すぎます'+tw,PREP);
+    if(sh.timeSec>T.tmax)   return grindOr(sh,false,1,'少し遅めです'+tw,PREP);
+  }
 
   /* レイヤー2：時間は合っている。ここから味で判断する */
   if(sh.bal>=1&&sh.str<=-1)
@@ -1425,14 +1433,17 @@ function advise(sh){
   }
   if(sh.str<=-1)return R('抽出量','味の方向は良いですが薄いです',
     '抽出量を '+Math.round(sh.doseG*(ratio-0.3))+'g に減らす',
-    'バランスは崩さず濃さだけ上げます。アイスラテにするなら、ここは短めに切るのが正解です。',
+    'バランスは崩さず濃さだけ上げます。アイスラテにするなら、ここは短めに切るのが正解です。'+
+    (sh.milkMl>0?'牛乳を '+Math.max(50,sh.milkMl-30)+'ml に減らしても同じ効果があります。':''),
     {yieldG:+(sh.doseG*(ratio-0.3)).toFixed(1)});
   if(sh.str>=1)return R('抽出量','味の方向は良いですが濃すぎます',
     '抽出量を '+Math.round(sh.doseG*(ratio+0.3))+'g まで伸ばす','薄めます。',
     {yieldG:+(sh.doseG*(ratio+0.3)).toFixed(1)});
-  return R('完成','目標どおりのショットです（1:'+ratio.toFixed(1)+'／'+sh.timeSec+'秒）',
+  return R('完成','ちょうどいい一杯です（1:'+ratio.toFixed(1)+(hasTime?'／'+sh.timeSec+'秒':'')+
+    (sh.milkMl>0?'／牛乳'+sh.milkMl+'ml':'')+'）',
     'この設定を、この豆のベストとして覚えておく',
-    '次に同じ豆を買ったとき、ここから始めればダイヤルインは一発で終わります。');
+    '次に同じ豆を買ったとき、ここから始めればダイヤルインは一発で終わります。'+
+    (sh.milkMl>0?'牛乳の量も一緒に覚えておくので、同じ濃さのアイスカフェラテを再現できます。':''));
 }
 /* 同じ手を3回打って★が伸びていないなら、別の変数に切り替えるよう促す */
 function stuck(){
@@ -1443,12 +1454,22 @@ function stuck(){
 function lastDone(){return [...S.shots].reverse().find(s=>s.status==='done')}
 function draft(){return S.shots.find(s=>s.status==='draft')}
 
+/* 1杯ぶんの設定を短くまとめる。時間と牛乳は記録していないことがあるので、あるときだけ出す。 */
+function shotLine(s){
+  return s.doseG+'g → '+s.yieldG+'g（1:'+(s.yieldG/s.doseG).toFixed(1)+'）'+
+    (s.timeSec>0?'／'+s.timeSec+'秒':'')+
+    (s.milkMl>0?'／牛乳'+s.milkMl+'ml':'')+
+    '／挽き目 '+s.grindValue+G().unit;
+}
 function renderEsp(){
   const d=draft();
   $('#esp-draft').innerHTML=d?
-    '<div class="card" style="border-color:var(--warn)"><strong style="font-size:14px">☕ 味の評価まち</strong>'+
+    '<div class="card" style="border-color:var(--warn)"><div class="between">'+
+    '<strong style="font-size:14px">☕ 味の評価まち</strong>'+
+    '<button class="iconbtn" data-act="delshot" data-id="'+d.id+'" aria-label="この記録を消す" '+
+    'style="color:var(--bad)">'+ICON.trash+'</button></div>'+
     '<p class="muted" style="margin:4px 0 10px">'+esc((anyById(d.beanId)||{name:'豆'}).name)+'　'+
-    d.doseG+'g → '+d.yieldG+'g／'+d.timeSec+'秒</p>'+
+    shotLine(d)+'</p>'+
     '<button class="btn wide" data-act="taste" data-id="'+d.id+'">飲んだ感想を入れる</button></div>':'';
 
   const L=lastDone();
@@ -1472,21 +1493,26 @@ function renderEsp(){
   $('#esp-best').innerHTML=bs.length?'<div class="sec-title">うまくいったレシピ</div>'+bs.map(s=>{
     const b=anyById(s.beanId);return '<div class="card"><div class="between"><strong>'+
     esc(b?b.name:'—')+'</strong><span style="color:var(--gold)">'+'★'.repeat(s.rating)+'</span></div>'+
-    '<p class="muted" style="margin:6px 0 10px">粉 '+s.doseG+'g → '+s.yieldG+'g（1:'+(s.yieldG/s.doseG).toFixed(1)+
-    '）／'+s.timeSec+'秒／挽き目 '+s.grindValue+G().unit+'</p>'+
+    '<p class="muted" style="margin:6px 0 10px">'+shotLine(s)+'</p>'+
     '<button class="btn ghost wide" data-act="reuse" data-id="'+s.id+'">このレシピで淹れる</button></div>'}).join(''):'';
 
-  const done=S.shots.filter(s=>s.status==='done').slice(-10);
+  const done=S.shots.filter(s=>s.status==='done').slice(-12);
   $('#esp-history').innerHTML=done.length?'<div class="card">'+done.map(s=>{
     const col=s.bal<0?'var(--s2)':s.bal>0?'var(--s1)':'var(--ok)';
-    const w=Math.min(100,s.timeSec/45*100);
-    return '<div class="shotrow"><span class="tiny">'+new Date(s.at).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'})+'</span>'+
-      '<span class="bar"><i style="width:'+w+'%;background:'+col+'"></i></span>'+
-      '<span class="tiny" style="text-align:right">'+s.timeSec+'秒</span>'+
-      '<span class="tiny" style="text-align:right">'+(s.rating?'★'+s.rating:'—')+'</span></div>'}).join('')+
-    '<p class="tiny" style="margin-top:12px">棒の長さ＝抽出時間。<span style="color:var(--s2);font-weight:700">青緑</span>＝酸っぱい／'+
+    /* 時間を測っていない記録は、棒いっぱいに色だけを見せる */
+    const w=s.timeSec>0?Math.min(100,s.timeSec/45*100):100;
+    return '<div class="shotrow"><span class="tiny">'+
+      new Date(s.at).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'})+'</span>'+
+      '<span class="bar"><i style="width:'+w+'%;background:'+col+'"'+
+      (s.timeSec>0?'':';opacity:.5')+'></i></span>'+
+      '<span class="tiny" style="text-align:right">'+(s.timeSec>0?s.timeSec+'秒':'—')+'</span>'+
+      '<span class="tiny" style="text-align:right;color:var(--gold)">'+(s.rating?'★'+s.rating:'—')+'</span>'+
+      '<button data-act="delshot" data-id="'+s.id+'" aria-label="この記録を消す" '+
+      'style="color:var(--mute);display:grid;place-items:center">'+ICON.trash+'</button></div>'}).join('')+
+    '<p class="tiny" style="margin-top:12px">棒の長さ＝抽出時間（測っていない記録は薄い色で全幅）。'+
+    '<span style="color:var(--s2);font-weight:700">青緑</span>＝酸っぱい／'+
     '<span style="color:var(--ok);font-weight:700">緑</span>＝ちょうど／<span style="color:var(--s1);font-weight:700">赤茶</span>＝苦い。'+
-    '緑がそろってきたら、その豆のダイヤルインは完了です。</p></div>':
+    '緑がそろってきたら、その豆のダイヤルインは完了です。右のごみ箱で1件ずつ消せます。</p></div>':
     '<div class="empty" style="padding:24px"><span class="g">☕</span>まだ記録がありません。<br>1杯目を記録すると、次にどう調整すればいいかを提案します。'+
     '<p class="tiny" style="margin-top:16px;text-align:left">いまの設定<br>'+
     '・'+esc(M().name)+'（'+M().basketMm+'mm・約'+M().capacityG+'g'+(M().bottomless?'・ボトムレス':'')+'）<br>'+
@@ -1498,12 +1524,13 @@ let form={};
 function shotSheet(pre){
   const g=G(), m=M(), last=[...S.shots].reverse()[0];
   form=Object.assign({beanId:(BEANS.find(b=>b.brew.includes('エスプレッソ'))||BEANS[0]).id,
-    doseG:m.capacityG,yieldG:+(m.capacityG*2).toFixed(1),timeSec:28,
+    doseG:m.capacityG,yieldG:+(m.capacityG*2).toFixed(1),timeSec:0,milkMl:150,
     grindValue:+((espLo()+espHi())/2).toFixed(1)},
-    last?{beanId:last.beanId,doseG:last.doseG,yieldG:last.yieldG,timeSec:last.timeSec,grindValue:last.grindValue}:{},pre||{});
+    last?{beanId:last.beanId,doseG:last.doseG,yieldG:last.yieldG,timeSec:last.timeSec||0,
+      milkMl:last.milkMl||0,grindValue:last.grindValue}:{},pre||{});
   const step=(k,label,unit,dec)=>'<div class="field"><label>'+label+'</label><div class="step">'+
     '<button data-act="st" data-k="'+k+'" data-d="-1">−</button>'+
-    '<span class="val" id="f-'+k+'">'+form[k].toFixed(dec)+'<small>'+unit+'</small></span>'+
+    '<span class="val" id="f-'+k+'">'+stepLabel(k,dec)+'<small>'+unit+'</small></span>'+
     '<button data-act="st" data-k="'+k+'" data-d="1">＋</button></div></div>';
   const body='<div class="pad">'+
     '<div class="field"><label>豆</label><select id="f-bean">'+
@@ -1515,9 +1542,16 @@ function shotSheet(pre){
         (b.id===form.beanId?' selected':'')+'>'+esc(b.name)+'</option>').join('')+'</optgroup></select></div>'+
     step('doseG','粉の量（ドーズ）','g',1)+
     step('yieldG','出来上がりの量','g',1)+
-    step('timeSec','抽出時間','秒',0)+
-    '<div class="field"><label>抽出時間をすばやく</label><div class="chips">'+
-      [20,24,26,28,30,32,36].map(v=>'<button class="chip" data-act="setsec" data-v="'+v+'">'+v+'秒</button>').join('')+'</div></div>'+
+    step('timeSec','抽出時間（測っていなければ「記録しない」でOK）','秒',0)+
+    '<div class="field"><div class="chips">'+
+      '<button class="chip" data-act="setsec" data-v="0">記録しない</button>'+
+      [20,24,26,28,30,32,36].map(v=>'<button class="chip" data-act="setsec" data-v="'+v+'">'+v+'秒</button>').join('')+
+      '</div><p class="tiny" style="margin-top:6px">時間がないときは、味だけを見て次の一手を出します。</p></div>'+
+    step('milkMl','牛乳の量（アイスカフェラテ用）','ml',0)+
+    '<div class="field"><div class="chips">'+
+      '<button class="chip" data-act="setmilk" data-v="0">入れない</button>'+
+      [100,120,150,180,200,250].map(v=>'<button class="chip" data-act="setmilk" data-v="'+v+'">'+v+'ml</button>').join('')+
+      '</div></div>'+
     step('grindValue','挽き目','',1)+
     '<div class="note">'+esc(m.name)+'（'+m.basketMm+'mm・約'+m.capacityG+'g）／'+esc(g.name)+
     '：エスプレッソに使うのは '+espLo()+'〜'+espHi()+esc(g.unit)+'、数字が'+(g.finer==='down'?'小さい':'大きい')+
@@ -1528,25 +1562,39 @@ function shotSheet(pre){
     ()=>{$('#f-bean').onchange=e=>{form.beanId=e.target.value;calc()};calc()});
 }
 function calc(){
-  const r=form.yieldG/form.doseG, f=form.yieldG/form.timeSec, fill=form.doseG/M().capacityG;
-  let warn='';
-  if(f>2.5)warn='<br>⚠ 流れが速すぎます（挽き目が粗すぎるか、湯の通り道ができています）';
-  else if(f<0.7)warn='<br>⚠ 流れが遅すぎます（挽き目が細かすぎるか、粉が多すぎます）';
+  const r=form.yieldG/form.doseG, fill=form.doseG/M().capacityG;
+  let h='レシオ <b>1:'+r.toFixed(1)+'</b>', warn='';
+  if(form.timeSec>0){
+    const f=form.yieldG/form.timeSec;
+    h+='　／　流量 <b>'+f.toFixed(1)+'</b> g/秒';
+    if(f>2.5)warn='<br>⚠ 流れが速すぎます（挽き目が粗すぎるか、湯の通り道ができています）';
+    else if(f<0.7)warn='<br>⚠ 流れが遅すぎます（挽き目が細かすぎるか、粉が多すぎます）';
+  }else h+='　／　時間は記録しません';
+  if(form.milkMl>0)h+='<br>牛乳 '+form.milkMl+'ml ＝ エスプレッソ <b>1 : '+
+    (form.milkMl/form.yieldG).toFixed(1)+'</b> の濃さ';
   if(fill>1.15)warn+='<br>⚠ '+M().basketMm+'mmバスケット（約'+M().capacityG+'g）に対して粉が多すぎます';
   else if(fill<0.65)warn+='<br>⚠ バスケットに対して粉が少なすぎます';
-  const el=$('#f-calc');if(el)el.innerHTML='レシオ <b>1:'+r.toFixed(1)+'</b>　／　流量 <b>'+f.toFixed(1)+'</b> g/秒'+warn;
+  const el=$('#f-calc');if(el)el.innerHTML=h+warn;
+}
+const STEP_INC={doseG:0.1,yieldG:0.5,timeSec:1,milkMl:10,grindValue:1};
+const STEP_DEC={doseG:1,yieldG:1,timeSec:0,milkMl:0,grindValue:1};
+const STEP_UNIT={doseG:'g',yieldG:'g',timeSec:'秒',milkMl:'ml',grindValue:''};
+/* 抽出時間と牛乳は「記録しないことがある」ので、0 のときは数字ではなく「—」と見せる */
+function stepLabel(k,dec){
+  if((k==='timeSec'||k==='milkMl')&&!form[k])return '—';
+  return (+form[k]).toFixed(dec===undefined?STEP_DEC[k]:dec);
 }
 function stepField(k,d){
-  const inc={doseG:0.1,yieldG:0.5,timeSec:1,grindValue:G().step}[k];
-  const dec={doseG:1,yieldG:1,timeSec:0,grindValue:1}[k];
+  const inc=k==='grindValue'?G().step:STEP_INC[k];
   form[k]=Math.max(0,+(form[k]+d*inc).toFixed(2));
   const el=$('#f-'+k);
-  if(el)el.innerHTML=form[k].toFixed(dec)+'<small>'+({doseG:'g',yieldG:'g',timeSec:'秒',grindValue:''})[k]+'</small>';
+  if(el)el.innerHTML=stepLabel(k)+'<small>'+STEP_UNIT[k]+'</small>';
   calc();
   if(navigator.vibrate)navigator.vibrate(8);
 }
 function saveShot(){
-  const s=Object.assign({id:'s'+Date.now(),at:Date.now(),status:'draft',bal:0,str:0,rating:0,spray:false,adv:null},form);
+  const s=Object.assign({id:'s'+Date.now(),at:Date.now(),status:'draft',bal:0,str:0,rating:0,
+    spray:false,timeSec:0,milkMl:0,adv:null},form);
   const d=draft();if(d)S.shots=S.shots.filter(x=>x.id!==d.id);
   S.shots.push(s);save();closeSheet();renderEsp();tasteSheet(s.id);
 }
@@ -1973,7 +2021,12 @@ document.addEventListener('click',e=>{
   else if(a==='shotwith'){closeFull();setView('esp');shotSheet({beanId:id})}
   else if(a==='newshot'){shotSheet()}
   else if(a==='st'){stepField(t.dataset.k,+t.dataset.d)}
-  else if(a==='setsec'){form.timeSec=+t.dataset.v;$('#f-timeSec').innerHTML=form.timeSec+'<small>秒</small>';calc()}
+  else if(a==='setsec'){form.timeSec=+t.dataset.v;
+    const e=$('#f-timeSec');if(e)e.innerHTML=stepLabel('timeSec')+'<small>秒</small>';calc()}
+  else if(a==='setmilk'){form.milkMl=+t.dataset.v;
+    const e=$('#f-milkMl');if(e)e.innerHTML=stepLabel('milkMl')+'<small>ml</small>';calc()}
+  else if(a==='delshot'){if(!confirm('この記録を消しますか？'))return;
+    S.shots=S.shots.filter(x=>x.id!==id);save();closeSheet();renderEsp()}
   else if(a==='saveshot'){saveShot()}
   else if(a==='taste'){tasteSheet(id)}
   else if(a==='tset'){const s=S.shots.find(x=>x.status==='draft');if(!s)return;
@@ -1985,9 +2038,9 @@ document.addEventListener('click',e=>{
   else if(a==='donetaste'){const s=S.shots.find(x=>x.id===id);if(!s)return;
     s.status='done';s.adv=advise(s);save();closeSheet();renderEsp();setView('esp')}
   else if(a==='applyadv'){const L=lastDone();shotSheet(Object.assign({beanId:L.beanId,doseG:L.doseG,
-    yieldG:L.yieldG,timeSec:L.timeSec,grindValue:L.grindValue},L.adv.next))}
+    yieldG:L.yieldG,timeSec:L.timeSec||0,milkMl:L.milkMl||0,grindValue:L.grindValue},L.adv.next))}
   else if(a==='reuse'){const s=S.shots.find(x=>x.id===id);if(s)shotSheet({beanId:s.beanId,doseG:s.doseG,
-    yieldG:s.yieldG,timeSec:s.timeSec,grindValue:s.grindValue})}
+    yieldG:s.yieldG,timeSec:s.timeSec||0,milkMl:s.milkMl||0,grindValue:s.grindValue})}
   else if(a==='gr'){grinderSheet()}
   else if(a==='gset'){readGear();S.grinder[t.dataset.k]=t.dataset.v;save();grinderSheet()}
   else if(a==='mset'){readGear();S.machine.bottomless=t.dataset.v==='1';save();grinderSheet()}
