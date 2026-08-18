@@ -7,78 +7,106 @@
 <style>
 /* 見た目の設計メモ（あとで直すときはここを先に読む）
 
-   考え方は「豆を量って、淹れて、記録する道具」に見せること。喫茶店の内装ではなく、
-   計量器やドリップスケールの側に寄せている。
+   この画面が扱っているのは、豆という「植物の実」である。そこを手がかりに色を決めた。
+   コーヒーの実は熟すと赤くなり、葉は深い緑をしている。焙煎してはじめて茶色になる。
+   だから 地＝生成り／文字＝葉の緑がかった黒／差し色＝熟した実の赤 で組み立ててある。
 
-   ・地の色は白でもクリーム色でもなく、ごくわずかに緑を含んだ灰色にした。
-     クリーム色は豆と焙煎の茶色と溶けてしまい、主役であるはずの豆の色が沈む。
-     無彩色に寄せると、同じ茶色がはっきり浮き上がる。
+   ・地の色は、ほんのり赤みを含んだ生成り。純粋な灰色は正確だが冷たく、
+     クリーム色（黄みの生成り）は豆の茶色と溶けて主役が沈む。その中間を狙っている。
+   ・文字の黒は、わずかに緑を含んだ黒。真っ黒は硬く、茶色の隣に置くと浮く。
    ・差し色はコーヒーチェリーの赤ひとつだけ。使う場所は「いま選ばれているもの」に限る。
      色を足すほど、どこを見ればいいのか分からなくなる。
+   ・焙煎の色（--roast-*）は帯だけでなく、カードの地にもごく薄く敷いている。
+     一覧を上から眺めたときに浅煎りから深煎りへの移ろいが見え、眺めていて飽きない。
+     ただし濃さは 4〜7% まで。これ以上濃くすると文字が読みにくくなる。
    ・数字（g・秒・円）はすべて等幅フォント（--mono）で組む。桁が縦に揃うので、
      値段や抽出時間を上下に並べたときに一目で大小が分かる。
-   ・角の丸みは小さめ、影はほぼ無し、境目は1pxの線で表す。
-     大きな丸みとふんわりした影は「やわらかさ」の記号なので、モダンさとは逆に働く。
+   ・影は灰色ではなく、地の色みを含ませた影にしている。無彩色の影は紙面を濁らせる。
+   ・一覧は少しずつ遅れて浮かび上がる。触ったことへの手ごたえになる。
+     動きが苦手な人の設定（prefers-reduced-motion）では、末尾の指定で全部止まる。
 
    系列色（s1〜s3）は比較画面で3件を見分けるためのもので、
    色相を赤・青緑・金と大きく離し、背景とのコントラストも3:1以上を確保している。
    --serif は旧デザインの名残の名前だが、今は明朝体ではなく見出し用のゴシックを指す。
    本文側にこの名前が残っていても壊れないよう、別名として残してある。 */
 :root{
-  --bg:#f3f4f1; --bg2:#eaece8; --card:#ffffff; --text:#15191a;
-  --sub:#5a615e; --mute:#8b918d;
-  --line:#e1e4df; --track:#e7eae5; --chip:#edefeb; --chipOn:#b32d3f; --chipOnText:#ffffff;
-  --accent:#b32d3f; --accent-soft:#fbeaec; --gold:#c08a12;
-  --s1:#b32d3f; --s2:#1f7a8c; --s3:#96690a;
+  --bg:#fbf7f4; --bg2:#f4ebe6; --card:#ffffff; --text:#1c2320;
+  --sub:#5f6360; --mute:#8b8a88;
+  --line:#ece1db; --track:#f0e6e1; --chip:#f6efeb; --chipOn:#b02a4c; --chipOnText:#fffafb;
+  --accent:#b02a4c; --accent-soft:#fdecef; --gold:#c08a12;
+  --s1:#b02a4c; --s2:#1f7a8c; --s3:#96690a;
   --warn:#a2670f; --ok:#2f7d5b; --bad:#c0392b;
   --roast-l:#e2c9a2; --roast-m:#b5835a; --roast-d:#6f4a33;
-  --shadow:0 1px 2px rgba(20,30,25,.05);
-  --shadow-lift:0 4px 16px rgba(20,30,25,.12);
+  /* カードの地に敷く焙煎色。地の生成りに溶け込む濃さに抑えてある */
+  --wash-l:rgba(226,201,162,.30); --wash-m:rgba(181,131,90,.16); --wash-d:rgba(111,74,51,.13);
+  --shadow:0 1px 2px rgba(96,62,54,.05), 0 4px 14px rgba(96,62,54,.05);
+  --shadow-lift:0 4px 12px rgba(96,62,54,.10), 0 16px 32px rgba(96,62,54,.10);
+  /* 余白に薄く重ねる豆の形。地が明るいので黒の豆を置く */
+  --glyph:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cellipse cx='12' cy='12' rx='6.4' ry='9' transform='rotate(38 12 12)' fill='%23000' fill-opacity='.05'/%3E%3C/svg%3E");
   --disp:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic UI","Noto Sans JP",sans-serif;
   --serif:var(--disp);
   --mono:ui-monospace,SFMono-Regular,"SF Mono","Roboto Mono",Menlo,Consolas,monospace;
-  --r-s:8px; --r-m:12px; --r-l:16px;
+  --r-s:10px; --r-m:14px; --r-l:20px;
 }
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
-    --bg:#101312; --bg2:#161a18; --card:#191d1b; --text:#eef1ee;
-    --sub:#a8b0ac; --mute:#7c8480;
-    --line:#282d2a; --track:#272c29; --chip:#202523; --chipOn:#ea6274; --chipOnText:#190a0d;
-    --accent:#ea6274; --accent-soft:#2b1a1d; --gold:#d9ab3c;
-    --s1:#ea6274; --s2:#5fb4c4; --s3:#d0a34a;
+    --bg:#14100f; --bg2:#1c1614; --card:#1e1817; --text:#f3ece8;
+    --sub:#b3aaa5; --mute:#8b8380;
+    --line:#302826; --track:#2c2422; --chip:#261f1d; --chipOn:#ef7288; --chipOnText:#1e0a10;
+    --accent:#ef7288; --accent-soft:#2f1a1f; --gold:#d9ab3c;
+    --s1:#ef7288; --s2:#5fb4c4; --s3:#d0a34a;
     --warn:#dda44f; --ok:#5fb08a; --bad:#e5715f;
     --roast-l:#d9bd93; --roast-m:#ab7d57; --roast-d:#7d5842;
-    --shadow:0 1px 2px rgba(0,0,0,.4);
-    --shadow-lift:0 6px 22px rgba(0,0,0,.5);
+    --wash-l:rgba(217,189,147,.10); --wash-m:rgba(171,125,87,.10); --wash-d:rgba(125,88,66,.14);
+    --shadow:0 1px 2px rgba(0,0,0,.45);
+    --shadow-lift:0 6px 24px rgba(0,0,0,.55);
+    /* 地が暗いので、豆は白で置く */
+    --glyph:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cellipse cx='12' cy='12' rx='6.4' ry='9' transform='rotate(38 12 12)' fill='%23fff' fill-opacity='.06'/%3E%3C/svg%3E");
   }
 }
 :root[data-theme="dark"]{
-  --bg:#101312; --bg2:#161a18; --card:#191d1b; --text:#eef1ee;
-  --sub:#a8b0ac; --mute:#7c8480;
-  --line:#282d2a; --track:#272c29; --chip:#202523; --chipOn:#ea6274; --chipOnText:#190a0d;
-  --accent:#ea6274; --accent-soft:#2b1a1d; --gold:#d9ab3c;
-  --s1:#ea6274; --s2:#5fb4c4; --s3:#d0a34a;
+  --bg:#14100f; --bg2:#1c1614; --card:#1e1817; --text:#f3ece8;
+  --sub:#b3aaa5; --mute:#8b8380;
+  --line:#302826; --track:#2c2422; --chip:#261f1d; --chipOn:#ef7288; --chipOnText:#1e0a10;
+  --accent:#ef7288; --accent-soft:#2f1a1f; --gold:#d9ab3c;
+  --s1:#ef7288; --s2:#5fb4c4; --s3:#d0a34a;
   --warn:#dda44f; --ok:#5fb08a; --bad:#e5715f;
   --roast-l:#d9bd93; --roast-m:#ab7d57; --roast-d:#7d5842;
-  --shadow:0 1px 2px rgba(0,0,0,.4);
-  --shadow-lift:0 6px 22px rgba(0,0,0,.5);
+  --wash-l:rgba(217,189,147,.10); --wash-m:rgba(171,125,87,.10); --wash-d:rgba(125,88,66,.14);
+  --shadow:0 1px 2px rgba(0,0,0,.45);
+  --shadow-lift:0 6px 24px rgba(0,0,0,.55);
+  --glyph:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cellipse cx='12' cy='12' rx='6.4' ry='9' transform='rotate(38 12 12)' fill='%23fff' fill-opacity='.06'/%3E%3C/svg%3E");
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0}
 body{
   font-family:var(--disp);
-  background:var(--bg); color:var(--text); font-size:16px; line-height:1.7;
+  background:var(--bg); color:var(--text); font-size:16px; line-height:1.75;
   letter-spacing:0; touch-action:manipulation; -webkit-text-size-adjust:100%;
   padding-bottom:calc(74px + env(safe-area-inset-bottom));
+  /* 画面の上のほうだけ、ほんのり温かい色を溜める。真っ平らな一色より奥行きが出る */
+  background-image:radial-gradient(130% 42% at 50% 0%, var(--bg2) 0%, transparent 68%);
+  background-attachment:fixed;
 }
 button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;touch-action:manipulation;
-  transition:transform .1s ease, background .16s ease, color .16s ease, border-color .16s ease}
-button:active{transform:scale(.98)}
+  transition:transform .12s ease, background .18s ease, color .18s ease,
+    border-color .18s ease, box-shadow .18s ease}
+button:active{transform:scale(.975)}
 input,select,textarea{font:inherit;font-size:16px;color:inherit}
-h1,h2,h3,h4{margin:0;line-height:1.35;letter-spacing:-.01em}
-:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+h1,h2,h3,h4{margin:0;line-height:1.35;letter-spacing:-.012em}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
 svg{display:block}
+
+/* 一覧が少しずつ遅れて浮かび上がる。順に出ることで、上から読む順序も自然に伝わる。
+   並び替えや絞り込みのたびに走るので、押した操作が効いたことが目で分かる。 */
+@keyframes rise-in{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+.bean,.prod,.shopcard{animation:rise-in .34s cubic-bezier(.22,.9,.3,1) both}
+.bean:nth-child(2),.prod:nth-child(2),.shopcard:nth-child(2){animation-delay:.03s}
+.bean:nth-child(3),.prod:nth-child(3),.shopcard:nth-child(3){animation-delay:.06s}
+.bean:nth-child(4),.prod:nth-child(4),.shopcard:nth-child(4){animation-delay:.09s}
+.bean:nth-child(5),.prod:nth-child(5),.shopcard:nth-child(5){animation-delay:.12s}
+.bean:nth-child(n+6),.prod:nth-child(n+6),.shopcard:nth-child(n+6){animation-delay:.15s}
 
 /* ===== ヘッダー / タブ ===== */
 .appbar{position:sticky;top:0;z-index:30;
@@ -96,19 +124,23 @@ svg{display:block}
   -webkit-backdrop-filter:blur(18px); backdrop-filter:blur(18px);
   border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
 .tabbar button{flex:1;height:64px;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:5px;font-size:10.5px;color:var(--mute);font-weight:700;letter-spacing:0;position:relative}
-.tabbar button svg{width:22px;height:22px;stroke-width:1.7}
-.tabbar button[aria-selected="true"]{color:var(--text)}
-.tabbar button[aria-selected="true"] svg{stroke-width:2.2;color:var(--accent)}
-.tabbar button[aria-selected="true"]::before{content:"";position:absolute;top:0;width:22px;height:2px;
-  background:var(--accent)}
+  gap:4px;font-size:10.5px;color:var(--mute);font-weight:700;letter-spacing:0;position:relative}
+.tabbar button svg{width:22px;height:22px;stroke-width:1.7;position:relative;z-index:1}
+.tabbar button span{position:relative;z-index:1}
+.tabbar button[aria-selected="true"]{color:var(--accent)}
+.tabbar button[aria-selected="true"] svg{stroke-width:2.1}
+/* 選ばれているタブは、アイコンの後ろにやわらかい色だまりを置く。
+   線1本より、どこにいるかがひと目で分かる。 */
+.tabbar button[aria-selected="true"]::before{content:"";position:absolute;top:9px;width:52px;height:30px;
+  border-radius:999px;background:var(--accent-soft)}
 main>section{display:none;padding:0 0 28px}
 body[data-view="search"] #v-search,body[data-view="map"] #v-map,
 body[data-view="esp"] #v-esp,body[data-view="my"] #v-my{display:block}
 
 /* ===== 共通パーツ ===== */
 .pad{padding:14px 18px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-l);padding:18px;margin:0 16px 12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-l);padding:18px;margin:0 16px 12px;
+  box-shadow:var(--shadow)}
 .muted{color:var(--sub);font-size:13.5px}
 .tiny{color:var(--mute);font-size:12px;line-height:1.7}
 .row{display:flex;align-items:center;gap:8px}
@@ -121,14 +153,18 @@ body[data-view="esp"] #v-esp,body[data-view="my"] #v-my{display:block}
 .chip{background:transparent;border:1px solid var(--line);border-radius:999px;padding:9px 15px;
   font-size:13.5px;font-weight:600;white-space:nowrap;min-height:40px;display:inline-flex;align-items:center;
   color:var(--sub);letter-spacing:0}
-.chip[aria-pressed="true"]{background:var(--chipOn);border-color:var(--chipOn);color:var(--chipOnText);font-weight:700}
+.chip[aria-pressed="true"]{border-color:var(--chipOn);color:var(--chipOnText);font-weight:700;
+  background:linear-gradient(160deg,color-mix(in srgb,var(--chipOn) 88%,#fff),var(--chipOn));
+  box-shadow:0 2px 10px color-mix(in srgb,var(--accent) 32%,transparent)}
 .chip:disabled{opacity:.3}
-.btn{background:var(--chipOn);color:var(--chipOnText);border-radius:var(--r-m);padding:14px 20px;
+.btn{color:var(--chipOnText);border-radius:var(--r-m);padding:14px 20px;
+  background:linear-gradient(160deg,color-mix(in srgb,var(--chipOn) 88%,#fff),var(--chipOn));
+  box-shadow:0 3px 14px color-mix(in srgb,var(--accent) 30%,transparent);
   font-weight:700;font-size:15px;min-height:50px;display:inline-flex;align-items:center;justify-content:center;gap:7px;
   letter-spacing:0}
-.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line);box-shadow:none}
 .btn.wide{width:100%}
-.btn:disabled{opacity:.38}
+.btn:disabled{opacity:.38;box-shadow:none}
 .searchbar{padding:2px 16px 10px}
 .searchbar input{width:100%;background:var(--card);border:1px solid var(--line);border-radius:var(--r-m);
   padding:13px 15px;min-height:48px}
@@ -145,20 +181,35 @@ body[data-view="esp"] #v-esp,body[data-view="my"] #v-my{display:block}
 .tbar{display:grid;grid-template-columns:50px 1fr 56px;align-items:center;gap:10px;min-height:28px}
 .tbar .lb{font-size:12.5px;color:var(--sub);font-weight:600;letter-spacing:0}
 .tbar .wd{font-family:var(--mono);font-size:11px;color:var(--mute);text-align:right;font-weight:500}
-.track{display:block;height:6px;border-radius:3px;background:var(--track);overflow:hidden}
-.fill{height:6px;border-radius:3px;background:var(--s1);display:block;
-  transition:width .4s cubic-bezier(.22,.9,.3,1)}
+.track{display:block;height:8px;border-radius:99px;background:var(--track);overflow:hidden}
+.fill{height:8px;border-radius:99px;background:var(--s1);display:block;position:relative;
+  transition:width .5s cubic-bezier(.22,.9,.3,1)}
+/* 棒の上端にごく薄い光を乗せる。平らな色より、量が入っている感じが出る */
+.fill::after{content:"";position:absolute;inset:0;border-radius:inherit;
+  background:linear-gradient(180deg,rgba(255,255,255,.34),rgba(255,255,255,0) 62%)}
 
 /* ===== 豆カード ===== */
-/* 左端の縦線は焙煎の深さを表している。飾りではなく情報なので消さないこと。 */
+/* 左端の縦線と、地にうっすら敷いた色は、どちらも焙煎の深さを表している。
+   飾りではなく情報なので消さないこと。地の色は上から下へ抜いていて、
+   文字が乗る下半分は白のままなので読みやすさは落ちない。 */
 .bean{background:var(--card);border:1px solid var(--line);border-radius:var(--r-l);padding:15px 16px 14px 19px;
-  margin:0 16px 10px;position:relative;overflow:hidden}
-.bean:active{border-color:var(--mute)}
-.bean::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--roast-m)}
+  margin:0 16px 10px;position:relative;overflow:hidden;box-shadow:var(--shadow)}
+.bean:active{box-shadow:var(--shadow-lift);border-color:color-mix(in srgb,var(--accent) 30%,var(--line))}
+.bean::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--roast-m);z-index:2}
 .bean.r-light::before{background:var(--roast-l)}
 .bean.r-mid::before{background:var(--roast-m)}
 .bean.r-dark::before{background:var(--roast-d)}
-.bean h3{font-family:var(--disp);font-size:17px;font-weight:700;letter-spacing:-.01em;line-height:1.4}
+/* 焙煎色の地と、右上にごく薄い豆の形。余白に表情をつける */
+.bean::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(170deg,var(--wash-m) 0%,transparent 58%),
+    var(--glyph) no-repeat right -26px top -30px / 120px 120px;
+  opacity:1}
+.bean.r-light::after{background:linear-gradient(170deg,var(--wash-l) 0%,transparent 58%),
+  var(--glyph) no-repeat right -26px top -30px / 120px 120px}
+.bean.r-dark::after{background:linear-gradient(170deg,var(--wash-d) 0%,transparent 58%),
+  var(--glyph) no-repeat right -26px top -30px / 120px 120px}
+.bean>*{position:relative;z-index:1}
+.bean h3{font-family:var(--disp);font-size:17px;font-weight:700;letter-spacing:-.012em;line-height:1.4}
 .bean .meta{font-size:12.5px;color:var(--sub);margin:5px 0 12px;letter-spacing:0}
 .bean .foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:13px}
 .price{font-family:var(--mono);font-size:15.5px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
@@ -208,11 +259,16 @@ body[data-view="esp"] #v-esp,body[data-view="my"] #v-my{display:block}
 /* ===== 詳細のヒーロー ===== */
 /* 詳細の見出し。焙煎の色をそのまま地に敷く。グラデーションや光沢は使わず、
    ベタ塗りに近づけている。浅煎りだけ地が明るいので、文字色を .onlight で入れ替える。 */
-.hero{position:relative;overflow:hidden;padding:26px 20px 22px;color:#fff;
+.hero{position:relative;overflow:hidden;padding:30px 20px 26px;color:#fff;
   border-bottom:1px solid rgba(0,0,0,.14)}
-.hero.r-light{background:#cfa878}
-.hero.r-mid{background:#9d6b45}
-.hero.r-dark{background:#553928}
+/* 焙煎の色を斜めのグラデーションで敷き、右上に大きな豆の影を落とす。
+   ここは1つの豆を開いた最初の画面なので、その豆の焙煎の深さが色で伝わるようにしている。 */
+.hero.r-light{background:linear-gradient(145deg,#dcbb8e,#bd8f5c)}
+.hero.r-mid{background:linear-gradient(145deg,#ac7a52,#7d5136)}
+.hero.r-dark{background:linear-gradient(145deg,#63432f,#3c281c)}
+.hero::before{content:"";position:absolute;right:-44px;top:-52px;width:190px;height:190px;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cellipse cx='12' cy='12' rx='6.4' ry='9' transform='rotate(38 12 12)' fill='%23fff' fill-opacity='.13'/%3E%3C/svg%3E") no-repeat center / contain;
+  pointer-events:none}
 .hero.r-light,.hero.onlight{color:#241a11}
 .hero.r-light .tags span,.hero.onlight .tags span{background:rgba(255,255,255,.42);border-color:rgba(0,0,0,.14)}
 .hero .eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;font-weight:600;opacity:.8;
@@ -228,13 +284,20 @@ body[data-view="esp"] #v-esp,body[data-view="my"] #v-my{display:block}
 .phero .pkg{flex:none;position:relative;z-index:1}
 
 /* ===== 見出し ===== */
-.sect{font-family:var(--disp);font-size:14px;font-weight:800;letter-spacing:-.005em;
-  display:flex;align-items:center;gap:10px;margin:0 0 12px}
-.sect::after{content:"";flex:1;height:1px;background:var(--line)}
+/* 見出しの頭に小さな豆を置く。装飾だが、ここが節の始まりだと目が拾いやすくなる */
+.sect{font-family:var(--disp);font-size:14.5px;font-weight:800;letter-spacing:-.008em;
+  display:flex;align-items:center;gap:9px;margin:0 0 12px}
+.sect::before{content:"";width:9px;height:12px;flex:none;border-radius:50% 50% 45% 45%/60% 60% 40% 40%;
+  transform:rotate(28deg);background:var(--accent);opacity:.85}
+.sect::after{content:"";flex:1;height:1px;
+  background:linear-gradient(90deg,var(--line),transparent)}
 /* 区切りの小見出しは、本文より一段下げた「ラベル」として扱う。
-   小さく・字間を広げ・大文字寄りに組むと、読み飛ばしても構わない情報だと伝わる。 */
-.sec-title{font-family:var(--disp);font-size:11.5px;font-weight:700;color:var(--mute);
-  letter-spacing:.1em;padding:22px 16px 8px}
+   小さく・字間を広げて組むと、読み飛ばしても構わない情報だと伝わる。 */
+.sec-title{font-family:var(--disp);font-size:11.5px;font-weight:800;color:var(--accent);
+  letter-spacing:.11em;padding:24px 16px 8px;display:flex;align-items:center;gap:7px}
+.sec-title::before{content:"";width:7px;height:9px;flex:none;
+  border-radius:50% 50% 45% 45%/60% 60% 40% 40%;transform:rotate(28deg);
+  background:currentColor;opacity:.65}
 
 /* ===== 比較 ===== */
 .legend{display:flex;flex-direction:column;gap:9px;padding:16px 18px;border-bottom:1px solid var(--line)}
@@ -273,8 +336,10 @@ body[data-view="esp"] #v-esp,body[data-view="my"] #v-my{display:block}
 
 /* ===== 提案 ===== */
 /* 次の一手はいつも1つだけ出す。複数出すと、どれから試すか決められなくなる。 */
-.advice{border-radius:var(--r-l);padding:17px;margin:0 16px 12px;border:1px solid var(--line);
-  background:var(--card);border-left:3px solid var(--warn)}
+.advice{border-radius:var(--r-l);padding:18px;margin:0 16px 12px;border:1px solid var(--line);
+  border-left:4px solid var(--warn);box-shadow:var(--shadow);
+  background:linear-gradient(165deg,color-mix(in srgb,var(--warn) 9%,var(--card)),var(--card) 62%)}
+.advice.ok{background:linear-gradient(165deg,color-mix(in srgb,var(--ok) 10%,var(--card)),var(--card) 62%)}
 .advice .k{font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.12em;color:var(--warn);
   text-transform:uppercase}
 .advice .do{font-family:var(--disp);font-size:19px;font-weight:800;margin:8px 0 8px;letter-spacing:-.02em;
@@ -296,12 +361,12 @@ body[data-view="esp"] #v-esp,body[data-view="my"] #v-my{display:block}
 /* ===== マップ ===== */
 .mapwrap{padding:0 16px}
 .mapwrap svg{width:100%;height:auto;display:block;background:var(--card);border:1px solid var(--line);
-  border-radius:var(--r-l)}
+  border-radius:var(--r-l);box-shadow:var(--shadow)}
 .dot{cursor:pointer}
 
 /* 焙煎の深さ（横）× コクの強さ（縦）で並べる一覧。店頭のコーヒーマップと同じ読み方。 */
 .cmap{display:grid;grid-template-columns:22px repeat(3,1fr);margin:0 16px;background:var(--card);
-  border:1px solid var(--line);border-radius:var(--r-l);overflow:hidden}
+  border:1px solid var(--line);border-radius:var(--r-l);overflow:hidden;box-shadow:var(--shadow)}
 .cmap .corner{background:var(--chip);border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
 .cmap .zh{font-size:11px;font-weight:800;letter-spacing:.06em;text-align:center;padding:9px 2px;
   border-bottom:1px solid var(--line)}
@@ -328,11 +393,12 @@ body[data-view="esp"] #v-esp,body[data-view="my"] #v-my{display:block}
 .cmap .colempty{font-size:10px;color:var(--mute);text-align:center;padding:18px 4px;line-height:1.6}
 /* お店ごと（産地モードなら国ごと）にまとめた一覧。
    まずお店の名前が目に入り、その下に豆が並ぶ順序にしている。 */
-.grouphead{display:flex;align-items:center;gap:10px;margin:26px 16px 4px;padding-bottom:8px;
-  border-bottom:1px solid var(--text)}
-.grouphead .dot2{width:28px;height:28px;border-radius:var(--r-s);flex:none;display:grid;place-items:center;
-  color:#fff;font-family:var(--disp);font-size:13px;font-weight:800}
-.grouphead b{font-family:var(--disp);font-size:16.5px;font-weight:800;letter-spacing:-.015em;flex:1;min-width:0}
+.grouphead{display:flex;align-items:center;gap:10px;margin:26px 16px 4px;padding-bottom:9px;
+  border-bottom:1px solid var(--line)}
+.grouphead .dot2{width:32px;height:32px;border-radius:11px;flex:none;display:grid;place-items:center;
+  color:#fff;font-family:var(--disp);font-size:14px;font-weight:800;
+  box-shadow:0 3px 10px rgba(96,62,54,.22)}
+.grouphead b{font-family:var(--disp);font-size:17px;font-weight:800;letter-spacing:-.018em;flex:1;min-width:0}
 .grouphead span{font-family:var(--mono);font-size:11px;color:var(--mute);font-weight:500;white-space:nowrap}
 .glist{margin:0 12px}
 .growitem{display:grid;grid-template-columns:40px 1fr auto;align-items:center;gap:12px;
@@ -364,7 +430,7 @@ body[data-view="esp"] #v-esp,body[data-view="my"] #v-my{display:block}
 .empty{text-align:center;padding:44px 28px;color:var(--sub)}
 .empty .g{font-size:32px;display:block;margin-bottom:12px;opacity:.45}
 details{border:1px solid var(--line);border-radius:var(--r-l);padding:0;margin:0 16px 12px;background:var(--card);
-  overflow:hidden}
+  overflow:hidden;box-shadow:var(--shadow)}
 details>summary{padding:16px 18px;font-family:var(--disp);font-weight:700;font-size:14.5px;letter-spacing:-.005em;
   cursor:pointer;list-style:none;min-height:50px;display:flex;align-items:center;justify-content:space-between}
 details>summary::-webkit-details-marker{display:none}
@@ -423,9 +489,16 @@ textarea{min-height:80px;resize:vertical}
 
 /* ===== 商品カード（パッケージ付き） ===== */
 .prod{background:var(--card);border:1px solid var(--line);border-radius:var(--r-l);padding:15px;margin:0 16px 10px;
-  display:grid;grid-template-columns:66px 1fr;gap:15px;position:relative;overflow:hidden}
-.prod:active{border-color:var(--mute)}
-.pkg{width:66px;height:auto;align-self:start;filter:drop-shadow(0 3px 8px rgba(20,30,25,.18))}
+  display:grid;grid-template-columns:66px 1fr;gap:15px;position:relative;overflow:hidden;
+  box-shadow:var(--shadow)}
+.prod:active{box-shadow:var(--shadow-lift);border-color:color-mix(in srgb,var(--accent) 30%,var(--line))}
+/* 豆カードと同じく、焙煎の深さを地の色で示す。パッケージの絵の背後に敷く */
+.prod::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(160deg,var(--wash-m) 0%,transparent 54%)}
+.prod.r-light::after{background:linear-gradient(160deg,var(--wash-l) 0%,transparent 54%)}
+.prod.r-dark::after{background:linear-gradient(160deg,var(--wash-d) 0%,transparent 54%)}
+.prod>*{position:relative;z-index:1}
+.pkg{width:66px;height:auto;align-self:start;filter:drop-shadow(0 4px 10px rgba(96,62,54,.22))}
 /* お店の名前を先に読ませたいので、豆の名前より上に小さく置いている。
    欲しい順序が「①どの店で買えるか ②どの豆か」なので、大きさより位置で順序を作る。 */
 .prod .shopname{font-size:10.5px;font-weight:700;letter-spacing:.07em;color:var(--accent)}
@@ -435,9 +508,12 @@ textarea{min-height:80px;resize:vertical}
 .prod .foot{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;margin-top:12px}
 .prod .per{font-family:var(--mono);font-size:10px;color:var(--mute);font-weight:500;display:block;letter-spacing:0}
 .shopcard{display:flex;align-items:center;gap:12px;padding:14px 15px;background:var(--card);
-  border:1px solid var(--line);border-radius:var(--r-l);margin:0 16px 8px;width:calc(100% - 32px)}
-.shopcard .dot2{width:34px;height:34px;border-radius:var(--r-s);flex:none;
-  display:grid;place-items:center;color:#fff;font-family:var(--disp);font-size:14px;font-weight:800}
+  border:1px solid var(--line);border-radius:var(--r-l);margin:0 16px 8px;width:calc(100% - 32px);
+  box-shadow:var(--shadow)}
+.shopcard:active{box-shadow:var(--shadow-lift)}
+.shopcard .dot2{width:36px;height:36px;border-radius:12px;flex:none;
+  display:grid;place-items:center;color:#fff;font-family:var(--disp);font-size:14.5px;font-weight:800;
+  box-shadow:0 3px 10px rgba(96,62,54,.22)}
 .shopcard .nm{flex:1;text-align:left}
 .shopcard .nm b{font-family:var(--disp);font-size:15px;font-weight:700;letter-spacing:-.015em;display:block}
 .shopcard .nm span{font-size:11.5px;color:var(--mute)}
@@ -514,6 +590,7 @@ body[data-view="search"] #tray.on ~ .fab{bottom:calc(136px + env(safe-area-inset
   <section id="v-esp">
     <div class="pad between"><h2 style="font-size:17px">エスプレッソ</h2>
       <button class="chip" id="btn-gr">機器の設定</button></div>
+    <div id="esp-stock"></div>
     <div id="esp-draft"></div>
     <div id="esp-advice"></div>
     <div class="pad"><button class="btn wide" id="btn-newshot">＋ 今日の一杯を記録する</button></div>
@@ -524,6 +601,8 @@ body[data-view="search"] #tray.on ~ .fab{bottom:calc(136px + env(safe-area-inset
 
   <section id="v-my">
     <div class="pad"><h2 style="font-size:17px">わたしの記録</h2></div>
+    <div class="sec-title">いま家にある豆</div>
+    <div id="my-stock"></div>
     <div id="my-taste"></div>
     <div class="sec-title">自分で登録した豆</div>
     <div id="my-own"></div>
@@ -731,7 +810,10 @@ const PRODUCTS=[
    schemaVersion は後から項目を増やしたときの変換のために最初から入れておく。
    ========================================================================= */
 const LS='mamekurabe.v1';
-const DEF=()=>({schemaVersion:2,fav:[],log:{},pref:null,shots:[],
+const DEF=()=>({schemaVersion:3,fav:[],log:{},pref:null,shots:[],
+  /* stock は「いま家にある豆」。ひとつの豆につき1件だけ持つ。
+     残量は抽出を記録するたびに自動で減らすので、手で数える必要がない。 */
+  stock:[],
   /* myBeans は自分で登録した豆。PRODUCTS とまったく同じ形にしてあるので、
      一覧・絞り込み・比較・抽出記録のコードをそのまま共用できる。
      photos は id ごとの写真（JPEGのdataURL）。撮った時点で縮小して入れる。 */
@@ -752,7 +834,10 @@ function migrate(d){
   d.filter=Object.assign(DEF().filter,d.filter||{});
   if(!Array.isArray(d.myBeans))d.myBeans=[];
   if(!d.photos||typeof d.photos!=='object')d.photos={};
-  d.schemaVersion=2;
+  /* v3 で「いま家にある豆」を足した。古い保存データには無いので空で補う。 */
+  if(!Array.isArray(d.stock))d.stock=[];
+  d.stock=d.stock.filter(x=>x&&x.id&&x.beanId);
+  d.schemaVersion=3;
   return d;
 }
 let S;
@@ -930,7 +1015,8 @@ function pkgView(p,big){
 }
 function prodCard(p){
   const fav=S.fav.includes(p.id);
-  return '<article class="prod" data-act="pdetail" data-id="'+p.id+'">'+pkgView(p)+
+  /* rcls で焙煎の深さのクラスが付く。カードの地の色はこれで決まる */
+  return '<article class="prod '+rcls(p.roast)+'" data-act="pdetail" data-id="'+p.id+'">'+pkgView(p)+
     '<div><div class="shopname">'+esc(p.shop||'（お店なし）')+(p.mine?' <span class="mybadge">自分で登録</span>':'')+
     '</div><h3>'+esc(p.name)+'</h3>'+
     '<p class="meta">'+esc(p.origin)+' ／ '+grpFull(p.roast)+(p.roastName?'（'+esc(p.roastName)+'）':'')+'</p>'+
@@ -1173,7 +1259,13 @@ function openProd(id){
   h+='<div class="card"><h3 class="sect">エスプレッソで淹れるなら</h3>'+
      '<dl class="kv"><dt>レシオ</dt><dd>'+R.r+'</dd><dt>抽出時間</dt><dd>'+R.t+'</dd>'+
      '<dt>挽き目</dt><dd>'+R.g+'</dd></dl>'+
-     '<button class="btn wide" style="margin-top:14px" data-act="shotwithp" data-id="'+p.id+'">この豆で抽出を記録する</button></div>';
+     '<button class="btn wide" style="margin-top:14px" data-act="shotwithp" data-id="'+p.id+'">この豆で抽出を記録する</button>'+
+     /* いま家にある豆なら鮮度を出し、無ければその場で登録できるようにする。
+        買ってきた直後にこのページを開くので、登録の入口として自然な場所である。 */
+     (stockOf(p.id)?stockNote(stockOf(p.id))
+       :'<button class="btn ghost wide" style="margin-top:10px" data-act="addstockfor" data-id="'+p.id+
+         '">家にある豆に足す</button>')+
+     '</div>';
 
   const near=nearestBeans(p,3);
   h+='<div class="pad" style="padding-bottom:2px"><h3 class="sect">味が近い産地の豆</h3>'+
@@ -1663,8 +1755,12 @@ function stepField(k,d){
 function saveShot(){
   const s=Object.assign({id:'s'+Date.now(),at:Date.now(),status:'draft',bal:0,str:0,rating:0,
     spray:false,timeSec:0,milkMl:0,adv:null},form);
-  const d=draft();if(d)S.shots=S.shots.filter(x=>x.id!==d.id);
-  S.shots.push(s);save();closeSheet();renderEsp();tasteSheet(s.id);
+  /* 評価まちの記録を捨てて上書きするときは、その1杯ぶんの豆を残量に戻してから捨てる。
+     戻さないと、淹れていない豆が減ったままになる。 */
+  const d=draft();if(d){useStock(d.beanId,d.doseG,-1);S.shots=S.shots.filter(x=>x.id!==d.id)}
+  S.shots.push(s);
+  useStock(s.beanId,s.doseG,1);
+  save();closeSheet();renderAll();tasteSheet(s.id);
 }
 function tasteSheet(id){
   const s=S.shots.find(x=>x.id===id);if(!s)return;
@@ -1901,6 +1997,206 @@ function deleteMyBean(id){
 /* =========================================================================
    わたしの記録
    ========================================================================= */
+/* =========================================================================
+   いま家にある豆（鮮度と残量）
+
+   コーヒーの味は「買った日」ではなく「焙煎した日」から変わっていく。
+   焙煎直後は豆の中に炭酸ガスが多く残っていて、湯を通すと粉の層が持ち上がって
+   抽出が乱れる。味も日ごとに動くので、調整しても定まらない。数日おくと落ち着く。
+   そこを過ぎると今度は酸化で香りが抜けていき、1か月あたりから味が平たくなる。
+
+   日数の区切りはエスプレッソを基準にしている。ドリップより濃く出すぶん、
+   ガスの影響も酸化の影響も強く出るためで、ドリップの一般的な目安より短めである。
+
+   焙煎日が分からない豆も多い（スーパーの袋には賞味期限しか書かれていない）。
+   その場合は開封日で代用する。袋を開けると空気に触れるので進み方が速く、
+   2週間ほどを目安にしている。どちらも無ければ判定しない。嘘の日数を出すより、
+   「日付を入れてください」と言うほうが役に立つ。
+   ========================================================================= */
+const today=()=>{const d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+/* 日付が壊れていても落ちないように、読めなければ0日として扱う */
+const dayDiff=(from,to)=>{
+  const a=Date.parse(from+'T00:00:00'), b=Date.parse(to+'T00:00:00');
+  return (isNaN(a)||isNaN(b))?0:Math.floor((b-a)/86400000);
+};
+/* max はその段階の上限（焙煎日からの日数） */
+const FRESH=[
+  {max:3,  k:'ガス抜けまち',tone:'warn',
+   say:'焼きたてです。炭酸ガスが多く、抽出が乱れて味も決まりません。あと数日おくと安定します。'},
+  {max:21, k:'飲みごろ',tone:'ok',
+   say:'いちばんおいしい時期です。この間に調整を詰めると、設定が決まりやすくなります。'},
+  {max:35, k:'そろそろ',tone:'warn',
+   say:'香りが抜けはじめます。早めに飲み切ってください。'},
+  {max:1e9,k:'風味おち',tone:'bad',
+   say:'焙煎から1か月以上たっています。味が平たくなり、クレマも出にくくなります。'}];
+function freshness(st,now){
+  now=now||today();
+  if(st&&st.roastDate)
+    return Object.assign({basis:'焙煎',days:dayDiff(st.roastDate,now)},
+      FRESH.find(x=>dayDiff(st.roastDate,now)<=x.max));
+  if(st&&st.openDate){
+    const d=dayDiff(st.openDate,now);
+    return d<=14?{basis:'開封',days:d,k:'飲みごろ',tone:'ok',
+        say:'開封から'+d+'日です。まだ大丈夫です。'}
+      :{basis:'開封',days:d,k:'そろそろ',tone:'warn',
+        say:'開封から'+d+'日たっています。袋を開けた豆は2週間くらいが目安です。'};
+  }
+  return {basis:'',days:null,k:'日付なし',tone:'mute',
+    say:'焙煎日か開封日を入れると、飲みごろが分かります。'};
+}
+const stockOf=id=>(S.stock||[]).find(x=>x.beanId===id)||null;
+/* 1杯ぶんの粉の量。直近の記録から取り、まだ何も記録が無ければ機械の標準量を使う。 */
+const oneDose=()=>{const s=[...S.shots].reverse().find(x=>x.doseG>0);
+  return s?s.doseG:(M().capacityG||14)};
+const cupsLeft=st=>{const d=oneDose();return d>0?Math.floor(st.leftG/d):0};
+/* 使ったぶんだけ残りを減らす。sign を -1 にすると足し戻す（記録を消したとき）。
+   手で引き算させると必ず続かなくなるので、抽出の記録と連動させている。 */
+function useStock(beanId,g,sign){
+  const st=stockOf(beanId);if(!st||!(g>0))return null;
+  const max=st.startG>0?st.startG:g*999;
+  st.leftG=Math.max(0,Math.min(max,Math.round((st.leftG-(sign||1)*g)*10)/10));
+  return st;
+}
+const TONECOL={ok:'var(--ok)',warn:'var(--warn)',bad:'var(--bad)',mute:'var(--mute)'};
+/* 詳細ページやエスプレッソ画面に差し込む、1行だけの鮮度表示 */
+function stockNote(st){
+  const f=freshness(st);
+  return '<div class="note" style="margin-top:10px;border-left:3px solid '+TONECOL[f.tone]+'">'+
+    '<b>家にあります。</b>'+(f.days===null?'':esc(f.basis)+'から'+f.days+'日　／　')+
+    '残り'+st.leftG+'g（あと'+cupsLeft(st)+'杯）<br>'+esc(f.say)+'</div>';
+}
+function stockCard(st){
+  const b=anyById(st.beanId);if(!b)return '';
+  const f=freshness(st), col=TONECOL[f.tone];
+  const pct=st.startG>0?Math.max(0,Math.min(100,st.leftG/st.startG*100)):0;
+  const cups=cupsLeft(st);
+  return '<div class="card">'+
+    '<div class="between"><strong style="font-size:15px">'+esc((b.shop?b.shop+' ':'')+b.name)+'</strong>'+
+      '<span class="badge" style="background:'+col+';color:#fff">'+esc(f.k)+'</span></div>'+
+    '<p class="tiny" style="margin:6px 0 9px">'+
+      (f.days===null?'焙煎日・開封日が未入力':esc(f.basis)+'から'+f.days+'日')+
+      '　／　残り <b>'+st.leftG+'g</b>'+(cups>0?'（あと'+cups+'杯ぶん）':'（もうすぐ無くなります）')+'</p>'+
+    '<span class="track"><i class="fill" style="width:'+pct+'%;background:'+col+'"></i></span>'+
+    '<p class="tiny" style="margin:10px 0 0">'+esc(f.say)+'</p>'+
+    '<div class="row" style="margin-top:12px">'+
+      (st.openDate?'':'<button class="chip" data-act="openbag" data-id="'+st.id+'">今日あけた</button>')+
+      '<button class="chip" data-act="editstock" data-id="'+st.id+'">なおす</button>'+
+      '<button class="chip" data-act="usedup" data-id="'+st.id+'" style="margin-left:auto">使い切った</button>'+
+    '</div></div>';
+}
+function renderStock(){
+  /* 早く飲まないといけないものを上に出す。日付が入っていないものは最後。 */
+  const list=(S.stock||[]).slice().sort((a,b)=>{
+    const da=freshness(a).days, db=freshness(b).days;
+    if(da===null&&db===null)return 0;
+    if(da===null)return 1;
+    if(db===null)return -1;
+    return db-da;});
+  const el=$('#my-stock');
+  if(el)el.innerHTML=(list.length?list.map(stockCard).join(''):
+    '<div class="empty" style="padding:20px"><span class="g">🫙</span>'+
+    'いま家にある豆を入れておくと、<b>飲みごろ</b>と<b>残りの量</b>がひと目で分かります。<br>'+
+    '抽出を記録するたび、残りは自動で減ります。</div>')+
+    '<div class="pad" style="padding-top:4px">'+
+    '<button class="btn ghost wide" data-act="addstock">＋ 家にある豆を足す</button></div>';
+
+  /* エスプレッソの画面には、いま手を打つ必要があるものだけを出す。
+     全部並べると、淹れる前に読む気が失せるため。 */
+  const el2=$('#esp-stock');
+  if(el2){
+    const urgent=list.filter(x=>{const f=freshness(x);
+      return f.tone==='warn'||f.tone==='bad'||x.leftG<=oneDose()*2});
+    el2.innerHTML=urgent.length?'<div class="pad" style="padding:0 16px 10px">'+urgent.map(x=>{
+      const b=anyById(x.beanId), f=freshness(x);
+      return '<div class="note" style="margin-bottom:8px;border-left:3px solid '+TONECOL[f.tone]+'">'+
+        '<b>'+esc(b?b.name:'豆')+'</b>：'+
+        (x.leftG<=oneDose()*2?'残り'+x.leftG+'g（あと'+cupsLeft(x)+'杯）。':'')+esc(f.say)+'</div>'}).join('')+
+      '</div>':'';
+  }
+}
+let stForm=null;
+function stockSheet(editId,beanId){
+  const ex=editId?(S.stock||[]).find(x=>x.id===editId):null;
+  if(ex)stForm=Object.assign({},ex,{_new:false});
+  else{
+    const b=anyById(beanId)||anyById((lastDone()||{}).beanId)||PRODUCTS[0];
+    const g=b&&b.sizeG>0?b.sizeG:200;
+    stForm={id:'st'+Date.now(),beanId:b.id,roastDate:'',openDate:'',startG:g,leftG:g,_new:true};
+  }
+  renderStockForm();
+}
+function renderStockForm(){
+  const f=stForm;if(!f)return;
+  const opt=(p,label)=>'<option value="'+p.id+'"'+(p.id===f.beanId?' selected':'')+'>'+esc(label)+'</option>';
+  const body='<div class="pad">'+
+    '<div class="field"><label>どの豆ですか</label><select id="st-bean">'+
+      ((S.myBeans||[]).length?'<optgroup label="自分で登録した豆">'+
+        S.myBeans.map(p=>opt(p,(p.shop?p.shop+' ':'')+p.name)).join('')+'</optgroup>':'')+
+      '<optgroup label="お店の商品">'+PRODUCTS.map(p=>opt(p,p.shop+' '+p.name)).join('')+'</optgroup>'+
+      '<optgroup label="産地から">'+BEANS.map(b=>opt(b,b.name)).join('')+'</optgroup></select></div>'+
+    '<div class="field"><label>焙煎日（袋に書いてあれば）</label>'+
+      '<input type="date" id="st-roast" value="'+esc(f.roastDate)+'">'+
+      '<div class="chips" style="margin-top:8px">'+
+        '<button class="chip" data-act="stdate" data-k="roast" data-d="0">今日</button>'+
+        '<button class="chip" data-act="stdate" data-k="roast" data-d="7">1週間前</button>'+
+        '<button class="chip" data-act="stdate" data-k="roast" data-d="-1">消す</button></div>'+
+      '<p class="tiny" style="margin-top:6px">これが入っていると判定がいちばん正確になります。'+
+      '書いていなければ空のままで大丈夫です。</p></div>'+
+    '<div class="field"><label>開封日</label>'+
+      '<input type="date" id="st-open" value="'+esc(f.openDate)+'">'+
+      '<div class="chips" style="margin-top:8px">'+
+        '<button class="chip" data-act="stdate" data-k="open" data-d="0">今日あけた</button>'+
+        '<button class="chip" data-act="stdate" data-k="open" data-d="-1">まだ未開封</button></div>'+
+      '<p class="tiny" style="margin-top:6px">焙煎日が分からないときは、こちらだけでも判定できます。</p></div>'+
+    '<div class="field"><label>買ったときの量と、いまの残り</label>'+
+      '<div class="row"><input type="number" id="st-start" inputmode="decimal" value="'+(f.startG||'')+
+        '" placeholder="200" style="flex:1"><span>g 買った</span>'+
+      '<input type="number" id="st-left" inputmode="decimal" value="'+(f.leftG||'')+
+        '" placeholder="200" style="flex:1"><span>g 残り</span></div>'+
+      '<p class="tiny" style="margin-top:6px">残りは、抽出を記録するたびに'+
+      '<b>その日の粉の量ぶん自動で減ります。</b>ここを手で直すのは、ずれてきたときだけで大丈夫です。</p></div>'+
+    (f._new?'':'<button class="btn ghost wide" data-act="usedup" data-id="'+f.id+
+      '" style="color:var(--bad);gap:8px">'+ICON.trash+'使い切った（一覧から消す）</button>')+
+    '</div>';
+  openSheet(f._new?'家にある豆を足す':'家にある豆をなおす',body,
+    '<button class="btn ghost" data-close style="flex:1">やめる</button>'+
+    '<button class="btn" data-act="savestock" style="flex:2">保存する</button>',
+    ()=>{const e=$('#st-bean');if(e)e.onchange=ev=>{
+      readStockForm();stForm.beanId=ev.target.value;
+      /* 豆を変えたら、その商品の内容量に合わせ直す。買った量を毎回打ち直さずに済む。 */
+      const b=anyById(stForm.beanId);
+      if(stForm._new&&b&&b.sizeG>0){stForm.startG=b.sizeG;stForm.leftG=b.sizeG}
+      renderStockForm()}});
+}
+function readStockForm(){
+  if(!stForm)return;
+  const v=(id,def)=>{const e=$('#'+id);const x=e?e.value:undefined;
+    return x===undefined||x===null?def:x};
+  stForm.beanId=v('st-bean',stForm.beanId)||stForm.beanId;
+  stForm.roastDate=v('st-roast',stForm.roastDate)||'';
+  stForm.openDate=v('st-open',stForm.openDate)||'';
+  stForm.startG=Math.max(0,+v('st-start',stForm.startG)||0);
+  stForm.leftG=Math.max(0,+v('st-left',stForm.leftG)||0);
+}
+function saveStock(){
+  readStockForm();
+  if(!stForm.beanId){alert('どの豆かを選んでください。');return}
+  if(!(stForm.startG>0))stForm.startG=200;
+  if(!(stForm.leftG>0))stForm.leftG=stForm.startG;
+  if(stForm.leftG>stForm.startG)stForm.leftG=stForm.startG;
+  const saved=Object.assign({},stForm);delete saved._new;
+  const i=(S.stock||[]).findIndex(x=>x.id===saved.id);
+  if(i>=0)S.stock[i]=saved;
+  else{
+    /* 同じ豆が2件並ぶと、残りがどちらのものか分からなくなる。1豆1件にまとめる。 */
+    const dup=(S.stock||[]).findIndex(x=>x.beanId===saved.beanId);
+    if(dup>=0)S.stock[dup]=saved;else S.stock.push(saved);
+  }
+  if(!save()){alert('保存できませんでした。端末の容量がいっぱいのようです。');return}
+  stForm=null;closeSheet();renderAll();
+}
+
 function renderMy(){
   const logs=Object.entries(S.log).filter(([id,l])=>l.rate);
   const good=logs.filter(([,l])=>l.rate==='◎').map(([id])=>byId(id)).filter(Boolean);
@@ -2106,7 +2402,27 @@ document.addEventListener('click',e=>{
   else if(a==='setmilk'){form.milkMl=+t.dataset.v;
     const e=$('#f-milkMl');if(e)e.innerHTML=stepLabel('milkMl')+'<small>ml</small>';calc()}
   else if(a==='delshot'){if(!confirm('この記録を消しますか？'))return;
-    S.shots=S.shots.filter(x=>x.id!==id);save();closeSheet();renderEsp()}
+    /* 淹れなかったことにするので、使ったぶんの豆を残量に戻す */
+    const s0=S.shots.find(x=>x.id===id);if(s0)useStock(s0.beanId,s0.doseG,-1);
+    S.shots=S.shots.filter(x=>x.id!==id);save();closeSheet();renderAll()}
+  else if(a==='addstock'){stockSheet()}
+  else if(a==='addstockfor'){closeFull();setView('my');stockSheet(null,id)}
+  else if(a==='editstock'){stockSheet(id)}
+  else if(a==='savestock'){saveStock()}
+  else if(a==='openbag'){const st=(S.stock||[]).find(x=>x.id===id);
+    if(st){st.openDate=today();save();renderAll()}}
+  else if(a==='usedup'){const st=(S.stock||[]).find(x=>x.id===id);if(!st)return;
+    const nm=(anyById(st.beanId)||{}).name||'この豆';
+    if(!confirm('「'+nm+'」を使い切ったことにして、一覧から消します。よろしいですか？'))return;
+    S.stock=(S.stock||[]).filter(x=>x.id!==id);stForm=null;save();closeSheet();renderAll()}
+  else if(a==='stdate'){readStockForm();
+    const k=t.dataset.k==='roast'?'roastDate':'openDate', back=+t.dataset.d;
+    /* -1 は「日付なし」。それ以外は今日から数えて何日前か。 */
+    if(back<0)stForm[k]='';
+    else{const dt=new Date();dt.setDate(dt.getDate()-back);
+      stForm[k]=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+
+        String(dt.getDate()).padStart(2,'0')}
+    renderStockForm()}
   else if(a==='saveshot'){saveShot()}
   else if(a==='taste'){tasteSheet(id)}
   else if(a==='tset'){const s=S.shots.find(x=>x.status==='draft');if(!s)return;
@@ -2272,7 +2588,7 @@ $('#glossary').innerHTML=[
   '<p class="tiny" style="margin-top:3px">'+g[1]+'</p></div>').join('');
 
 /* ===== 起動 ===== */
-function renderAll(){renderList();renderMap();renderEsp();renderMy()}
+function renderAll(){renderList();renderMap();renderEsp();renderMy();renderStock()}
 if(S.theme)document.documentElement.setAttribute('data-theme',S.theme);
 renderAll();setView('search');
 if(!S.pref&&!Object.keys(S.log).length&&!S.shots.length)setTimeout(diagSheet,400);
