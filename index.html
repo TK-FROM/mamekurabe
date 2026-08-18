@@ -5,94 +5,110 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>まめ比べ</title>
 <style>
-/* ラテとカフェの色。真っ黒・純白を使わず、すべて暖色に寄せている。
+/* 見た目の設計メモ（あとで直すときはここを先に読む）
+
+   考え方は「豆を量って、淹れて、記録する道具」に見せること。喫茶店の内装ではなく、
+   計量器やドリップスケールの側に寄せている。
+
+   ・地の色は白でもクリーム色でもなく、ごくわずかに緑を含んだ灰色にした。
+     クリーム色は豆と焙煎の茶色と溶けてしまい、主役であるはずの豆の色が沈む。
+     無彩色に寄せると、同じ茶色がはっきり浮き上がる。
+   ・差し色はコーヒーチェリーの赤ひとつだけ。使う場所は「いま選ばれているもの」に限る。
+     色を足すほど、どこを見ればいいのか分からなくなる。
+   ・数字（g・秒・円）はすべて等幅フォント（--mono）で組む。桁が縦に揃うので、
+     値段や抽出時間を上下に並べたときに一目で大小が分かる。
+   ・角の丸みは小さめ、影はほぼ無し、境目は1pxの線で表す。
+     大きな丸みとふんわりした影は「やわらかさ」の記号なので、モダンさとは逆に働く。
+
    系列色（s1〜s3）は比較画面で3件を見分けるためのもので、
-   色相を赤茶・青緑・金と大きく離し、背景とのコントラストも3:1以上を確保している。 */
+   色相を赤・青緑・金と大きく離し、背景とのコントラストも3:1以上を確保している。
+   --serif は旧デザインの名残の名前だが、今は明朝体ではなく見出し用のゴシックを指す。
+   本文側にこの名前が残っていても壊れないよう、別名として残してある。 */
 :root{
-  --bg:#fdfaf6; --bg2:#f9f1e9; --card:#ffffff; --text:#332722;
-  --sub:#6f5e54; --mute:#8a7365;
-  --line:#efe4d9; --track:#f2e9e1; --chip:#f7efe8; --chipOn:#9d5c4d; --chipOnText:#fffaf6;
-  --accent:#b5705f; --accent-soft:#f9e9e3; --gold:#c9a227;
-  --s1:#b5705f; --s2:#5b8a8c; --s3:#ad7c14;
-  --warn:#b4762a; --ok:#4f8a6b; --bad:#c05c50;
-  --roast-l:#e6cda4; --roast-m:#bd8a5e; --roast-d:#7a5138;
-  --shadow:0 1px 2px rgba(94,62,44,.05), 0 6px 20px rgba(94,62,44,.07);
-  --shadow-lift:0 2px 6px rgba(94,62,44,.09), 0 14px 34px rgba(94,62,44,.11);
-  --serif:"Hiragino Mincho ProN","Yu Mincho",YuMincho,"Noto Serif JP",serif;
+  --bg:#f3f4f1; --bg2:#eaece8; --card:#ffffff; --text:#15191a;
+  --sub:#5a615e; --mute:#8b918d;
+  --line:#e1e4df; --track:#e7eae5; --chip:#edefeb; --chipOn:#b32d3f; --chipOnText:#ffffff;
+  --accent:#b32d3f; --accent-soft:#fbeaec; --gold:#c08a12;
+  --s1:#b32d3f; --s2:#1f7a8c; --s3:#96690a;
+  --warn:#a2670f; --ok:#2f7d5b; --bad:#c0392b;
+  --roast-l:#e2c9a2; --roast-m:#b5835a; --roast-d:#6f4a33;
+  --shadow:0 1px 2px rgba(20,30,25,.05);
+  --shadow-lift:0 4px 16px rgba(20,30,25,.12);
+  --disp:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic UI","Noto Sans JP",sans-serif;
+  --serif:var(--disp);
+  --mono:ui-monospace,SFMono-Regular,"SF Mono","Roboto Mono",Menlo,Consolas,monospace;
+  --r-s:8px; --r-m:12px; --r-l:16px;
 }
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
-    --bg:#1d1714; --bg2:#241c17; --card:#282019; --text:#f7f0e8;
-    --sub:#c9b8aa; --mute:#9c8a7d;
-    --line:#3a3029; --track:#3a3029; --chip:#332a23; --chipOn:#e6bcae; --chipOnText:#2a1f1a;
-    --accent:#dd9c86; --accent-soft:#3a2a24; --gold:#d9b155;
-    --s1:#dd9c86; --s2:#7fb3b5; --s3:#d9b155;
-    --warn:#e0a95e; --ok:#7fb99b; --bad:#e58b7e;
-    --roast-l:#d6b98e; --roast-m:#b1815a; --roast-d:#8a6248;
-    --shadow:0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.34);
-    --shadow-lift:0 2px 6px rgba(0,0,0,.4), 0 14px 34px rgba(0,0,0,.45);
+    --bg:#101312; --bg2:#161a18; --card:#191d1b; --text:#eef1ee;
+    --sub:#a8b0ac; --mute:#7c8480;
+    --line:#282d2a; --track:#272c29; --chip:#202523; --chipOn:#ea6274; --chipOnText:#190a0d;
+    --accent:#ea6274; --accent-soft:#2b1a1d; --gold:#d9ab3c;
+    --s1:#ea6274; --s2:#5fb4c4; --s3:#d0a34a;
+    --warn:#dda44f; --ok:#5fb08a; --bad:#e5715f;
+    --roast-l:#d9bd93; --roast-m:#ab7d57; --roast-d:#7d5842;
+    --shadow:0 1px 2px rgba(0,0,0,.4);
+    --shadow-lift:0 6px 22px rgba(0,0,0,.5);
   }
 }
 :root[data-theme="dark"]{
-  --bg:#1d1714; --bg2:#241c17; --card:#282019; --text:#f7f0e8;
-  --sub:#c9b8aa; --mute:#9c8a7d;
-  --line:#3a3029; --track:#3a3029; --chip:#332a23; --chipOn:#e6bcae; --chipOnText:#2a1f1a;
-  --accent:#dd9c86; --accent-soft:#3a2a24; --gold:#d9b155;
-  --s1:#dd9c86; --s2:#7fb3b5; --s3:#d9b155;
-  --warn:#e0a95e; --ok:#7fb99b; --bad:#e58b7e;
-  --roast-l:#d6b98e; --roast-m:#b1815a; --roast-d:#8a6248;
-  --shadow:0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.34);
-  --shadow-lift:0 2px 6px rgba(0,0,0,.4), 0 14px 34px rgba(0,0,0,.45);
+  --bg:#101312; --bg2:#161a18; --card:#191d1b; --text:#eef1ee;
+  --sub:#a8b0ac; --mute:#7c8480;
+  --line:#282d2a; --track:#272c29; --chip:#202523; --chipOn:#ea6274; --chipOnText:#190a0d;
+  --accent:#ea6274; --accent-soft:#2b1a1d; --gold:#d9ab3c;
+  --s1:#ea6274; --s2:#5fb4c4; --s3:#d0a34a;
+  --warn:#dda44f; --ok:#5fb08a; --bad:#e5715f;
+  --roast-l:#d9bd93; --roast-m:#ab7d57; --roast-d:#7d5842;
+  --shadow:0 1px 2px rgba(0,0,0,.4);
+  --shadow-lift:0 6px 22px rgba(0,0,0,.5);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0}
 body{
-  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic UI","Noto Sans JP",sans-serif;
-  background:var(--bg); color:var(--text); font-size:16px; line-height:1.75;
-  letter-spacing:.01em; touch-action:manipulation; -webkit-text-size-adjust:100%;
+  font-family:var(--disp);
+  background:var(--bg); color:var(--text); font-size:16px; line-height:1.7;
+  letter-spacing:0; touch-action:manipulation; -webkit-text-size-adjust:100%;
   padding-bottom:calc(74px + env(safe-area-inset-bottom));
-  background-image:radial-gradient(120% 60% at 50% 0%, var(--bg2) 0%, transparent 62%);
-  background-attachment:fixed;
 }
 button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;touch-action:manipulation;
-  transition:transform .12s ease, background .18s ease, color .18s ease, box-shadow .18s ease}
-button:active{transform:scale(.97)}
+  transition:transform .1s ease, background .16s ease, color .16s ease, border-color .16s ease}
+button:active{transform:scale(.98)}
 input,select,textarea{font:inherit;font-size:16px;color:inherit}
-h1,h2,h3,h4{margin:0;line-height:1.4}
+h1,h2,h3,h4{margin:0;line-height:1.35;letter-spacing:-.01em}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
 svg{display:block}
 
 /* ===== ヘッダー / タブ ===== */
 .appbar{position:sticky;top:0;z-index:30;
-  background:color-mix(in srgb, var(--bg) 86%, transparent);
-  -webkit-backdrop-filter:saturate(1.6) blur(14px); backdrop-filter:saturate(1.6) blur(14px);
+  background:color-mix(in srgb, var(--bg) 82%, transparent);
+  -webkit-backdrop-filter:saturate(1.4) blur(16px); backdrop-filter:saturate(1.4) blur(16px);
   border-bottom:1px solid var(--line);
-  display:flex;align-items:center;gap:6px;padding:10px 14px;min-height:58px}
-.appbar h1{font-family:var(--serif);font-size:21px;font-weight:600;letter-spacing:.09em;flex:1}
-.appbar .ico{width:44px;height:44px;display:grid;place-items:center;border-radius:14px;color:var(--sub)}
-.appbar .ico svg{width:21px;height:21px}
+  display:flex;align-items:center;gap:4px;padding:10px 14px;min-height:56px}
+.appbar h1{font-family:var(--disp);font-size:20px;font-weight:800;letter-spacing:-.02em;flex:1}
+.appbar .ico{width:42px;height:42px;display:grid;place-items:center;border-radius:var(--r-m);color:var(--sub)}
+.appbar .ico svg{width:20px;height:20px}
 .appbar .ico:active{background:var(--chip);color:var(--accent)}
 
 .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;
-  background:color-mix(in srgb, var(--card) 92%, transparent);
-  -webkit-backdrop-filter:blur(16px); backdrop-filter:blur(16px);
-  border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);
-  box-shadow:0 -6px 24px rgba(94,62,44,.06)}
-.tabbar button{flex:1;height:66px;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:5px;font-size:10.5px;color:var(--mute);font-weight:700;letter-spacing:.04em;position:relative}
-.tabbar button svg{width:23px;height:23px;stroke-width:1.6}
-.tabbar button[aria-selected="true"]{color:var(--accent)}
-.tabbar button[aria-selected="true"] svg{stroke-width:2}
-.tabbar button[aria-selected="true"]::before{content:"";position:absolute;top:0;width:26px;height:3px;
-  border-radius:0 0 3px 3px;background:var(--accent)}
+  background:color-mix(in srgb, var(--card) 88%, transparent);
+  -webkit-backdrop-filter:blur(18px); backdrop-filter:blur(18px);
+  border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+.tabbar button{flex:1;height:64px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:5px;font-size:10.5px;color:var(--mute);font-weight:700;letter-spacing:0;position:relative}
+.tabbar button svg{width:22px;height:22px;stroke-width:1.7}
+.tabbar button[aria-selected="true"]{color:var(--text)}
+.tabbar button[aria-selected="true"] svg{stroke-width:2.2;color:var(--accent)}
+.tabbar button[aria-selected="true"]::before{content:"";position:absolute;top:0;width:22px;height:2px;
+  background:var(--accent)}
 main>section{display:none;padding:0 0 28px}
 body[data-view="search"] #v-search,body[data-view="map"] #v-map,
 body[data-view="esp"] #v-esp,body[data-view="my"] #v-my{display:block}
 
 /* ===== 共通パーツ ===== */
 .pad{padding:14px 18px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px;margin:0 16px 14px;
-  box-shadow:var(--shadow)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-l);padding:18px;margin:0 16px 12px}
 .muted{color:var(--sub);font-size:13.5px}
 .tiny{color:var(--mute);font-size:12px;line-height:1.7}
 .row{display:flex;align-items:center;gap:8px}
@@ -100,176 +116,192 @@ body[data-view="esp"] #v-esp,body[data-view="my"] #v-my{display:block}
 .chips{display:flex;gap:8px;flex-wrap:wrap}
 .chiprow{display:flex;gap:8px;overflow-x:auto;padding:8px 16px;scrollbar-width:none}
 .chiprow::-webkit-scrollbar{display:none}
-.chip{background:var(--chip);border:1px solid transparent;border-radius:999px;padding:9px 16px;
-  font-size:13.5px;font-weight:700;white-space:nowrap;min-height:42px;display:inline-flex;align-items:center;
-  color:var(--sub);letter-spacing:.02em}
-.chip[aria-pressed="true"]{background:var(--chipOn);color:var(--chipOnText);
-  box-shadow:0 3px 12px color-mix(in srgb, var(--accent) 34%, transparent)}
-.chip:disabled{opacity:.32}
-.btn{background:var(--chipOn);color:var(--chipOnText);border-radius:16px;padding:15px 20px;
-  font-weight:700;font-size:15px;min-height:52px;display:inline-flex;align-items:center;justify-content:center;gap:7px;
-  letter-spacing:.03em;box-shadow:0 4px 16px color-mix(in srgb, var(--accent) 26%, transparent)}
-.btn.ghost{background:var(--chip);color:var(--text);box-shadow:none}
+/* 選ばれていない候補は「線だけ」、選んだものだけ赤くベタ塗り。
+   塗りの有無で状態が分かるので、色を見分けなくても押した所が分かる。 */
+.chip{background:transparent;border:1px solid var(--line);border-radius:999px;padding:9px 15px;
+  font-size:13.5px;font-weight:600;white-space:nowrap;min-height:40px;display:inline-flex;align-items:center;
+  color:var(--sub);letter-spacing:0}
+.chip[aria-pressed="true"]{background:var(--chipOn);border-color:var(--chipOn);color:var(--chipOnText);font-weight:700}
+.chip:disabled{opacity:.3}
+.btn{background:var(--chipOn);color:var(--chipOnText);border-radius:var(--r-m);padding:14px 20px;
+  font-weight:700;font-size:15px;min-height:50px;display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  letter-spacing:0}
+.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
 .btn.wide{width:100%}
-.btn:disabled{opacity:.4;box-shadow:none}
+.btn:disabled{opacity:.38}
 .searchbar{padding:2px 16px 10px}
-.searchbar input{width:100%;background:var(--card);border:1px solid var(--line);border-radius:16px;
-  padding:13px 16px;min-height:50px;box-shadow:var(--shadow)}
+.searchbar input{width:100%;background:var(--card);border:1px solid var(--line);border-radius:var(--r-m);
+  padding:13px 15px;min-height:48px}
 .searchbar input::placeholder{color:var(--mute)}
-.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:800;letter-spacing:.05em;
-  padding:4px 11px;border-radius:999px;background:var(--chip);color:var(--sub)}
-.badge.r-light{background:var(--roast-l);color:#573a17}
-.badge.r-mid{background:var(--roast-m);color:#fff6ee}
-.badge.r-dark{background:var(--roast-d);color:#f5e6da}
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;letter-spacing:.02em;
+  padding:3px 9px;border-radius:var(--r-s);background:var(--chip);color:var(--sub)}
+/* 焙煎の色を地にしたラベル。地が中間の明るさのときに白抜きにすると読めなくなるので、
+   浅・中は濃い文字、深だけ白抜きにしている。 */
+.badge.r-light{background:var(--roast-l);color:#4a3208}
+.badge.r-mid{background:var(--roast-m);color:#33200b}
+.badge.r-dark{background:var(--roast-d);color:#fff8ef}
 
 /* ===== 味バー ===== */
 .tbar{display:grid;grid-template-columns:50px 1fr 56px;align-items:center;gap:10px;min-height:28px}
-.tbar .lb{font-size:12.5px;color:var(--sub);font-weight:700;letter-spacing:.05em}
-.tbar .wd{font-size:11.5px;color:var(--mute);text-align:right;font-weight:600}
-.track{display:block;height:9px;border-radius:5px;background:var(--track);overflow:hidden}
-.fill{height:9px;border-radius:5px;background:var(--s1);display:block;position:relative;
+.tbar .lb{font-size:12.5px;color:var(--sub);font-weight:600;letter-spacing:0}
+.tbar .wd{font-family:var(--mono);font-size:11px;color:var(--mute);text-align:right;font-weight:500}
+.track{display:block;height:6px;border-radius:3px;background:var(--track);overflow:hidden}
+.fill{height:6px;border-radius:3px;background:var(--s1);display:block;
   transition:width .4s cubic-bezier(.22,.9,.3,1)}
-.fill::after{content:"";position:absolute;inset:0;border-radius:inherit;
-  background:linear-gradient(180deg,rgba(255,255,255,.32),rgba(255,255,255,0) 62%)}
 
 /* ===== 豆カード ===== */
-.bean{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px 16px 15px 20px;
-  margin:0 16px 12px;box-shadow:var(--shadow);position:relative;overflow:hidden}
-.bean:active{box-shadow:var(--shadow-lift);transform:scale(.995)}
-.bean::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--roast-m)}
-.bean.r-light::before{background:linear-gradient(180deg,var(--roast-l),color-mix(in srgb,var(--roast-l) 70%,var(--roast-m)))}
-.bean.r-mid::before{background:linear-gradient(180deg,var(--roast-m),color-mix(in srgb,var(--roast-m) 70%,var(--roast-d)))}
-.bean.r-dark::before{background:linear-gradient(180deg,var(--roast-d),#3d281c)}
-.bean h3{font-family:var(--serif);font-size:17.5px;font-weight:600;letter-spacing:.03em;line-height:1.45}
-.bean .meta{font-size:12.5px;color:var(--sub);margin:5px 0 12px;letter-spacing:.02em}
-.bean .foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:14px}
-.price{font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:.01em}
-.price small{font-size:10.5px;color:var(--mute);font-weight:600;letter-spacing:.03em}
+/* 左端の縦線は焙煎の深さを表している。飾りではなく情報なので消さないこと。 */
+.bean{background:var(--card);border:1px solid var(--line);border-radius:var(--r-l);padding:15px 16px 14px 19px;
+  margin:0 16px 10px;position:relative;overflow:hidden}
+.bean:active{border-color:var(--mute)}
+.bean::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--roast-m)}
+.bean.r-light::before{background:var(--roast-l)}
+.bean.r-mid::before{background:var(--roast-m)}
+.bean.r-dark::before{background:var(--roast-d)}
+.bean h3{font-family:var(--disp);font-size:17px;font-weight:700;letter-spacing:-.01em;line-height:1.4}
+.bean .meta{font-size:12.5px;color:var(--sub);margin:5px 0 12px;letter-spacing:0}
+.bean .foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:13px}
+.price{font-family:var(--mono);font-size:15.5px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.price small{font-family:var(--disp);font-size:10.5px;color:var(--mute);font-weight:600;letter-spacing:0}
 .acts{display:flex;gap:8px}
-.iconbtn{width:44px;height:44px;border-radius:14px;background:var(--chip);display:grid;place-items:center;
-  color:var(--sub)}
-.iconbtn svg{width:19px;height:19px}
-.iconbtn[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
+.iconbtn{width:42px;height:42px;border-radius:var(--r-m);background:transparent;border:1px solid var(--line);
+  display:grid;place-items:center;color:var(--sub)}
+.iconbtn svg{width:18px;height:18px}
+.iconbtn[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
 
 /* ===== トレイ ===== */
-#tray{position:fixed;left:0;right:0;bottom:calc(66px + env(safe-area-inset-bottom));z-index:35;
-  background:var(--card);border-top:1px solid var(--line);padding:12px 16px;display:none;
-  align-items:center;gap:10px;box-shadow:0 -8px 28px rgba(94,62,44,.13)}
+#tray{position:fixed;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom));z-index:35;
+  background:var(--card);border-top:1px solid var(--line);padding:11px 16px;display:none;
+  align-items:center;gap:10px;box-shadow:var(--shadow-lift)}
 #tray.on{display:flex}
 #tray .slots{flex:1;display:flex;gap:7px;overflow-x:auto;scrollbar-width:none}
 #tray .slots::-webkit-scrollbar{display:none}
-#tray .btn{padding:12px 18px;min-height:46px;font-size:14px}
-.slot{background:var(--chip);border-radius:12px;padding:7px 11px;font-size:12px;font-weight:700;
-  white-space:nowrap;display:flex;align-items:center;gap:7px;min-height:38px}
+#tray .btn{padding:11px 17px;min-height:44px;font-size:14px}
+.slot{background:var(--chip);border-radius:var(--r-s);padding:7px 10px;font-size:12px;font-weight:600;
+  white-space:nowrap;display:flex;align-items:center;gap:7px;min-height:36px}
 
 /* ===== シート / モーダル ===== */
 .sheet{position:fixed;inset:0;z-index:60;display:none}
 .sheet.on{display:block}
-.sheet .veil{position:absolute;inset:0;background:rgba(48,30,22,.42);
+.sheet .veil{position:absolute;inset:0;background:rgba(10,16,14,.5);
   -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
 .sheet .panel{position:absolute;left:0;right:0;bottom:0;max-height:88dvh;background:var(--bg);
-  border-radius:28px 28px 0 0;display:flex;flex-direction:column;overflow:hidden;
-  box-shadow:0 -12px 44px rgba(48,30,22,.26);animation:rise .3s cubic-bezier(.22,.9,.3,1)}
-@keyframes rise{from{transform:translateY(22px);opacity:.4}to{transform:none;opacity:1}}
-.sheet .grab{width:44px;height:4px;border-radius:2px;background:var(--line);margin:12px auto 6px}
+  border-radius:20px 20px 0 0;display:flex;flex-direction:column;overflow:hidden;
+  box-shadow:0 -8px 40px rgba(10,16,14,.28);animation:rise .26s cubic-bezier(.22,.9,.3,1)}
+@keyframes rise{from{transform:translateY(18px);opacity:.4}to{transform:none;opacity:1}}
+.sheet .grab{width:36px;height:4px;border-radius:2px;background:var(--line);margin:10px auto 4px}
 .sheet .body{overflow-y:auto;overscroll-behavior:contain;padding:4px 0 12px;flex:1}
 .sheet .foot{border-top:1px solid var(--line);padding:12px 16px calc(12px + env(safe-area-inset-bottom));
   display:flex;gap:10px;background:var(--card)}
-.sheet strong{font-family:var(--serif);font-size:17px;font-weight:600;letter-spacing:.05em}
+.sheet strong{font-family:var(--disp);font-size:16.5px;font-weight:800;letter-spacing:-.01em}
 .full{position:fixed;inset:0;z-index:70;background:var(--bg);display:none;flex-direction:column}
 .full.on{display:flex}
-.full .top{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);
-  min-height:56px;background:color-mix(in srgb, var(--bg) 88%, transparent);
-  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
-.full .top .ico{width:44px;height:44px;display:grid;place-items:center;border-radius:14px;color:var(--sub)}
-.full .top .ico svg{width:21px;height:21px}
-.full .top h2{font-family:var(--serif);font-size:16.5px;font-weight:600;letter-spacing:.05em;flex:1;
+.full .top{display:flex;align-items:center;gap:6px;padding:7px 12px;border-bottom:1px solid var(--line);
+  min-height:54px;background:color-mix(in srgb, var(--bg) 84%, transparent);
+  -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+.full .top .ico{width:42px;height:42px;display:grid;place-items:center;border-radius:var(--r-m);color:var(--sub)}
+.full .top .ico svg{width:20px;height:20px}
+.full .top h2{font-family:var(--disp);font-size:16px;font-weight:800;letter-spacing:-.01em;flex:1;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .full .body{flex:1;overflow-y:auto;padding-bottom:calc(28px + env(safe-area-inset-bottom))}
 
 /* ===== 詳細のヒーロー ===== */
-.hero{position:relative;overflow:hidden;padding:28px 20px 24px;color:#fff8f2}
-.hero.r-light{background:linear-gradient(150deg,#d9b58a,#a9764a)}
-.hero.r-mid{background:linear-gradient(150deg,#b9825a,#7d4f33)}
-.hero.r-dark{background:linear-gradient(150deg,#7a5138,#402a1e)}
-.hero::after{content:"";position:absolute;right:-46px;top:-58px;width:190px;height:190px;border-radius:50%;
-  background:radial-gradient(circle at 32% 32%, rgba(255,255,255,.28), rgba(255,255,255,0) 68%)}
-.hero .eyebrow{font-size:11.5px;letter-spacing:.16em;font-weight:700;opacity:.86;text-transform:uppercase}
-.hero h3{font-family:var(--serif);font-size:25px;font-weight:600;letter-spacing:.04em;margin:8px 0 6px;
-  position:relative;z-index:1;text-shadow:0 1px 8px rgba(60,34,20,.24)}
-.hero .sub{font-size:13px;opacity:.92;position:relative;z-index:1}
-.hero .tags{display:flex;gap:7px;flex-wrap:wrap;margin-top:14px;position:relative;z-index:1}
-.hero .tags span{background:rgba(255,255,255,.19);border:1px solid rgba(255,255,255,.28);
-  border-radius:999px;padding:4px 12px;font-size:11.5px;font-weight:700;letter-spacing:.03em}
-.saying{font-size:15.5px;line-height:1.95;margin:0;padding:20px 20px 6px;letter-spacing:.02em}
-.phero{display:flex;gap:20px;align-items:center;padding:24px 20px}
+/* 詳細の見出し。焙煎の色をそのまま地に敷く。グラデーションや光沢は使わず、
+   ベタ塗りに近づけている。浅煎りだけ地が明るいので、文字色を .onlight で入れ替える。 */
+.hero{position:relative;overflow:hidden;padding:26px 20px 22px;color:#fff;
+  border-bottom:1px solid rgba(0,0,0,.14)}
+.hero.r-light{background:#cfa878}
+.hero.r-mid{background:#9d6b45}
+.hero.r-dark{background:#553928}
+.hero.r-light,.hero.onlight{color:#241a11}
+.hero.r-light .tags span,.hero.onlight .tags span{background:rgba(255,255,255,.42);border-color:rgba(0,0,0,.14)}
+.hero .eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;font-weight:600;opacity:.8;
+  text-transform:uppercase}
+.hero h3{font-family:var(--disp);font-size:27px;font-weight:800;letter-spacing:-.025em;margin:6px 0 6px;
+  line-height:1.2;position:relative;z-index:1}
+.hero .sub{font-size:13px;opacity:.88;position:relative;z-index:1}
+.hero .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px;position:relative;z-index:1}
+.hero .tags span{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.3);
+  border-radius:var(--r-s);padding:4px 10px;font-size:11.5px;font-weight:600;letter-spacing:0}
+.saying{font-size:15.5px;line-height:1.9;margin:0;padding:20px 20px 6px;letter-spacing:0}
+.phero{display:flex;gap:20px;align-items:center;padding:22px 20px}
 .phero .pkg{flex:none;position:relative;z-index:1}
-.hero.onlight{color:#3d2a1c}
-.hero.onlight h3{text-shadow:none}
-.hero.onlight .tags span{background:rgba(255,255,255,.45);border-color:rgba(255,255,255,.62)}
 
 /* ===== 見出し ===== */
-.sect{font-family:var(--serif);font-size:15px;font-weight:600;letter-spacing:.09em;
+.sect{font-family:var(--disp);font-size:14px;font-weight:800;letter-spacing:-.005em;
   display:flex;align-items:center;gap:10px;margin:0 0 12px}
 .sect::after{content:"";flex:1;height:1px;background:var(--line)}
-.sec-title{font-family:var(--serif);font-size:14px;font-weight:600;color:var(--sub);
-  letter-spacing:.12em;padding:22px 18px 10px}
+/* 区切りの小見出しは、本文より一段下げた「ラベル」として扱う。
+   小さく・字間を広げ・大文字寄りに組むと、読み飛ばしても構わない情報だと伝わる。 */
+.sec-title{font-family:var(--disp);font-size:11.5px;font-weight:700;color:var(--mute);
+  letter-spacing:.1em;padding:22px 16px 8px}
 
 /* ===== 比較 ===== */
 .legend{display:flex;flex-direction:column;gap:9px;padding:16px 18px;border-bottom:1px solid var(--line)}
 .legend .li{display:flex;align-items:center;gap:10px;font-size:14.5px}
-.key{width:26px;height:26px;border-radius:9px;display:grid;place-items:center;color:#fff;font-size:12px;
-  font-weight:800;flex:none;box-shadow:0 2px 7px rgba(94,62,44,.22)}
+.key{width:24px;height:24px;border-radius:var(--r-s);display:grid;place-items:center;color:#fff;font-size:12px;
+  font-weight:800;flex:none}
 .cmpblock{padding:18px}
 .cmpblock+.cmpblock{border-top:1px solid var(--line)}
-.cmpblock h4{font-family:var(--serif);font-size:15px;font-weight:600;letter-spacing:.07em;margin:0 0 3px}
-.cmprow{display:grid;grid-template-columns:26px 1fr 36px;align-items:center;gap:10px;margin-top:9px}
-.win{font-size:10.5px;font-weight:800;color:var(--ok);margin-left:6px;letter-spacing:.03em}
+.cmpblock h4{font-family:var(--disp);font-size:14.5px;font-weight:800;letter-spacing:-.01em;margin:0 0 3px}
+.cmprow{display:grid;grid-template-columns:24px 1fr 36px;align-items:center;gap:10px;margin-top:9px}
+.win{font-size:10.5px;font-weight:800;color:var(--ok);margin-left:6px;letter-spacing:.02em}
 
 /* ===== ステッパー ===== */
-.step{display:grid;grid-template-columns:58px 1fr 58px;gap:10px;align-items:center}
-.step button{background:var(--chip);border-radius:16px;height:56px;font-size:23px;font-weight:700;color:var(--accent)}
-.step button:active{background:var(--chipOn);color:var(--chipOnText)}
-.step .val{text-align:center;font-size:25px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:.02em}
-.step .val small{display:block;font-size:11px;font-weight:600;color:var(--mute);letter-spacing:.08em}
+/* 記録の入力欄。数値は等幅で大きく出す。抽出量や秒数は、
+   打ち込むよりも＋−で動かすほうが片手で速いので、この形にしている。 */
+.step{display:grid;grid-template-columns:56px 1fr 56px;gap:10px;align-items:center}
+.step button{background:transparent;border:1px solid var(--line);border-radius:var(--r-m);height:54px;
+  font-size:22px;font-weight:600;color:var(--text)}
+.step button:active{background:var(--chipOn);border-color:var(--chipOn);color:var(--chipOnText)}
+.step .val{font-family:var(--mono);text-align:center;font-size:26px;font-weight:600;
+  font-variant-numeric:tabular-nums;letter-spacing:-.03em}
+.step .val small{font-family:var(--disp);display:block;font-size:11px;font-weight:600;color:var(--mute);
+  letter-spacing:.06em}
 .field{margin:0 0 20px}
-.field>label{display:block;font-size:12.5px;font-weight:700;color:var(--sub);margin-bottom:9px;letter-spacing:.06em}
-.seg{display:flex;gap:7px}
-.seg button{flex:1;background:var(--chip);border-radius:15px;min-height:56px;font-size:12.5px;font-weight:700;
+.field>label{display:block;font-size:11.5px;font-weight:700;color:var(--mute);margin-bottom:8px;letter-spacing:.08em}
+.seg{display:flex;gap:6px}
+.seg button{flex:1;background:transparent;border:1px solid var(--line);border-radius:var(--r-m);min-height:54px;
+  font-size:12.5px;font-weight:600;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:6px;color:var(--sub)}
-.seg button[aria-pressed="true"]{background:var(--chipOn);color:var(--chipOnText);
-  box-shadow:0 4px 14px color-mix(in srgb, var(--accent) 30%, transparent)}
+.seg button[aria-pressed="true"]{background:var(--chipOn);border-color:var(--chipOn);color:var(--chipOnText);
+  font-weight:700}
 .seg button .g{font-size:18px}
-.stars{display:flex;gap:5px}
-.stars button{width:48px;height:48px;font-size:27px;color:var(--line)}
+.stars{display:flex;gap:4px}
+.stars button{width:46px;height:46px;font-size:26px;color:var(--line)}
 .stars button.on{color:var(--gold)}
 
 /* ===== 提案 ===== */
-.advice{border-radius:20px;padding:18px;margin:0 16px 14px;border:1px solid var(--line);
-  background:linear-gradient(165deg, var(--accent-soft), var(--card) 68%);box-shadow:var(--shadow)}
-.advice .k{font-size:11px;font-weight:800;letter-spacing:.14em;color:var(--warn)}
-.advice .do{font-family:var(--serif);font-size:19px;font-weight:600;margin:9px 0 8px;letter-spacing:.03em;line-height:1.6}
+/* 次の一手はいつも1つだけ出す。複数出すと、どれから試すか決められなくなる。 */
+.advice{border-radius:var(--r-l);padding:17px;margin:0 16px 12px;border:1px solid var(--line);
+  background:var(--card);border-left:3px solid var(--warn)}
+.advice .k{font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.12em;color:var(--warn);
+  text-transform:uppercase}
+.advice .do{font-family:var(--disp);font-size:19px;font-weight:800;margin:8px 0 8px;letter-spacing:-.02em;
+  line-height:1.5}
+.advice.ok{border-left-color:var(--ok)}
 .advice.ok .k{color:var(--ok)}
 
 /* ===== 収束バー ===== */
 .shotrow{display:grid;grid-template-columns:40px 1fr 38px 30px 30px;align-items:center;gap:8px;
-  padding:7px 0;border-bottom:1px solid var(--line);font-size:12px}
+  padding:7px 0;border-bottom:1px solid var(--line);font-size:12px;
+  font-variant-numeric:tabular-nums}
 .shotrow:last-of-type{border-bottom:none}
-.shotrow .bar{height:16px;border-radius:6px;background:var(--track);position:relative;overflow:hidden}
-.shotrow .bar i{position:absolute;left:0;top:0;bottom:0;border-radius:6px;display:block}
-.shotrow button{min-height:30px;border-radius:8px}
+.shotrow .bar{height:12px;border-radius:3px;background:var(--track);position:relative;overflow:hidden}
+.shotrow .bar i{position:absolute;left:0;top:0;bottom:0;border-radius:3px;display:block}
+.shotrow button{min-height:30px;border-radius:var(--r-s)}
 .shotrow button svg{width:15px;height:15px}
 .shotrow button:active{background:var(--chip);color:var(--bad)}
 
 /* ===== マップ ===== */
 .mapwrap{padding:0 16px}
 .mapwrap svg{width:100%;height:auto;display:block;background:var(--card);border:1px solid var(--line);
-  border-radius:20px;box-shadow:var(--shadow)}
+  border-radius:var(--r-l)}
 .dot{cursor:pointer}
 
 /* 焙煎の深さ（横）× コクの強さ（縦）で並べる一覧。店頭のコーヒーマップと同じ読み方。 */
 .cmap{display:grid;grid-template-columns:22px repeat(3,1fr);margin:0 16px;background:var(--card);
-  border:1px solid var(--line);border-radius:20px;overflow:hidden;box-shadow:var(--shadow)}
+  border:1px solid var(--line);border-radius:var(--r-l);overflow:hidden}
 .cmap .corner{background:var(--chip);border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
 .cmap .zh{font-size:11px;font-weight:800;letter-spacing:.06em;text-align:center;padding:9px 2px;
   border-bottom:1px solid var(--line)}
@@ -284,129 +316,162 @@ body[data-view="esp"] #v-esp,body[data-view="my"] #v-my{display:block}
   font-size:9.5px;font-weight:800;letter-spacing:.2em;color:var(--mute)}
 .cmap .col{padding:10px 5px 14px;display:flex;flex-direction:column;gap:4px;min-width:0}
 .cmap .col+.col{border-left:1px solid var(--line)}
-.mapitem{display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 3px;border-radius:13px;
+.mapitem{display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 3px;border-radius:var(--r-m);
   text-align:center;width:100%;min-width:0}
 .mapitem:active{background:var(--chip)}
-.mapitem .mi{width:36px;height:auto;flex:none;filter:drop-shadow(0 3px 7px rgba(94,62,44,.22))}
-.mapitem img.mi{height:48px;object-fit:cover;border-radius:6px}
+.mapitem .mi{width:36px;height:auto;flex:none}
+.mapitem img.mi{height:48px;object-fit:cover;border-radius:var(--r-s)}
 .mapitem b{font-size:10.5px;font-weight:700;line-height:1.4;word-break:break-word;letter-spacing:0}
 .mapitem em{font-size:9.5px;color:var(--mute);line-height:1.45;font-style:normal;word-break:break-word}
-.mapitem .tag{font-size:8.5px;font-weight:800;letter-spacing:.04em;padding:2px 6px;border-radius:999px;
+.mapitem .tag{font-size:8.5px;font-weight:700;letter-spacing:.02em;padding:2px 6px;border-radius:4px;
   background:var(--accent-soft);color:var(--accent)}
 .cmap .colempty{font-size:10px;color:var(--mute);text-align:center;padding:18px 4px;line-height:1.6}
 /* お店ごと（産地モードなら国ごと）にまとめた一覧。
    まずお店の名前が目に入り、その下に豆が並ぶ順序にしている。 */
-.grouphead{display:flex;align-items:center;gap:11px;margin:24px 16px 8px;padding-bottom:9px;
-  border-bottom:2px solid var(--line)}
-.grouphead .dot2{width:32px;height:32px;border-radius:11px;flex:none;display:grid;place-items:center;
-  color:#fff;font-family:var(--serif);font-size:14px;font-weight:600}
-.grouphead b{font-family:var(--serif);font-size:17px;font-weight:600;letter-spacing:.05em;flex:1;min-width:0}
-.grouphead span{font-size:11.5px;color:var(--mute);font-weight:700;white-space:nowrap}
+.grouphead{display:flex;align-items:center;gap:10px;margin:26px 16px 4px;padding-bottom:8px;
+  border-bottom:1px solid var(--text)}
+.grouphead .dot2{width:28px;height:28px;border-radius:var(--r-s);flex:none;display:grid;place-items:center;
+  color:#fff;font-family:var(--disp);font-size:13px;font-weight:800}
+.grouphead b{font-family:var(--disp);font-size:16.5px;font-weight:800;letter-spacing:-.015em;flex:1;min-width:0}
+.grouphead span{font-family:var(--mono);font-size:11px;color:var(--mute);font-weight:500;white-space:nowrap}
 .glist{margin:0 12px}
 .growitem{display:grid;grid-template-columns:40px 1fr auto;align-items:center;gap:12px;
-  padding:11px 10px;border-radius:14px;text-align:left;width:100%}
+  padding:11px 10px;border-radius:var(--r-m);text-align:left;width:100%}
 .growitem+.growitem{border-top:1px solid var(--line)}
 .growitem:active{background:var(--chip)}
-.growitem .mi{width:34px;height:auto;filter:drop-shadow(0 2px 6px rgba(94,62,44,.2))}
+.growitem .mi{width:34px;height:auto}
 .growitem img.mi{height:44px;object-fit:cover;border-radius:5px}
 .growitem .nm{min-width:0}
-.growitem .nm b{display:block;font-size:14px;font-weight:700;line-height:1.5;word-break:break-word}
+.growitem .nm b{display:block;font-size:14px;font-weight:700;line-height:1.5;word-break:break-word;
+  letter-spacing:-.01em}
 .growitem .nm span{display:block;font-size:11.5px;color:var(--mute);line-height:1.55}
-.growitem .pr{text-align:right;font-size:13px;font-weight:700;white-space:nowrap;
-  font-variant-numeric:tabular-nums}
-.growitem .pr small{display:block;font-size:9.5px;color:var(--mute);font-weight:600}
-.growitem .rb{display:inline-block;font-size:9.5px;font-weight:800;padding:1px 7px;border-radius:999px;
+.growitem .pr{font-family:var(--mono);text-align:right;font-size:12.5px;font-weight:600;white-space:nowrap;
+  font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.growitem .pr small{font-family:var(--disp);display:block;font-size:9.5px;color:var(--mute);font-weight:600}
+.growitem .rb{display:inline-block;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:4px;
   margin-right:6px;vertical-align:1px}
 .rb.r-light{background:var(--roast-l);color:#4a3208}
 .rb.r-mid{background:var(--roast-m);color:#3a220c}
 .rb.r-dark{background:var(--roast-d);color:#fff8ef}
 
-.barista{display:flex;gap:12px;align-items:flex-start;margin:14px 16px 0;padding:15px 16px;
-  background:var(--accent-soft);border-radius:18px}
-.barista .bico{width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;flex:none;
-  display:grid;place-items:center;font-size:16px}
+.barista{display:flex;gap:12px;align-items:flex-start;margin:14px 16px 0;padding:14px 15px;
+  background:var(--chip);border-radius:var(--r-l)}
+.barista .bico{width:32px;height:32px;border-radius:var(--r-s);background:var(--accent);color:#fff;flex:none;
+  display:grid;place-items:center;font-size:15px}
 .barista p{margin:0;font-size:12.5px;line-height:1.75;color:var(--sub)}
 
 /* ===== その他 ===== */
 .empty{text-align:center;padding:44px 28px;color:var(--sub)}
-.empty .g{font-size:34px;display:block;margin-bottom:12px;opacity:.55}
-details{border:1px solid var(--line);border-radius:20px;padding:0;margin:0 16px 14px;background:var(--card);
-  box-shadow:var(--shadow);overflow:hidden}
-details>summary{padding:17px 18px;font-family:var(--serif);font-weight:600;font-size:15px;letter-spacing:.06em;
-  cursor:pointer;list-style:none;min-height:52px;display:flex;align-items:center;justify-content:space-between}
+.empty .g{font-size:32px;display:block;margin-bottom:12px;opacity:.45}
+details{border:1px solid var(--line);border-radius:var(--r-l);padding:0;margin:0 16px 12px;background:var(--card);
+  overflow:hidden}
+details>summary{padding:16px 18px;font-family:var(--disp);font-weight:700;font-size:14.5px;letter-spacing:-.005em;
+  cursor:pointer;list-style:none;min-height:50px;display:flex;align-items:center;justify-content:space-between}
 details>summary::-webkit-details-marker{display:none}
-details>summary::after{content:"▾";color:var(--accent);font-size:13px}
+details>summary::after{content:"▾";color:var(--mute);font-size:12px}
 details[open]>summary::after{content:"▴"}
 details .in{padding:0 18px 18px}
 .kv{display:grid;grid-template-columns:88px 1fr;gap:9px 12px;font-size:14px}
-.kv dt{color:var(--sub);font-size:12.5px;font-weight:600;letter-spacing:.04em}
+.kv dt{color:var(--mute);font-size:11.5px;font-weight:700;letter-spacing:.05em}
 .kv dd{margin:0}
-.note{background:var(--chip);border-radius:14px;padding:13px 15px;font-size:12.5px;color:var(--sub);line-height:1.8}
+.note{background:var(--chip);border-radius:var(--r-m);padding:13px 15px;font-size:12.5px;color:var(--sub);
+  line-height:1.8}
 .range{width:100%;height:44px;accent-color:var(--accent)}
+
+/* 焙煎度のスライダー。
+   何段階あるのかは、動かす前に見えていないと分からない。そこで目盛りの点を6つ置き、
+   下の帯を浅煎りの色から深煎りの色へのグラデーションにして、
+   左が浅く右が深いことを文字を読まなくても分かるようにしている。
+   点は input の下に敷いてあるだけなので、指はスライダー本体に当たる（pointer-events:none）。 */
+.rscale{position:relative;margin:2px 0 4px}
+.rscale .ticks{position:absolute;left:11px;right:11px;top:50%;transform:translateY(-50%);
+  display:flex;justify-content:space-between;align-items:center;pointer-events:none}
+.rscale .ticks::before{content:"";position:absolute;left:-5px;right:-5px;top:50%;height:5px;
+  transform:translateY(-50%);border-radius:3px;
+  background:linear-gradient(90deg,var(--roast-l),var(--roast-m) 52%,var(--roast-d))}
+.rscale .ticks i{width:9px;height:9px;border-radius:50%;background:var(--card);
+  border:1.5px solid color-mix(in srgb,var(--text) 45%,transparent);position:relative;z-index:1}
+.rscale input[type=range]{position:relative;-webkit-appearance:none;appearance:none;background:transparent;
+  width:100%;height:38px;margin:0;display:block;accent-color:var(--accent)}
+.rscale input[type=range]::-webkit-slider-runnable-track{height:38px;background:transparent;border:none}
+.rscale input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;
+  border-radius:50%;background:var(--card);border:3px solid var(--accent);margin-top:8px;
+  box-shadow:var(--shadow-lift)}
+.rscale input[type=range]::-moz-range-track{height:38px;background:transparent;border:none}
+.rscale input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;
+  background:var(--card);border:3px solid var(--accent);box-shadow:var(--shadow-lift)}
+.rends{display:flex;justify-content:space-between;font-size:11.5px;color:var(--sub);font-weight:700}
+
+/* フレーバーや産地は長い名前が入りうる。枠の外へ突き抜けさせず、必ず中で折り返す。
+   .chiprow の絞り込みチップは横に流して読むので、そちらは nowrap のまま。 */
+.chips .chip{white-space:normal;overflow-wrap:anywhere;text-align:left;line-height:1.5;
+  min-height:0;padding:7px 13px}
+.kv dd,.prod .meta,.bean .meta,.growitem .nm b,.mapitem em{overflow-wrap:anywhere}
 input[type=text],input[type=number],input[type=date],textarea,select{
-  width:100%;background:var(--chip);border:1px solid var(--line);border-radius:14px;padding:13px;min-height:50px}
-input:focus,textarea:focus,select:focus{outline:2px solid color-mix(in srgb, var(--accent) 55%, transparent);
-  outline-offset:1px}
+  width:100%;background:var(--card);border:1px solid var(--line);border-radius:var(--r-m);padding:13px;
+  min-height:48px}
+input:focus,textarea:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px}
 textarea{min-height:80px;resize:vertical}
-.hr{height:1px;background:var(--line);margin:20px 16px}
 
 /* ===== 産地 / お店 の切り替え ===== */
-.modeswitch{display:flex;background:var(--chip);border-radius:999px;padding:4px;gap:4px}
-.modeswitch button{flex:1;min-height:44px;border-radius:999px;font-size:13.5px;font-weight:700;
-  color:var(--sub);letter-spacing:.04em;display:flex;align-items:center;justify-content:center;gap:6px}
-.modeswitch button svg{width:17px;height:17px}
-.modeswitch button[aria-pressed="true"]{background:var(--card);color:var(--accent);box-shadow:var(--shadow)}
+.modeswitch{display:flex;background:var(--chip);border-radius:var(--r-m);padding:3px;gap:3px}
+.modeswitch button{flex:1;min-height:42px;border-radius:9px;font-size:13.5px;font-weight:600;
+  color:var(--sub);letter-spacing:0;display:flex;align-items:center;justify-content:center;gap:6px}
+.modeswitch button svg{width:16px;height:16px}
+.modeswitch button[aria-pressed="true"]{background:var(--card);color:var(--text);font-weight:700;
+  box-shadow:var(--shadow)}
 
 /* ===== 商品カード（パッケージ付き） ===== */
-.prod{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;margin:0 16px 12px;
-  box-shadow:var(--shadow);display:grid;grid-template-columns:66px 1fr;gap:15px;position:relative;overflow:hidden}
-.prod:active{box-shadow:var(--shadow-lift);transform:scale(.995)}
-.pkg{width:66px;height:auto;align-self:start;
-  filter:drop-shadow(0 5px 12px rgba(94,62,44,.24))}
-.prod .shopname{font-size:11px;font-weight:800;letter-spacing:.09em;color:var(--accent)}
-.prod h3{font-family:var(--serif);font-size:16.5px;font-weight:600;letter-spacing:.03em;margin:4px 0 0;line-height:1.45}
+.prod{background:var(--card);border:1px solid var(--line);border-radius:var(--r-l);padding:15px;margin:0 16px 10px;
+  display:grid;grid-template-columns:66px 1fr;gap:15px;position:relative;overflow:hidden}
+.prod:active{border-color:var(--mute)}
+.pkg{width:66px;height:auto;align-self:start;filter:drop-shadow(0 3px 8px rgba(20,30,25,.18))}
+/* お店の名前を先に読ませたいので、豆の名前より上に小さく置いている。
+   欲しい順序が「①どの店で買えるか ②どの豆か」なので、大きさより位置で順序を作る。 */
+.prod .shopname{font-size:10.5px;font-weight:700;letter-spacing:.07em;color:var(--accent)}
+.prod h3{font-family:var(--disp);font-size:16px;font-weight:700;letter-spacing:-.015em;margin:4px 0 0;
+  line-height:1.4}
 .prod .meta{font-size:12px;color:var(--sub);margin:5px 0 10px}
 .prod .foot{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;margin-top:12px}
-.prod .per{font-size:10.5px;color:var(--mute);font-weight:600;display:block;letter-spacing:.02em}
-.shopcard{display:flex;align-items:center;gap:13px;padding:15px 16px;background:var(--card);
-  border:1px solid var(--line);border-radius:18px;margin:0 16px 10px;box-shadow:var(--shadow);width:calc(100% - 32px)}
-.shopcard .dot2{width:38px;height:38px;border-radius:13px;flex:none;
-  display:grid;place-items:center;color:#fff;font-family:var(--serif);font-size:15px;font-weight:600}
+.prod .per{font-family:var(--mono);font-size:10px;color:var(--mute);font-weight:500;display:block;letter-spacing:0}
+.shopcard{display:flex;align-items:center;gap:12px;padding:14px 15px;background:var(--card);
+  border:1px solid var(--line);border-radius:var(--r-l);margin:0 16px 8px;width:calc(100% - 32px)}
+.shopcard .dot2{width:34px;height:34px;border-radius:var(--r-s);flex:none;
+  display:grid;place-items:center;color:#fff;font-family:var(--disp);font-size:14px;font-weight:800}
 .shopcard .nm{flex:1;text-align:left}
-.shopcard .nm b{font-family:var(--serif);font-size:15.5px;font-weight:600;letter-spacing:.04em;display:block}
+.shopcard .nm b{font-family:var(--disp);font-size:15px;font-weight:700;letter-spacing:-.015em;display:block}
 .shopcard .nm span{font-size:11.5px;color:var(--mute)}
-.shopcard .ct{font-size:12px;color:var(--mute);font-weight:700}
+.shopcard .ct{font-family:var(--mono);font-size:11.5px;color:var(--mute);font-weight:500}
 
 /* ===== 自分で撮った写真 ===== */
 .photobox{position:relative;width:66px;align-self:start}
-.photo{width:66px;height:88px;object-fit:cover;border-radius:11px;display:block;
-  box-shadow:0 5px 13px rgba(94,62,44,.26);background:var(--chip)}
-.phero .photo,.photo.big{width:96px;height:128px;border-radius:15px}
+.photo{width:66px;height:88px;object-fit:cover;border-radius:var(--r-s);display:block;
+  background:var(--chip);border:1px solid var(--line)}
+.phero .photo,.photo.big{width:96px;height:128px;border-radius:var(--r-m)}
 .phero .photobox{width:96px;flex:none;z-index:1}
-.photobox .cam{position:absolute;right:-7px;bottom:-7px;width:32px;height:32px;border-radius:50%;
+.photobox .cam{position:absolute;right:-6px;bottom:-6px;width:30px;height:30px;border-radius:50%;
   background:var(--chipOn);color:var(--chipOnText);display:grid;place-items:center;
-  box-shadow:0 3px 10px rgba(94,62,44,.34);border:2px solid var(--card)}
-.photobox .cam svg{width:15px;height:15px}
-.mybadge{display:inline-flex;align-items:center;font-size:10px;font-weight:800;letter-spacing:.08em;
-  padding:4px 10px;border-radius:999px;background:var(--accent-soft);color:var(--accent)}
+  border:2px solid var(--card)}
+.photobox .cam svg{width:14px;height:14px}
+.mybadge{display:inline-flex;align-items:center;font-size:10px;font-weight:700;letter-spacing:.05em;
+  padding:3px 8px;border-radius:4px;background:var(--accent-soft);color:var(--accent)}
 
 /* ===== 味を5つのまるで入れる ===== */
 .dots{display:grid;grid-template-columns:48px 1fr 52px;align-items:center;gap:10px;margin-bottom:8px}
-.dots .lb{font-size:12.5px;color:var(--sub);font-weight:700;letter-spacing:.05em}
-.dots .wd{font-size:11.5px;color:var(--mute);text-align:right;font-weight:600}
+.dots .lb{font-size:12.5px;color:var(--sub);font-weight:600;letter-spacing:0}
+.dots .wd{font-family:var(--mono);font-size:11px;color:var(--mute);text-align:right;font-weight:500}
 .dots .dd{display:flex;gap:7px}
-.dots .dd button{width:40px;height:40px;border-radius:50%;background:var(--track);
-  border:2px solid transparent;padding:0;flex:none}
+.dots .dd button{width:38px;height:38px;border-radius:50%;background:transparent;
+  border:1.5px solid var(--line);padding:0;flex:none}
 .dots .dd button.on{background:var(--accent);border-color:var(--accent)}
-.fab{position:fixed;right:16px;bottom:calc(80px + env(safe-area-inset-bottom));z-index:34;
-  width:auto;padding:0 20px;height:54px;border-radius:27px;background:var(--chipOn);color:var(--chipOnText);
-  display:none;align-items:center;gap:8px;font-weight:700;font-size:14.5px;letter-spacing:.03em;
-  box-shadow:0 6px 22px color-mix(in srgb, var(--accent) 42%, transparent)}
-.fab svg{width:19px;height:19px}
+.fab{position:fixed;right:16px;bottom:calc(78px + env(safe-area-inset-bottom));z-index:34;
+  width:auto;padding:0 18px;height:50px;border-radius:var(--r-m);background:var(--chipOn);color:var(--chipOnText);
+  display:none;align-items:center;gap:8px;font-weight:700;font-size:14.5px;letter-spacing:0;
+  box-shadow:var(--shadow-lift)}
+.fab svg{width:18px;height:18px}
 body[data-view="search"] .fab{display:flex}
-body[data-view="search"] #tray.on ~ .fab{bottom:calc(140px + env(safe-area-inset-bottom))}
-.hr{height:1px;background:var(--line);margin:16px 14px}
-.sec-title{font-size:13px;font-weight:800;color:var(--mute);letter-spacing:.06em;padding:16px 14px 8px}
+body[data-view="search"] #tray.on ~ .fab{bottom:calc(136px + env(safe-area-inset-bottom))}
+.hr{height:1px;background:var(--line);margin:18px 16px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -1089,7 +1154,9 @@ function openProd(id){
          '最新は店頭・公式サイトでご確認ください。')+'</p></div>';
 
   h+='<div class="card"><h3 class="sect">味のプロフィール</h3><div>'+
-     p.t.map((v,i)=>tbar(i,v)).join('')+'</div>'+
+     /* 自分で登録した豆は酸味・苦味・コクの3つしか入力しない。
+        入れていない甘み・香りを「ふつう」として出すと、自分で付けた評価に見えてしまうので出さない。 */
+     p.t.map((v,i)=>(p.mine&&i>=3)?'':tbar(i,v)).join('')+'</div>'+
      (p.notes&&p.notes.length?'<div class="chips" style="margin-top:14px">'+
        p.notes.map(n=>'<span class="chip">'+esc(n)+'</span>').join('')+'</div>':'')+
      '<p class="tiny" style="margin-top:12px">'+esc(DATA_META.tasteNote)+'</p></div>';
@@ -1097,7 +1164,8 @@ function openProd(id){
   h+='<div class="card"><dl class="kv">'+
      '<dt>お店</dt><dd>'+esc(p.shop)+'</dd>'+
      '<dt>産地</dt><dd>'+esc(p.origin)+'</dd>'+
-     '<dt>焙煎度</dt><dd>'+grpFull(p.roast)+'（'+RN[p.roast-1]+'）'+(p.roastName?'／'+esc(p.roastName):'')+'</dd>'+
+     '<dt>焙煎度</dt><dd>'+grpFull(p.roast)+(p.mine?'':'（'+RN[p.roast-1]+'）')+
+       (p.roastName?'／'+esc(p.roastName):'')+'</dd>'+
      '<dt>買える場所</dt><dd>'+esc((p.where||[]).join('、'))+'</dd>'+
      (p.good&&p.good.length?'<dt>こんな人に</dt><dd>'+esc(p.good.join('、'))+'</dd>':'')+
      '</dl></div>';
@@ -1720,6 +1788,12 @@ function delPhoto(id){delete S.photos[id];save()}
    PRODUCTS とまったく同じ形で保存するので、一覧・比較・抽出記録がそのまま使える。
    ========================================================================= */
 let myForm=null;
+/* 焙煎度は内部では8段階（RN のライト〜イタリアン）で持っているが、登録画面では6段階で選ぶ。
+   段階の名前は袋に書かれていることがまずなく、選ぶ手がかりにならないので出さない。
+   両端のライト・イタリアンは日本の店頭でほとんど扱いがないため、2〜7の6段階を割り当てている。
+   これで 浅・浅・中・中・深・深 と3つの区分にちょうど2つずつ入る。 */
+const ROAST6=[2,3,4,5,6,7];
+const roast6Index=r=>ROAST6.indexOf(Math.max(2,Math.min(7,Math.round(+r||5))))+1;
 function newMyBean(){return{
   id:'m'+Date.now(),mine:true,shop:'',name:'',origin:'',roastName:'',roast:5,
   t:[3,3,3,3,3],notes:[],sizeG:200,price:0,per100:0,where:['自分で登録'],
@@ -1765,17 +1839,23 @@ function renderMyForm(){
       '<p class="tiny" style="margin-top:6px">同じ名前で登録すると、その店の棚にまとまって並びます。</p></div>'+
     '<div class="field"><label>産地</label><input type="text" id="my-origin" value="'+esc(f.origin)+
       '" placeholder="例：エチオピア／ブレンド"></div>'+
-    '<div class="field"><label>焙煎度：<b id="my-roastlabel">'+grpFull(f.roast)+'（'+RN[f.roast-1]+'）</b></label>'+
-      '<input type="range" class="range" id="my-roast" min="1" max="8" step="1" value="'+f.roast+'">'+
-      '<p class="tiny" style="margin-top:2px">左がいちばん浅く、右がいちばん深い焙煎です。'+
-      '袋に「中深煎り」などと書いてあれば、それに合わせてください。ここでエスプレッソの目標時間が変わります。</p></div>'+
-    '<div class="field"><label>味（飲んだ印象で。あとから直せます）</label>'+[0,1,2,3,4].map(dotRow).join('')+'</div>'+
+    '<div class="field"><label>焙煎度：<b id="my-roastlabel">'+grpFull(f.roast)+'</b></label>'+
+      '<div class="rscale"><div class="ticks">'+ROAST6.map(()=>'<i></i>').join('')+'</div>'+
+      '<input type="range" id="my-roast" min="1" max="6" step="1" value="'+roast6Index(f.roast)+
+      '" aria-label="焙煎度（6段階）"></div>'+
+      '<div class="rends"><span>浅煎り</span><span>深煎り</span></div>'+
+      '<p class="tiny" style="margin-top:6px">袋に「中深煎り」などと書いてあれば、それに合わせてください。'+
+      'ここでエスプレッソの目標時間が変わります。</p></div>'+
+    '<div class="field"><label>味（飲んだ印象で。あとから直せます）</label>'+[0,1,2].map(dotRow).join('')+'</div>'+
     '<div class="field"><label>内容量と値段</label>'+
       '<div class="row"><input type="number" id="my-size" value="'+(f.sizeG||'')+'" inputmode="decimal" placeholder="200" style="flex:1"><span>g</span>'+
       '<input type="number" id="my-price" value="'+(f.price||'')+'" inputmode="decimal" placeholder="1200" style="flex:1"><span>円</span></div>'+
       '<p class="tiny" style="margin-top:6px" id="my-per">'+perLabel(f)+'</p></div>'+
+    /* 長いフレーバー名を入れても枠の中で折り返して全部見えるよう、1行の入力欄ではなく
+       textarea にしている。改行して書かれても readMyForm 側で読点と同じ扱いで分割する。 */
     '<div class="field"><label>フレーバー（読点で区切る）</label>'+
-      '<input type="text" id="my-notes" value="'+esc((f.notes||[]).join('、'))+'" placeholder="ナッツ、チョコ"></div>'+
+      '<textarea id="my-notes" rows="2" style="min-height:60px" placeholder="ナッツ、チョコ">'+
+      esc((f.notes||[]).join('、'))+'</textarea></div>'+
     '<div class="field"><label>カフェイン</label><div class="seg">'+
       [['0','ふつう'],['1','カフェインレス']].map(o=>'<button data-act="mydecaf" data-v="'+o[0]+
       '" aria-pressed="'+((o[0]==='1')===!!f.decaf)+'">'+o[1]+'</button>').join('')+'</div></div>'+
@@ -1789,8 +1869,8 @@ function renderMyForm(){
     '<button class="btn" data-act="mysave" style="flex:2">保存する</button>',
     ()=>{
       const r=$('#my-roast');
-      if(r)r.oninput=e=>{myForm.roast=+e.target.value;
-        const l=$('#my-roastlabel');if(l)l.textContent=grpFull(myForm.roast)+'（'+RN[myForm.roast-1]+'）'};
+      if(r)r.oninput=e=>{myForm.roast=ROAST6[Math.max(0,Math.min(5,+e.target.value-1))];
+        const l=$('#my-roastlabel');if(l)l.textContent=grpFull(myForm.roast)};
       ['my-size','my-price'].forEach(id=>{const e=$('#'+id);if(e)e.oninput=()=>{
         readMyForm();const el=$('#my-per');if(el)el.textContent=perLabel(myForm)}});
     });
@@ -1800,7 +1880,7 @@ function saveMyBean(){
   if(!myForm.name){alert('豆の名前だけは入れてください。あとの項目は空でも保存できます。');return}
   myForm.per100=myForm.sizeG>0&&myForm.price>0?Math.round(myForm.price/myForm.sizeG*100):0;
   if(!myForm.origin)myForm.origin='—';
-  myForm.roastName=grpFull(myForm.roast)+'（'+RN[myForm.roast-1]+'）';
+  myForm.roastName='';   /* 段階の名前は使わないので空にする。表示は grpFull（浅／中／深）だけ */
   myForm.checked=new Date().toISOString().slice(0,7);
   const saved=Object.assign({},myForm);delete saved._new;
   const i=(S.myBeans||[]).findIndex(x=>x.id===saved.id);
