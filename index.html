@@ -31,7 +31,9 @@
    本文側にこの名前が残っていても壊れないよう、別名として残してある。 */
 :root{
   --bg:#fbf7f4; --bg2:#f4ebe6; --card:#ffffff; --text:#1c2320;
-  --sub:#5f6360; --mute:#8b8a88;
+  /* --mute は補足の小さな文字に使う。以前は #8b8a88 だったが、地とのコントラストが
+     3.4倍しかなく、9〜12pxで使うと読めなかった。4.5倍を超える濃さまで落としてある。 */
+  --sub:#5a5e5b; --mute:#75726e;
   --line:#ece1db; --track:#f0e6e1; --chip:#f6efeb; --chipOn:#b02a4c; --chipOnText:#fffafb;
   --accent:#b02a4c; --accent-soft:#fdecef; --gold:#c08a12;
   --s1:#b02a4c; --s2:#1f7a8c; --s3:#96690a;
@@ -51,7 +53,7 @@
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
     --bg:#14100f; --bg2:#1c1614; --card:#1e1817; --text:#f3ece8;
-    --sub:#b3aaa5; --mute:#8b8380;
+    --sub:#bcb4af; --mute:#9d9591;
     --line:#302826; --track:#2c2422; --chip:#261f1d; --chipOn:#ef7288; --chipOnText:#1e0a10;
     --accent:#ef7288; --accent-soft:#2f1a1f; --gold:#d9ab3c;
     --s1:#ef7288; --s2:#5fb4c4; --s3:#d0a34a;
@@ -66,7 +68,7 @@
 }
 :root[data-theme="dark"]{
   --bg:#14100f; --bg2:#1c1614; --card:#1e1817; --text:#f3ece8;
-  --sub:#b3aaa5; --mute:#8b8380;
+  --sub:#bcb4af; --mute:#9d9591;
   --line:#302826; --track:#2c2422; --chip:#261f1d; --chipOn:#ef7288; --chipOnText:#1e0a10;
   --accent:#ef7288; --accent-soft:#2f1a1f; --gold:#d9ab3c;
   --s1:#ef7288; --s2:#5fb4c4; --s3:#d0a34a;
@@ -171,11 +173,14 @@ body[data-view="esp"] #v-esp,body[data-view="my"] #v-my{display:block}
 .searchbar input::placeholder{color:var(--mute)}
 .badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;letter-spacing:.02em;
   padding:3px 9px;border-radius:var(--r-s);background:var(--chip);color:var(--sub)}
-/* 焙煎の色を地にしたラベル。地が中間の明るさのときに白抜きにすると読めなくなるので、
-   浅・中は濃い文字、深だけ白抜きにしている。 */
-.badge.r-light{background:var(--roast-l);color:#4a3208}
-.badge.r-mid{background:var(--roast-m);color:#33200b}
-.badge.r-dark{background:var(--roast-d);color:#fff8ef}
+/* 焙煎の色を地にしたラベル。
+   浅・中は「ほぼ黒」の文字、深だけ白抜きにする。中煎りの茶（--roast-m）は明るさが
+   ちょうど中間で、白抜きにしても濃茶にしても読みにくくなる帯にある。
+   そこで文字をほぼ黒まで落として、コントラストを確保している。
+   ここを中途半端な濃さの茶色に戻さないこと。過去に何度も「読みにくい」と指摘が出ている。 */
+.badge.r-light{background:var(--roast-l);color:#2b1c04}
+.badge.r-mid{background:var(--roast-m);color:#1c1002}
+.badge.r-dark{background:var(--roast-d);color:#fffaf4}
 
 /* ===== 味バー ===== */
 .tbar{display:grid;grid-template-columns:50px 1fr 56px;align-items:center;gap:10px;min-height:28px}
@@ -280,8 +285,16 @@ body[data-view="esp"] #v-esp,body[data-view="my"] #v-my{display:block}
 .hero .tags span{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.3);
   border-radius:var(--r-s);padding:4px 10px;font-size:11.5px;font-weight:600;letter-spacing:0}
 .saying{font-size:15.5px;line-height:1.9;margin:0;padding:20px 20px 6px;letter-spacing:0}
-.phero{display:flex;gap:20px;align-items:center;padding:22px 20px}
-.phero .pkg{flex:none;position:relative;z-index:1}
+/* 商品の詳細の頭。左に袋の絵、右に名前。
+   名前は長いものが多い（「ディカフェ ハウス ブレンド」など）ので、
+   ・文字の入る側に min-width:0 を付けて縮められるようにする
+   ・見出しの大きさを本文側より一段落とす
+   の2つをしておかないと、1文字だけが次の行に落ちる不格好な折り返しになる。 */
+.phero{display:flex;gap:16px;align-items:center;padding:22px 18px}
+.phero .pinfo{position:relative;z-index:1;min-width:0;flex:1}
+.hero.phero h3{font-size:21.5px;line-height:1.3;letter-spacing:-.022em;
+  text-wrap:balance;overflow-wrap:anywhere}
+.phero .pkg{flex:none;position:relative;z-index:1;width:88px}
 
 /* ===== 見出し ===== */
 /* 見出しの頭に小さな豆を置く。装飾だが、ここが節の始まりだと目が拾いやすくなる */
@@ -373,12 +386,12 @@ body[data-view="esp"] #v-esp,body[data-view="my"] #v-my{display:block}
 .cmap .zh+.zh{border-left:1px solid var(--line)}
 /* 見出しは色で焙煎の深さを示すが、薄い地に薄い字を置くと読めなくなる。
    3つとも地をベタで塗り、その明るさに合う文字色を個別に決めている。 */
-.cmap .zh.z-l{background:var(--roast-l);color:#4a3208}
-.cmap .zh.z-m{background:var(--roast-m);color:#3a220c}
-.cmap .zh.z-d{background:var(--roast-d);color:#fff8ef}
+.cmap .zh.z-l{background:var(--roast-l);color:#2b1c04}
+.cmap .zh.z-m{background:var(--roast-m);color:#1c1002}
+.cmap .zh.z-d{background:var(--roast-d);color:#fffaf4}
 .cmap .yaxis{background:var(--chip);border-right:1px solid var(--line);writing-mode:vertical-rl;
   display:flex;align-items:center;justify-content:space-between;padding:14px 0;gap:8px;
-  font-size:9.5px;font-weight:800;letter-spacing:.2em;color:var(--mute)}
+  font-size:10px;font-weight:800;letter-spacing:.2em;color:var(--sub)}
 .cmap .col{padding:10px 5px 14px;display:flex;flex-direction:column;gap:4px;min-width:0}
 .cmap .col+.col{border-left:1px solid var(--line)}
 .mapitem{display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 3px;border-radius:var(--r-m);
@@ -387,7 +400,8 @@ body[data-view="esp"] #v-esp,body[data-view="my"] #v-my{display:block}
 .mapitem .mi{width:36px;height:auto;flex:none}
 .mapitem img.mi{height:48px;object-fit:cover;border-radius:var(--r-s)}
 .mapitem b{font-size:10.5px;font-weight:700;line-height:1.4;word-break:break-word;letter-spacing:0}
-.mapitem em{font-size:9.5px;color:var(--mute);line-height:1.45;font-style:normal;word-break:break-word}
+/* 豆の下に出るお店の名前。9.5pxと小さいので、補足色ではなく本文寄りの濃さにする */
+.mapitem em{font-size:10px;color:var(--sub);line-height:1.45;font-style:normal;word-break:break-word}
 .mapitem .tag{font-size:8.5px;font-weight:700;letter-spacing:.02em;padding:2px 6px;border-radius:4px;
   background:var(--accent-soft);color:var(--accent)}
 .cmap .colempty{font-size:10px;color:var(--mute);text-align:center;padding:18px 4px;line-height:1.6}
@@ -410,15 +424,21 @@ body[data-view="esp"] #v-esp,body[data-view="my"] #v-my{display:block}
 .growitem .nm{min-width:0}
 .growitem .nm b{display:block;font-size:14px;font-weight:700;line-height:1.5;word-break:break-word;
   letter-spacing:-.01em}
-.growitem .nm span{display:block;font-size:11.5px;color:var(--mute);line-height:1.55}
+/* 「>」で直下の span だけに限定すること。ここを子孫セレクタ（.nm span）にすると、
+   中に入っている焙煎ラベル（.rb）にも当たってしまう。そちらのほうが優先度が高いため、
+   ラベルが display:block と --mute の文字色を受け取り、
+   「横幅いっぱいの薄い帯」に化ける。実際に一度そうなっている。 */
+.growitem .nm>span{display:block;font-size:11.5px;color:var(--mute);line-height:1.55}
 .growitem .pr{font-family:var(--mono);text-align:right;font-size:12.5px;font-weight:600;white-space:nowrap;
   font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .growitem .pr small{font-family:var(--disp);display:block;font-size:9.5px;color:var(--mute);font-weight:600}
-.growitem .rb{display:inline-block;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:4px;
-  margin-right:6px;vertical-align:1px}
-.rb.r-light{background:var(--roast-l);color:#4a3208}
-.rb.r-mid{background:var(--roast-m);color:#3a220c}
-.rb.r-dark{background:var(--roast-d);color:#fff8ef}
+/* 焙煎ラベルは「文字の幅ぶんだけ」の小さな札。周りの指定に巻き込まれて伸びないよう、
+   幅と表示形式をここで押さえておく。 */
+.growitem .nm .rb{display:inline-block;width:auto;font-size:10px;font-weight:800;padding:2px 7px;
+  border-radius:5px;margin-right:6px;vertical-align:1px;line-height:1.5;white-space:nowrap}
+.rb.r-light,.growitem .nm .rb.r-light{background:var(--roast-l);color:#2b1c04}
+.rb.r-mid,.growitem .nm .rb.r-mid{background:var(--roast-m);color:#1c1002}
+.rb.r-dark,.growitem .nm .rb.r-dark{background:var(--roast-d);color:#fffaf4}
 
 .barista{display:flex;gap:12px;align-items:flex-start;margin:14px 16px 0;padding:14px 15px;
   background:var(--chip);border-radius:var(--r-l)}
@@ -523,12 +543,19 @@ textarea{min-height:80px;resize:vertical}
 .photobox{position:relative;width:66px;align-self:start}
 .photo{width:66px;height:88px;object-fit:cover;border-radius:var(--r-s);display:block;
   background:var(--chip);border:1px solid var(--line)}
-.phero .photo,.photo.big{width:96px;height:128px;border-radius:var(--r-m)}
-.phero .photobox{width:96px;flex:none;z-index:1}
+.phero .photo,.photo.big{width:92px;height:122px;border-radius:var(--r-m)}
+/* 詳細画面では、絵の下にカメラの印を並べる。絵に重ねない。
+   一覧のカードは場所が狭いので、そちらだけ従来どおり角に小さく重ねている。 */
+.phero .photobox{width:auto;flex:none;z-index:1;display:flex;flex-direction:column;
+  align-items:center;gap:9px}
 .photobox .cam{position:absolute;right:-6px;bottom:-6px;width:30px;height:30px;border-radius:50%;
   background:var(--chipOn);color:var(--chipOnText);display:grid;place-items:center;
   border:2px solid var(--card)}
 .photobox .cam svg{width:14px;height:14px}
+.phero .photobox .cam{position:static;width:auto;height:28px;padding:0 11px;border-radius:999px;
+  display:inline-flex;align-items:center;gap:5px;border:none;
+  background:rgba(255,255,255,.92);color:#2a1a12;box-shadow:0 2px 8px rgba(0,0,0,.22)}
+.phero .photobox .cam i{font-style:normal;font-size:11.5px;font-weight:800;letter-spacing:.02em}
 .mybadge{display:inline-flex;align-items:center;font-size:10px;font-weight:700;letter-spacing:.05em;
   padding:3px 8px;border-radius:4px;background:var(--accent-soft);color:var(--accent)}
 
@@ -975,20 +1002,55 @@ function shade(hex,d){
   const f=v=>Math.max(0,Math.min(255,v+d));
   return '#'+[f(n>>16),f((n>>8)&255),f(n&255)].map(v=>v.toString(16).padStart(2,'0')).join('');
 }
+/* 袋の絵の形を決める。
+   ロゴやパッケージの意匠は商標なので写せない。そこで代わりに
+   「同じお店の商品は必ず同じ形・同じ帯の入り方になる」ようにしてある。
+   一覧を眺めたときに店ごとのまとまりが目で分かり、棚で探すときの手がかりになる。
+
+   形はお店の名前から機械的に決めているだけで、実在の意匠を写したものではない。
+   名前が同じなら毎回同じ形になるので、開くたびに絵が変わることはない。
+   袋の大きさは内容量から決めている。500gの袋は実際に大きいので、それに合わせている。 */
+function pkgForm(p){
+  const nm=String(p.shop||p.name||'');
+  let h=0;for(let i=0;i<nm.length;i++)h=(h*31+nm.charCodeAt(i))>>>0;
+  const g=p.sizeG>0?p.sizeG:200;
+  return {band:h%5, gusset:((h>>3)&1)===1, w:g>=400?54:g>=250?50:44};
+}
 function pkgSvg(p,size){
   const big=size==='big', mini=size==='mini';
   const a=(p.pkg&&p.pkg[0])||'#8a6a55', b=(p.pkg&&p.pkg[1])||'#e0cdb5', gid='pg'+p.id+(size||'');
-  return '<svg class="pkg'+(mini?' mi':'')+'"'+(big?' style="width:96px"':'')+' viewBox="0 0 64 90" aria-hidden="true">'+
+  const f=pkgForm(p), w=f.w, x=(64-w)/2, y=13, hgt=86-y, cx=32;
+  const cid='pc'+p.id+(size||'');   /* 帯を袋の中だけに収めるための切り抜き */
+
+  /* 帯の入り方。0=中央の太い帯 1=斜めの帯 2=下半分がベタ 3=縦の帯 4=丸いラベル */
+  const band=
+    f.band===0?'<rect x="'+x+'" y="46" width="'+w+'" height="15" fill="'+b+'" opacity=".94"/>':
+    f.band===1?'<path d="M'+x+' 58 L'+(x+w)+' 40 L'+(x+w)+' 54 L'+x+' 72 Z" fill="'+b+'" opacity=".94"/>':
+    f.band===2?'<rect x="'+x+'" y="52" width="'+w+'" height="'+(86-52)+'" fill="'+b+'" opacity=".92"/>':
+    f.band===3?'<rect x="'+(x+w*0.58)+'" y="'+y+'" width="'+(w*0.24)+'" height="'+hgt+'" fill="'+b+'" opacity=".92"/>':
+    '<circle cx="'+cx+'" cy="46" r="'+(w*0.31)+'" fill="'+b+'" opacity=".94"/>';
+
+  /* 文字の代わりの線。何が書いてあるかは読めなくてよく、
+     「ラベルが貼ってある」ことだけ伝われば十分。 */
+  const lines=f.band===2
+    ? '<rect x="'+(x+7)+'" y="61" width="'+(w*0.5)+'" height="3" rx="1.5" fill="'+a+'" opacity=".55"/>'+
+      '<rect x="'+(x+7)+'" y="68" width="'+(w*0.32)+'" height="3" rx="1.5" fill="'+a+'" opacity=".38"/>'
+    : '<rect x="'+(x+7)+'" y="68" width="'+(w*0.5)+'" height="3" rx="1.5" fill="#fff" opacity=".42"/>'+
+      '<rect x="'+(x+7)+'" y="75" width="'+(w*0.32)+'" height="3" rx="1.5" fill="#fff" opacity=".26"/>';
+
+  return '<svg class="pkg'+(mini?' mi':'')+'"'+(big?' style="width:88px"':'')+' viewBox="0 0 64 90" aria-hidden="true">'+
     '<defs><linearGradient id="'+gid+'" x1="0" y1="0" x2="1" y2="1">'+
-      '<stop offset="0" stop-color="'+shade(a,16)+'"/><stop offset="1" stop-color="'+shade(a,-24)+'"/></linearGradient></defs>'+
-    '<rect x="7" y="13" width="50" height="73" rx="5" fill="url(#'+gid+')"/>'+
-    '<rect x="4.5" y="4" width="55" height="11" rx="3.5" fill="'+shade(b,-6)+'"/>'+
-    '<rect x="9" y="7" width="46" height="2.4" rx="1.2" fill="#fff" opacity=".33"/>'+
-    '<rect x="7" y="47" width="50" height="15" fill="'+b+'" opacity=".92"/>'+
-    '<circle cx="32" cy="33" r="4.6" fill="#fff" opacity=".34"/>'+
-    '<rect x="15" y="68" width="23" height="3" rx="1.5" fill="#fff" opacity=".42"/>'+
-    '<rect x="15" y="75" width="15" height="3" rx="1.5" fill="#fff" opacity=".26"/>'+
-    '<rect x="7" y="13" width="9" height="73" fill="#fff" opacity=".07"/></svg>';
+      '<stop offset="0" stop-color="'+shade(a,18)+'"/><stop offset="1" stop-color="'+shade(a,-26)+'"/></linearGradient>'+
+      '<clipPath id="'+cid+'"><rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+hgt+'" rx="5"/></clipPath></defs>'+
+    '<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+hgt+'" rx="5" fill="url(#'+gid+')"/>'+
+    '<g clip-path="url(#'+cid+')">'+band+lines+
+      /* マチ（袋の側面の折り）がある形。あるとないとで見た目がはっきり変わる */
+      (f.gusset?'<rect x="'+(x+w-8)+'" y="'+y+'" width="8" height="'+hgt+'" fill="#000" opacity=".10"/>':'')+
+      '<rect x="'+x+'" y="'+y+'" width="9" height="'+hgt+'" fill="#fff" opacity=".08"/></g>'+
+    /* 上の口を留めた部分。袋であることがここで伝わる */
+    '<rect x="'+(x-2.5)+'" y="4" width="'+(w+5)+'" height="11" rx="3.5" fill="'+shade(b,-8)+'"/>'+
+    '<rect x="'+(x+2)+'" y="7" width="'+(w-4)+'" height="2.4" rx="1.2" fill="#fff" opacity=".33"/>'+
+    '</svg>';
 }
 /* お店の商品と、自分で登録した豆をひとつなぎに扱う */
 const allProducts=()=>PRODUCTS.concat(S.myBeans||[]);
@@ -1011,7 +1073,9 @@ function pkgView(p,big){
   const ph=photoOf(p.id);
   return '<span class="photobox" data-act="shoot" data-id="'+p.id+'">'+
     (ph?'<img class="photo'+(big?' big':'')+'" src="'+ph+'" alt="'+esc(p.name)+'のパッケージ">':pkgSvg(p,big?'big':null))+
-    '<span class="cam">'+ICON.cam+'</span></span>';
+    /* 詳細画面（big）では、カメラの印を絵に重ねず下に置き、文字も添える。
+       絵の上に丸を重ねると、絵の一部なのか押せる印なのか分からない。 */
+    '<span class="cam">'+ICON.cam+(big?'<i>写真</i>':'')+'</span></span>';
 }
 function prodCard(p){
   const fav=S.fav.includes(p.id);
@@ -1220,7 +1284,7 @@ function openProd(id){
 
   let h='<div class="hero phero'+(light?' onlight':'')+'" style="background:linear-gradient(150deg,'+
     shade(a,14)+','+shade(a,-44)+')">'+pkgView(p,true)+
-    '<div style="position:relative;z-index:1"><div class="eyebrow">'+esc(p.shop||'（お店なし）')+
+    '<div class="pinfo"><div class="eyebrow">'+esc(p.shop||'（お店なし）')+
     (p.mine?' ・自分で登録':'')+'</div>'+
     '<h3 style="margin:6px 0 4px">'+esc(p.name)+'</h3>'+
     '<div class="sub">'+esc(p.origin)+'</div>'+
@@ -1438,11 +1502,14 @@ function renderScatter(){
   const shown=mapTargets();
   let g='';
 
+  /* 凡例の文字は本文と同じ濃さで置く。ここを薄くすると、豆の色が何を指すのか読めない。
+     豆の絵は焙煎色そのままなので、浅煎りの絵は地の色に近く弱い。
+     だからこそ隣の文字ははっきりさせておく必要がある。 */
   [['浅',rcol(1),30],['中',rcol(4),108],['深',rcol(7),186]].forEach(z=>{
     g+=beanGlyph(z[2],26,z[1],.9)+
-      '<text x="'+(z[2]+12)+'" y="30" font-size="10.5" fill="var(--sub)" font-weight="700">'+z[0]+'煎り</text>';
+      '<text x="'+(z[2]+13)+'" y="30.5" font-size="11.5" fill="var(--text)" font-weight="800">'+z[0]+'煎り</text>';
   });
-  g+='<text x="'+(W-14)+'" y="30" font-size="8.5" fill="var(--mute)" text-anchor="end">'+
+  g+='<text x="'+(W-14)+'" y="30" font-size="9" fill="var(--sub)" text-anchor="end">'+
      '※味の感じ方には個人差があります</text>';
 
   g+='<line x1="42" y1="'+CY+'" x2="'+(W-40)+'" y2="'+CY+'" stroke="var(--mute)" stroke-width="1.2"/>'+
