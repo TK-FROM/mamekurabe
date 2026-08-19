@@ -1538,21 +1538,91 @@ function beanGlyph(x,y,c,s){
 /* 縦は「酸味 ↔ 苦味」、横は「スッキリ ↔ コク」の4つに分けた図。
    焙煎の深さは軸ではなく豆の色で示すので、2本の軸を味だけに使える。
    同じ産地でも焙煎が違えば別の位置に並ぶ。 */
+/* 豆の重なりを解く。
+   味が同じ豆は座標も同じになるので、そのまま描くと団子になって何件あるかも分からない。
+   本来の位置を中心に、黄金角（約137.5度）で少しずつ外へらせん状にずらして場所を探す。
+   黄金角を使うのは、ひまわりの種のように偏りなく散るためで、乱数と違って
+   同じ条件なら毎回同じ配置になる。開くたびに絵が変わると、位置で覚えられない。 */
+function spreadPoints(items,px,py,W,TOP,BOT,rmin){
+  const cx=v=>Math.max(54,Math.min(W-54,v)), cy=v=>Math.max(TOP+12,Math.min(BOT-8,v));
+  const pts=[];
+  items.forEach(b=>{
+    const bx=px(b.t[2]), by=py(b.t[0]-b.t[1]);
+    let x=cx(bx), y=cy(by);
+    for(let k=1;k<=90;k++){
+      if(!pts.some(p=>Math.hypot(p.x-x,p.y-y)<rmin))break;
+      const a=k*2.39996, r=8+k*1.45;
+      x=cx(bx+Math.cos(a)*r); y=cy(by+Math.sin(a)*r);
+    }
+    pts.push({x:x,y:y,b:b});
+  });
+  return pts;
+}
+/* 名前の置き場所を決める。
+   置ける場所が無ければ、その名前は出さない。全部出そうとすると重なって
+   結局どれも読めなくなる。読める名前を確実に残すほうが役に立つ。
+   どれを優先するかは お気に入り → 家にある豆 → 名前が短いもの の順。
+   短いものを先にするのは、そのほうが多くの名前を置けるからである。 */
+function placeLabels(pts,W,H,TOP,fs,maxlen){
+  const boxes=pts.map(p=>({x1:p.x-8,y1:p.y-10,x2:p.x+8,y2:p.y+10}));
+  const hit=r=>r.x1<4||r.x2>W-4||r.y1<TOP-34||r.y2>H-6||
+    boxes.some(b=>!(r.x2<=b.x1||r.x1>=b.x2||r.y2<=b.y1||r.y1>=b.y2));
+  const order=pts.map((p,i)=>i).sort((i,j)=>{
+    const f=(k)=>S.fav.includes(pts[k].b.id)?0:1;
+    if(f(i)!==f(j))return f(i)-f(j);
+    const s=(k)=>stockOf(pts[k].b.id)?0:1;
+    if(s(i)!==s(j))return s(i)-s(j);
+    return pts[i].b.name.length-pts[j].b.name.length;
+  });
+  const out=[];
+  order.forEach(i=>{
+    const p=pts[i];
+    const nm=p.b.name.length>maxlen?p.b.name.slice(0,maxlen)+'…':p.b.name;
+    const w=nm.length*fs*0.98, h=fs;
+    /* 下・上・右・左、そのあと斜め4方向の順に空きを探す。
+       下を最初にするのは、豆の真下がいちばん結び付きが分かりやすいからである。
+       斜めまで見るのは、置ける名前の数がはっきり増えるため。 */
+    const cands=[
+      {x:p.x,    y:p.y+18, anchor:'middle', x1:p.x-w/2,  x2:p.x+w/2},
+      {x:p.x,    y:p.y-12, anchor:'middle', x1:p.x-w/2,  x2:p.x+w/2},
+      {x:p.x+11, y:p.y+3,  anchor:'start',  x1:p.x+11,   x2:p.x+11+w},
+      {x:p.x-11, y:p.y-1,  anchor:'end',    x1:p.x-11-w, x2:p.x-11},
+      {x:p.x+9,  y:p.y+15, anchor:'start',  x1:p.x+9,    x2:p.x+9+w},
+      {x:p.x-9,  y:p.y+15, anchor:'end',    x1:p.x-9-w,  x2:p.x-9},
+      {x:p.x+9,  y:p.y-10, anchor:'start',  x1:p.x+9,    x2:p.x+9+w},
+      {x:p.x-9,  y:p.y-10, anchor:'end',    x1:p.x-9-w,  x2:p.x-9},
+      {x:p.x,    y:p.y+27, anchor:'middle', x1:p.x-w/2,  x2:p.x+w/2},
+      {x:p.x,    y:p.y-21, anchor:'middle', x1:p.x-w/2,  x2:p.x+w/2}
+    ];
+    for(const c of cands){
+      const r={x1:c.x1,y1:c.y-h,x2:c.x2,y2:c.y+2};
+      if(hit(r))continue;
+      boxes.push(r);
+      out.push({i:i,x:c.x,y:c.y,anchor:c.anchor,text:nm});
+      break;
+    }
+  });
+  return out;
+}
+/* 縦は「酸味 ↔ 苦味」、横は「スッキリ ↔ コク」の4つに分けた図。
+   焙煎の深さは軸ではなく豆の色で示すので、2本の軸を味だけに使える。 */
 function renderScatter(){
-  const W=360,H=408,CX=186,CY=212,RX=124,RY=124,TOP=68,BOT=356;
-  const px=v=>CX+(v-3)/2*RX, py=v=>CY-v/4*RY;
   const shown=mapTargets();
+  /* 件数が多いときは図を縦に伸ばす。横幅は画面で決まってしまうので広げられないが、
+     縦なら伸ばせる。場所が増えたぶんだけ、名前を出せる豆が増える。 */
+  const many=shown.length>28, huge=shown.length>50;
+  const W=360, H=huge?700:many?600:496, CX=186, TOP=92, BOT=H-72;
+  const CY=Math.round((TOP+BOT)/2), RX=126, RY=Math.round((BOT-TOP)/2*0.9);
+  const px=v=>CX+(v-3)/2*RX, py=v=>CY-v/4*RY;
   let g='';
 
   /* 凡例の文字は本文と同じ濃さで置く。ここを薄くすると、豆の色が何を指すのか読めない。
-     豆の絵は焙煎色そのままなので、浅煎りの絵は地の色に近く弱い。
-     だからこそ隣の文字ははっきりさせておく必要がある。 */
-  [['浅',rcol(1),30],['中',rcol(4),108],['深',rcol(7),186]].forEach(z=>{
-    g+=beanGlyph(z[2],26,z[1],.9)+
-      '<text x="'+(z[2]+13)+'" y="30.5" font-size="11.5" fill="var(--text)" font-weight="800">'+z[0]+'煎り</text>';
+     浅煎りの豆の絵は地の色に近く弱いので、隣の文字ははっきりさせておく必要がある。
+     以前は同じ行の右端に注意書きを置いていたが、「深煎り」と重なっていたので外へ出した。 */
+  [['浅',rcol(1),36],['中',rcol(4),148],['深',rcol(7),260]].forEach(z=>{
+    g+=beanGlyph(z[2],32,z[1],.95)+
+      '<text x="'+(z[2]+14)+'" y="36.5" font-size="12" fill="var(--text)" font-weight="800">'+z[0]+'煎り</text>';
   });
-  g+='<text x="'+(W-14)+'" y="30" font-size="9" fill="var(--sub)" text-anchor="end">'+
-     '※味の感じ方には個人差があります</text>';
 
   g+='<line x1="42" y1="'+CY+'" x2="'+(W-40)+'" y2="'+CY+'" stroke="var(--mute)" stroke-width="1.2"/>'+
      '<line x1="'+CX+'" y1="'+TOP+'" x2="'+CX+'" y2="'+BOT+'" stroke="var(--mute)" stroke-width="1.2"/>'+
@@ -1560,32 +1630,43 @@ function renderScatter(){
      '<path d="M'+CX+' '+(BOT+7)+' l-4.5 -8 h9 z" fill="var(--mute)"/>'+
      '<path d="M35 '+CY+' l8 -4.5 v9 z" fill="var(--mute)"/>'+
      '<path d="M'+(W-33)+' '+CY+' l-8 -4.5 v9 z" fill="var(--mute)"/>';
-  g+='<text x="'+CX+'" y="'+(TOP-15)+'" font-size="13" font-weight="700" fill="var(--text)" text-anchor="middle">酸味</text>'+
-     '<text x="'+CX+'" y="'+(BOT+26)+'" font-size="13" font-weight="700" fill="var(--text)" text-anchor="middle">苦味</text>';
+  g+='<text x="'+CX+'" y="'+(TOP-14)+'" font-size="13" font-weight="800" fill="var(--text)" text-anchor="middle">酸味</text>'+
+     '<text x="'+CX+'" y="'+(BOT+26)+'" font-size="13" font-weight="800" fill="var(--text)" text-anchor="middle">苦味</text>';
   'スッキリ'.split('').forEach((c,i)=>{
     g+='<text x="16" y="'+(CY-26+i*15)+'" font-size="11.5" font-weight="700" fill="var(--text)" text-anchor="middle">'+c+'</text>'});
   'コク'.split('').forEach((c,i)=>{
     g+='<text x="'+(W-14)+'" y="'+(CY-8+i*15)+'" font-size="11.5" font-weight="700" fill="var(--text)" text-anchor="middle">'+c+'</text>'});
 
-  shown.forEach((b,i)=>{
-    const seed=(parseInt(String(b.id).replace(/\D/g,''),10)||i)+i*3;
-    const jx=((seed*37)%9-4)*2.4, jy=((seed*17)%7-3)*2.6;
-    const x=Math.max(52,Math.min(W-52,px(b.t[2])+jx));
-    const y=Math.max(TOP+14,Math.min(BOT-6,py(b.t[0]-b.t[1])+jy));
-    const fav=S.fav.includes(b.id), act=isProd(b)?'pdetail':'detail';
-    const nm=b.name.length>9?b.name.slice(0,9)+'…':b.name;
-    g+='<g class="dot" data-act="'+act+'" data-id="'+b.id+'">'+
-      (fav?'<circle cx="'+x+'" cy="'+y+'" r="13" fill="var(--accent)" fill-opacity=".22"/>':'')+
-      beanGlyph(x,y,rcol(b.roast),1)+
-      '<text x="'+x+'" y="'+(y+20)+'" font-size="7.8" font-weight="700" fill="var(--text)" '+
-      'text-anchor="middle">'+esc(nm)+'</text><title>'+esc(b.name)+'</title></g>';
+  const pts=spreadPoints(shown,px,py,W,TOP,BOT,15);
+  /* 件数が多いほど名前を短く切る。長い名前は場所を取り、置ける数そのものが減る。 */
+  const FS=huge?7:many?7.4:8.2, MAXLEN=huge?5:many?6:9;
+  const labels=placeLabels(pts,W,H,TOP,FS,MAXLEN);
+
+  /* 豆を先に全部描き、名前はそのうえに重ねる。名前が豆の下に隠れないようにするため。 */
+  pts.forEach(p=>{
+    const fav=S.fav.includes(p.b.id), act=isProd(p.b)?'pdetail':'detail';
+    g+='<g class="dot" data-act="'+act+'" data-id="'+p.b.id+'">'+
+      (fav?'<circle cx="'+p.x+'" cy="'+p.y+'" r="13" fill="var(--accent)" fill-opacity=".24"/>':'')+
+      beanGlyph(p.x,p.y,rcol(p.b.roast),1)+
+      '<title>'+esc(p.b.name)+(p.b.shop?'（'+esc(p.b.shop)+'）':'')+'</title></g>';
+  });
+  labels.forEach(L=>{
+    const p=pts[L.i];
+    /* 文字のまわりを地の色で縁取る。近くの豆や線と重なっても輪郭が消えない。 */
+    g+='<text class="dot" data-act="'+(isProd(p.b)?'pdetail':'detail')+'" data-id="'+p.b.id+'" '+
+      'x="'+L.x+'" y="'+L.y+'" font-size="'+FS+'" font-weight="700" '+
+      'fill="var(--text)" text-anchor="'+L.anchor+'" stroke="var(--card)" stroke-width="2.6" '+
+      'style="paint-order:stroke;stroke-linejoin:round">'+esc(L.text)+'</text>';
   });
 
   $('#mapbody').innerHTML='<div class="mapwrap"><svg viewBox="0 0 '+W+' '+H+
     '" role="img" aria-label="酸味と苦味、スッキリとコクで分けた豆の分布図">'+g+'</svg></div>';
+  const hidden=shown.length-labels.length;
   $('#maphint').innerHTML='いま '+shown.length+'件。豆の色が焙煎の深さです。'+
-    (shown.length>24?'<br><b>名前が重なって読みにくいときは、「さがす」でお店や焙煎を絞ってください。</b>':'')+
-    (S.fav.length?'まるく光っているのがお気に入りです。':'');
+    (S.fav.length?'まるく光っているのがお気に入りです。':'')+
+    (hidden>0?'<br><b>'+hidden+'件は名前を置く場所が足りないので、豆だけ出しています。</b>'+
+      'その豆をタップすると名前が出ます。お店や焙煎で絞ると、名前が出る数が増えます。':'')+
+    '<br>※味の感じ方には個人差があります。';
 }
 function renderMap(){
   const byShop=S.mode==='shop';
@@ -2403,7 +2484,7 @@ let sheetMount=null;
 function openSheet(title,body,foot,onMount){
   $('#sheet-title').textContent=title;$('#sheet-body').innerHTML=body;
   $('#sheet-foot').innerHTML=foot||'<button class="btn wide" data-close>閉じる</button>';
-  $('#sheet').classList.add('on');sheetMount=onMount||null;if(onMount)onMount();
+  $('#sheet').classList.add('on');pushLayer();sheetMount=onMount||null;if(onMount)onMount();
 }
 const closeSheet=()=>{
   /* 登録をやめたときは、そのとき撮った写真も残さない */
@@ -2413,7 +2494,7 @@ const closeSheet=()=>{
 };
 let fullCtx=null;
 function openFull(title,body,ctx){$('#full-title').textContent=title;$('#full-body').innerHTML=body;
-  $('#full').classList.add('on');$('#full-body').scrollTop=0;fullCtx=ctx||null}
+  $('#full').classList.add('on');pushLayer();$('#full-body').scrollTop=0;fullCtx=ctx||null}
 const closeFull=()=>{$('#full').classList.remove('on');fullCtx=null};
 /* 写真を入れ替えたあと、いま見えている画面だけを描き直す */
 function refreshAfterPhoto(id){
@@ -2671,6 +2752,85 @@ document.addEventListener('change',e=>{
 });
 
 /* ===== ビュー切替 ===== */
+/* =========================================================================
+   左端から右へなぞって、ひとつ前に戻る
+
+   iPhoneの標準の動きに合わせている。戻り先は上から順に
+   1. シートが開いていれば、シートを閉じる
+   2. 詳細の全画面が開いていれば、それを閉じる
+   3. お店を1つに絞っているときは、お店の一覧に戻る
+   の順で、いちばん手前のものから閉じる。
+
+   始点を左端の30px以内に限っているのは、絞り込みのチップの行や味の地図が
+   横スクロールするためで、画面のどこでも反応させると、それらが動かせなくなる。
+   指の動きに合わせて画面が付いてくるようにしてあるのは、
+   途中でやめられることを見せるため。半分も引かずに離せば元に戻る。
+   ========================================================================= */
+/* iPhoneのSafariにも「画面の端から戻る」操作があり、こちらの指定では止められない。
+   何もしないと、その操作でアプリごと閉じて（前に見ていたページへ移動して）しまう。
+   そこで画面を開くたびに履歴を1つ積んでおき、戻る操作が来たら
+   積んだぶんを1つ消して、その画面を閉じるだけにしている。
+   履歴を使えない環境（埋め込み表示など）でも落ちないよう、try で囲ってある。 */
+function pushLayer(){try{history.pushState({mk:Date.now()},'')}catch(e){}}
+window.addEventListener('popstate',()=>{
+  const tg=backTarget();
+  if(tg){tg.act();pushLayer()}
+});
+function backTarget(){
+  if($('#sheet').classList.contains('on'))
+    return {el:$('#sheet'),move:$('#sheet').querySelector('.panel'),act:closeSheet};
+  if($('#full').classList.contains('on'))
+    return {el:$('#full'),move:$('#full'),act:closeFull};
+  if(document.body.dataset.view==='search'&&S.filter.shop.length)
+    return {el:null,move:null,act:()=>{S.filter.shop=[];save();renderList();window.scrollTo(0,0)}};
+  return null;
+}
+(function(){
+  const EDGE=30;      /* この幅より内側から始めたスワイプは相手にしない */
+  const NEED=70;      /* これだけ引いたら戻る。これ未満なら元に戻す */
+  let t=null,sx=0,sy=0,dx=0,axis='';
+  const setX=(el,v)=>{if(el){el.style.transition='none';el.style.transform=v?'translateX('+v+'px)':''}};
+  const release=(el,ok)=>{
+    if(!el)return;
+    el.style.transition='transform .22s cubic-bezier(.22,.9,.3,1)';
+    el.style.transform=ok?'translateX(100%)':'';
+    if(!ok)setTimeout(()=>{if(el)el.style.transition=el.style.transform=''},240);
+  };
+  document.addEventListener('touchstart',e=>{
+    t=null;axis='';dx=0;
+    if(e.touches.length!==1)return;
+    const p=e.touches[0];
+    if(p.clientX>EDGE)return;
+    const tg=backTarget();
+    if(!tg)return;
+    t=tg;sx=p.clientX;sy=p.clientY;
+  },{passive:true});
+  document.addEventListener('touchmove',e=>{
+    if(!t||e.touches.length!==1)return;
+    const p=e.touches[0], ddx=p.clientX-sx, ddy=p.clientY-sy;
+    /* 最初のひと動きで、横になぞったのか縦に読もうとしたのかを決める。
+       いったん決めたら途中で変えない。指が斜めに動いても画面が揺れないようにするため。 */
+    if(!axis){
+      if(Math.abs(ddx)<6&&Math.abs(ddy)<6)return;
+      axis=Math.abs(ddx)>Math.abs(ddy)*1.3?'x':'y';
+      if(axis==='y'){t=null;return}
+    }
+    dx=Math.max(0,ddx);
+    if(t.move)setX(t.move,dx);
+    if(e.cancelable)e.preventDefault();
+  },{passive:false});
+  document.addEventListener('touchend',()=>{
+    if(!t)return;
+    const go=dx>=NEED, tg=t;
+    t=null;
+    if(!go){release(tg.move,false);return}
+    if(tg.move){
+      release(tg.move,true);
+      setTimeout(()=>{tg.move.style.transition=tg.move.style.transform='';tg.act()},200);
+    }else tg.act();
+  },{passive:true});
+  document.addEventListener('touchcancel',()=>{if(t){release(t.move,false);t=null}},{passive:true});
+})();
 function setView(v){
   document.body.dataset.view=v;
   document.querySelectorAll('.tabbar button').forEach(b=>b.setAttribute('aria-selected',b.dataset.go===v));
