@@ -148,8 +148,28 @@ body[data-view="esp"] #v-esp,body[data-view="my"] #v-my{display:block}
 .row{display:flex;align-items:center;gap:8px}
 .between{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .chips{display:flex;gap:8px;flex-wrap:wrap}
-.chiprow{display:flex;gap:8px;overflow-x:auto;padding:8px 16px;scrollbar-width:none}
+.chiprow{display:flex;gap:8px;overflow-x:auto;padding:7px 16px;scrollbar-width:none;align-items:center}
 .chiprow::-webkit-scrollbar{display:none}
+/* 中身が無い行は、余白だけが残らないように畳む */
+.chiprow:empty{display:none}
+/* 行の先頭に置く見出し。「焙煎」「お店」など。
+   押せるものではないので、チップと同じ丸枠を付けてはいけない。
+   枠を付けると、選べる候補のひとつだと誤解される。 */
+.rowlab{flex:none;display:flex;align-items:center;align-self:stretch;
+  font-size:10.5px;font-weight:800;color:var(--mute);letter-spacing:.09em;
+  white-space:nowrap;padding-right:3px}
+/* 「条件をすべて解除」は候補ではなく取り消しなので、破線にして見た目を分ける */
+.chip.clear{border-style:dashed;color:var(--sub);font-weight:600}
+/* 件数の行。数だけ大きく出し、絞り込みの内訳はその横に小さく添える */
+.countline{display:flex;align-items:baseline;gap:8px;min-width:0}
+.countline b{font-family:var(--mono);font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;
+  letter-spacing:-.02em}
+.countline span{font-size:11.5px;color:var(--mute);white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}
+/* お店の一覧へ戻る導線。見出しの上に小さく置く */
+.backlink{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:700;
+  color:var(--accent);min-height:34px;padding:0}
+.backlink svg{width:15px;height:15px}
 /* 選ばれていない候補は「線だけ」、選んだものだけ赤くベタ塗り。
    塗りの有無で状態が分かるので、色を見分けなくても押した所が分かる。 */
 .chip{background:transparent;border:1px solid var(--line);border-radius:999px;padding:9px 15px;
@@ -596,8 +616,8 @@ body[data-view="search"] #tray.on ~ .fab{bottom:calc(136px + env(safe-area-inset
     <div class="searchbar"><input type="text" id="q" placeholder="産地・お店・名前でさがす" enterkeyhint="search"></div>
     <div class="chiprow" id="roastrow"></div>
     <div class="chiprow" id="moodrow"></div>
-    <div class="pad between" style="padding-top:2px;padding-bottom:6px">
-      <span class="muted" id="count">—</span>
+    <div class="pad between" style="padding-top:6px;padding-bottom:6px">
+      <span class="countline"><b id="count">—</b><span id="countsub"></span></span>
       <button class="chip" id="btn-sort">おすすめ順 ▾</button>
     </div>
     <div id="activefilters" class="chiprow" style="padding-top:0"></div>
@@ -1121,26 +1141,30 @@ function renderMode(){
     .map(m=>'<button data-act="mode" data-v="'+m[0]+'" aria-pressed="'+(S.mode===m[0])+'">'+
       m[2]+'<span>'+m[1]+'</span></button>').join('');
 }
+/* 絞り込みの行はどれも「行の名前 ＋ 候補が横に並ぶ」形に揃えてある。
+   並べ替え（おすすめ順）はここには置かない。絞り込みとは役割が違ううえ、
+   件数の行にも同じボタンがあり、以前は同じものが画面に2つ出ていた。 */
 function renderRoastRow(){
-  $('#roastrow').innerHTML='<span class="chip" style="background:none;color:var(--mute);padding:0 2px">焙煎</span>'+
+  $('#roastrow').innerHTML='<span class="rowlab">焙煎</span>'+
     [['浅','浅煎り'],['中','中煎り'],['深','深煎り']].map(r=>
       '<button class="chip" data-act="f" data-k="roast" data-v="'+r[0]+'" aria-pressed="'+
-      S.filter.roast.includes(r[0])+'">'+r[1]+'</button>').join('')+
-    '<button class="chip" data-act="opensort">'+esc(SORTS.find(s=>s[0]===S.sort)[1])+' ▾</button>';
+      S.filter.roast.includes(r[0])+'">'+r[1]+'</button>').join('');
 }
 function renderMoods(){
   if(S.mode==='shop'){
     const sc=shopCounts();
     $('#moodrow').innerHTML=sc.length?
-      '<span class="chip" style="background:none;color:var(--mute);padding:0 2px">お店</span>'+
+      '<span class="rowlab">お店</span>'+
       sc.map(([nm,n])=>'<button class="chip" data-act="f" data-k="shop" data-v="'+esc(nm)+'" aria-pressed="'+
         S.filter.shop.includes(nm)+'">'+esc(nm)+'<span style="opacity:.6;margin-left:5px">'+n+'</span></button>').join(''):'';
     return;
   }
+  /* 好みを教える操作は絞り込みではないので、候補を並べたあとの末尾に置く */
   const pref=S.pref?'好みを変える':'好みを3問で教える';
-  $('#moodrow').innerHTML='<button class="chip" data-act="diag" aria-pressed="'+!!S.pref+'">'+pref+'</button>'+
+  $('#moodrow').innerHTML='<span class="rowlab">気分</span>'+
     MOODS.map(m=>'<button class="chip" data-act="mood" data-id="'+m.id+'" aria-pressed="'+
-      S.filter.mood.includes(m.id)+'">'+m.label+'</button>').join('');
+      S.filter.mood.includes(m.id)+'">'+m.label+'</button>').join('')+
+    '<button class="chip clear" data-act="diag">'+pref+'</button>';
 }
 function renderActive(){
   const f=S.filter,tags=[];
@@ -1149,11 +1173,25 @@ function renderActive(){
   const any=tags.length||f.mood.length||f.roast.length||f.shop.length;
   $('#activefilters').innerHTML=any?
     tags.map(t=>'<button class="chip" aria-pressed="true" data-act="untag" data-k="'+t[0]+'" data-v="'+esc(t[1])+'">'+
-      esc(t[2])+' ✕</button>').join('')+'<button class="chip" data-act="clearall">条件をすべて解除</button>':'';
+      esc(t[2])+' ✕</button>').join('')+
+    '<button class="chip clear" data-act="clearall">条件をすべて解除</button>':'';
+}
+/* いくつ絞り込んでいるかを件数の横に出す。
+   絞り込みの行は横スクロールなので、選んだものが画面の外に隠れていることがある。
+   件数だけ見て「なぜこれしか出ないのか」と迷わないよう、ここで内訳を伝える。 */
+function countSub(){
+  const f=S.filter,n=[];
+  if(f.roast.length)n.push(f.roast.map(r=>({'浅':'浅煎り','中':'中煎り','深':'深煎り'})[r]).join('・'));
+  if(f.shop.length)n.push(f.shop.length===1?f.shop[0]:'お店'+f.shop.length+'件');
+  if(f.mood.length)n.push('気分'+f.mood.length+'件');
+  if(f.area.length)n.push(f.area.join('・'));
+  if(f.pmax<8000)n.push(yen(f.pmax)+'以下');
+  return n.length?'／ '+n.join('・'):'';
 }
 function renderList(){
   renderMode();renderRoastRow();renderMoods();renderActive();
   $('#btn-sort').textContent=SORTS.find(s=>s[0]===S.sort)[1]+' ▾';
+  const cs=$('#countsub');if(cs)cs.textContent=countSub();
 
   if(S.mode==='shop'){
     const sc=shopCounts(), total=allProducts().length;
@@ -1175,10 +1213,14 @@ function renderList(){
     let head='';
     if(S.filter.shop.length){
       const nm=S.filter.shop[0],i=shopInfo(nm);
-      head='<div class="pad" style="padding-bottom:4px">'+
-        '<button class="chip" data-act="allshops">‹ すべてのお店</button></div>'+
-        (S.filter.shop.length===1?'<div class="pad" style="padding-top:8px;padding-bottom:4px">'+
-          '<h2 class="sect">'+esc(nm)+'</h2>'+(i.desc?'<p class="muted" style="margin:-6px 0 0">'+esc(i.desc)+'</p>':'')+'</div>':'');
+      /* 戻る導線とお店の見出しはひとかたまり。以前は別々の帯になっていて、
+         本題の商品が出るまでに3行ぶん押し下げられていた。 */
+      head='<div class="pad" style="padding-top:6px;padding-bottom:4px">'+
+        '<button class="backlink" data-act="allshops">'+ICON.back+'すべてのお店</button>'+
+        (S.filter.shop.length===1?
+          '<h2 class="sect" style="margin:6px 0 0">'+esc(nm)+'</h2>'+
+          (i.desc?'<p class="muted" style="margin:2px 0 0">'+esc(i.desc)+'</p>':''):'')+
+        '</div>';
     }
     $('#list').innerHTML=head+(a.length?a.map(prodCard).join(''):
       '<div class="empty"><span class="g">🫙</span>条件に合う商品がありませんでした。<div style="margin-top:14px">'+
