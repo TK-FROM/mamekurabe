@@ -595,6 +595,36 @@ textarea{min-height:80px;resize:vertical}
 body[data-view="search"] .fab{display:flex}
 body[data-view="search"] #tray.on ~ .fab{bottom:calc(136px + env(safe-area-inset-bottom))}
 .hr{height:1px;background:var(--line);margin:18px 16px}
+/* ===== 画面の終わりに置くコーヒーカップ =====
+   一覧を最後まで見ると出てくる。GIFではなくSVGとCSSで描いて動かしているので、
+   画像ファイルを持たず、通信もいらず、拡大してもぼやけない。
+
+   色は固定値ではなく、この画面の色（--card、--sub など）を使っている。
+   そのため明るい画面でも暗い画面でも、自動的になじむ。
+   コーヒーの茶色だけは固定にしてある。ここが背景に合わせて変わると
+   中身が入っているように見えなくなるため。
+
+   動きが苦手な人の設定（prefers-reduced-motion）では、いちばん下の指定で止まる。
+   湯気は止まると消えたままにならないよう、初期状態でうっすら見える形にしてある。 */
+.cupzone{display:flex;flex-direction:column;align-items:center;gap:10px;
+  padding:26px 16px calc(30px + env(safe-area-inset-bottom))}
+.cup{width:138px;height:auto;overflow:visible}
+.cup g{transform-box:fill-box}
+/* 湯気は3本を等間隔に遅らせて上げる。1本ずつ間を空けると、
+   途切れずに立ちのぼり続けているように見える。 */
+@keyframes cup-steam{
+  0%{opacity:0;transform:translateY(8px) scaleX(.8)}
+  22%{opacity:.7}
+  62%{opacity:.42}
+  100%{opacity:0;transform:translateY(-34px) scaleX(1.45)}
+}
+.cup-st{transform-origin:center bottom;opacity:.28;animation:cup-steam 3.6s ease-out infinite}
+.cup-st2{animation-delay:1.2s}
+.cup-st3{animation-delay:2.4s}
+/* カップもごくわずかに上下させる。完全に静止していると絵が死んで見える */
+@keyframes cup-breathe{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+.cup-body{transform-origin:center bottom;animation:cup-breathe 3.6s ease-in-out infinite}
+.cupmsg{font-size:11.5px;color:var(--mute);font-weight:700;letter-spacing:.04em}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -661,6 +691,45 @@ body[data-view="search"] #tray.on ~ .fab{bottom:calc(136px + env(safe-area-inset
     <div id="my-data"></div>
   </section>
 </main>
+
+<!-- 画面のいちばん下。最後まで見た人へのひと息。 -->
+<div class="cupzone" aria-hidden="true">
+  <svg class="cup" viewBox="0 0 200 190">
+    <!-- 湯気。カップより先に描いて、後ろに置く。
+         3本の形をそれぞれ変えてあるのは、同じ形だと機械的に見えるため。 -->
+    <path class="cup-st" d="M78 78 C71 66 84 60 77 48 C73 40 79 34 77 26"
+          stroke="var(--mute)" stroke-width="4.4" fill="none" stroke-linecap="round"/>
+    <path class="cup-st cup-st2" d="M100 74 C93 61 107 55 100 42 C96 33 102 27 100 18"
+          stroke="var(--mute)" stroke-width="4.4" fill="none" stroke-linecap="round"/>
+    <path class="cup-st cup-st3" d="M122 78 C115 66 128 60 121 48 C117 40 123 34 121 26"
+          stroke="var(--mute)" stroke-width="4.4" fill="none" stroke-linecap="round"/>
+    <g class="cup-body">
+      <!-- 受け皿 -->
+      <ellipse cx="100" cy="168" rx="66" ry="11" fill="var(--card)" stroke="var(--sub)" stroke-width="3"/>
+      <!-- 取っ手。カップより先に描いて、重なりを内側に隠す -->
+      <path d="M150 108 C176 108 176 140 150 140" fill="none" stroke="var(--sub)" stroke-width="8"/>
+      <path d="M150 108 C170 108 170 140 150 140" fill="none" stroke="var(--card)" stroke-width="3"/>
+      <!-- カップ本体。下へ向かってすぼまる形にすると、飲み物の器らしくなる -->
+      <path d="M48 92 L57 152 C58 161 74 166 100 166 C126 166 142 161 143 152 L152 92 Z"
+            fill="var(--card)" stroke="var(--sub)" stroke-width="3" stroke-linejoin="round"/>
+      <!-- 飲み口とコーヒー。ここだけ色を固定にしてある。
+           背景に合わせて変わると、中身が入っているように見えなくなるため。 -->
+      <ellipse cx="100" cy="92" rx="52" ry="10" fill="var(--card)" stroke="var(--sub)" stroke-width="3"/>
+      <ellipse cx="100" cy="92" rx="43" ry="7.4" fill="#6b4a33"/>
+      <ellipse cx="88" cy="90" rx="11" ry="2.6" fill="#8a6448" opacity=".7"/>
+      <!-- 受け皿に置いた豆。カップだけだと寂しいので、2粒だけ添える -->
+      <g>
+        <ellipse cx="44" cy="170" rx="9" ry="6.4" transform="rotate(-18 44 170)" fill="#7d6749"/>
+        <path d="M39 172 C41 169 46 168 49 168" stroke="var(--card)" stroke-width="1.8"
+              fill="none" stroke-linecap="round"/>
+        <ellipse cx="158" cy="172" rx="8" ry="5.6" transform="rotate(14 158 172)" fill="#7d6749"/>
+        <path d="M153 173 C155 171 160 170 163 171" stroke="var(--card)" stroke-width="1.6"
+              fill="none" stroke-linecap="round"/>
+      </g>
+    </g>
+  </svg>
+  <p class="cupmsg">ここまで見てくれてありがとう</p>
+</div>
 
 <div id="tray">
   <div class="slots" id="trayslots"></div>
