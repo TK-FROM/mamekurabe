@@ -381,9 +381,16 @@ body[data-view="esp"] #v-esp,body[data-view="my"] #v-my{display:block}
 .advice.ok .k{color:var(--ok)}
 
 /* ===== 収束バー ===== */
-.shotrow{display:grid;grid-template-columns:40px 1fr 38px 30px 30px;align-items:center;gap:8px;
-  padding:7px 0;border-bottom:1px solid var(--line);font-size:12px;
+.shotrow{display:grid;grid-template-columns:42px 1fr auto 30px;align-items:center;gap:9px;
+  padding:8px 0;border-bottom:1px solid var(--line);font-size:12px;
   font-variant-numeric:tabular-nums}
+/* 豆の名前と、その日の設定を文字で出す。以前は色の棒だけを並べていたが、
+   何を淹れたのかが一覧から分からず、押してみるまで思い出せなかった。 */
+.shotrow .shotmain{min-width:0}
+.shotrow .shotmain b{display:block;font-size:13px;font-weight:700;line-height:1.45;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shotrow .shotnum{display:block;font-family:var(--mono);font-size:10.5px;color:var(--mute);
+  line-height:1.5;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .shotrow:last-of-type{border-bottom:none}
 /* 行そのものを押すと、その一杯の記録を見返せる。押せることが伝わるように、
    触れている間だけ地の色を変える。中のごみ箱を押したときは、そちらが先に拾われる。 */
@@ -393,8 +400,6 @@ body[data-view="esp"] #v-esp,body[data-view="my"] #v-my{display:block}
    せっかく書いた文が二度と読まれない。 */
 .shotrow .shotmemo{grid-column:1/-1;font-size:11.5px;color:var(--sub);line-height:1.65;
   margin:1px 0 5px;overflow-wrap:anywhere}
-.shotrow .bar{height:12px;border-radius:3px;background:var(--track);position:relative;overflow:hidden}
-.shotrow .bar i{position:absolute;left:0;top:0;bottom:0;border-radius:3px;display:block}
 .shotrow button{min-height:30px;border-radius:var(--r-s)}
 .shotrow button svg{width:15px;height:15px}
 .shotrow button:active{background:var(--chip);color:var(--bad)}
@@ -696,7 +701,7 @@ body[data-view="search"] #tray.on ~ .fab{bottom:calc(136px + env(safe-area-inset
     <div id="my-own"></div>
     <div class="sec-title">お気に入り</div>
     <div id="my-fav"></div>
-    <div class="sec-title">飲んだ豆</div>
+    <div class="sec-title">飲んだ豆の感想（◎○×）</div>
     <div id="my-log"></div>
     <div class="sec-title">データ</div>
     <div id="my-data"></div>
@@ -861,18 +866,8 @@ const SHOPS={
 "ファミリーマート":{color:"#00873c",desc:"アラビカ100%のオリジナルブレンド。深煎り配合でコク重視。"},
 "UCC":{color:"#a8880f",desc:"いつ買っても同じ味の安定感。スーパーでの入手性が高い。"},
 "キーコーヒー":{color:"#1f4d3d",desc:"自社農園のトアルコ トラジャが看板。産地までたどれる本格派。"},
-"AGF":{color:"#7a1f2b",desc:"匠焙煎で酸味を抑えたクリアな後味。酸っぱいのが苦手な人に。"},
-"小川珈琲":{color:"#4a2f24",desc:"京都の老舗。使い切りサイズと有機JAS・フェアトレードが充実。"},
-"ハマヤ":{color:"#8e1b3a",desc:"珈琲専門店用シリーズが主力。やや浅めで良質な酸味を残す設計。"},
-"ブルックス":{color:"#2e6f4e",desc:"通販専業。定期便やセットが中心で、まとめ買いに向く。"},
 "猿田彦珈琲":{color:"#a3122c",desc:"100g1,000円前後の深煎り主体。名前の親しみやすさとギフト適性が高い。"},
 "丸山珈琲":{color:"#7a2f1f",desc:"浅煎りから深煎りまで体系化。100g874円と専門店では手を出しやすい。"},
-"堀口珈琲":{color:"#1f3a5f",desc:"定番を#1〜#9で番号化。数字が上がるほど深煎りで重厚になる。"},
-"ONIBUS COFFEE":{color:"#26241f",desc:"東京・奥沢発。どの抽出器具でも成立するバランス設計のブレンドが強い。"},
-"LIGHT UP COFFEE":{color:"#b8860b",desc:"吉祥寺の浅煎り専門系。冷めても甘さが残る焙煎。"},
-"土居珈琲":{color:"#6b4a2f",desc:"小さな焙煎釜で手選別まで行う職人系。完成度で選ぶ人向け。"},
-"澤井珈琲":{color:"#8b1a1a",desc:"500g〜の大袋・福袋が主戦場。焼きたてを大容量で安く。"},
-"珈琲きゃろっと":{color:"#c96a06",desc:"通販専業の自家焙煎。返金保証付きのお試しセットが有名。"}
 };
 const PRODUCTS=[
 {id:"p01",shop:"スターバックス",name:"ハウス ブレンド",origin:"ラテンアメリカ",roastName:"ミディアム ロースト",roast:4,t:[3,3,3,3,4],notes:["ナッツ","ココア"],sizeG:250,price:1480,per100:592,where:["スタバ店舗","スーパー","通販"],pkg:["#1e3932","#00754a"],good:["毎日のブラック","スタバの味を家で"],decaf:false,confidence:"A",checked:"2026-08"},
@@ -910,27 +905,12 @@ const PRODUCTS=[
 {id:"p33",shop:"UCC",name:"ゴールドスペシャル リッチブレンド",origin:"ブレンド",roastName:"深煎り",roast:6,t:[2,4,4,3,4],notes:["コク","ビターチョコ"],sizeG:230,price:1035,per100:450,where:["スーパー","公式通販"],pkg:["#5c1a1a","#c8a415"],good:["カフェオレ向き","しっかり濃いめ"],decaf:false,confidence:"A",checked:"2026-08"},
 {id:"p34",shop:"キーコーヒー",name:"トアルコ トラジャ",origin:"インドネシア（トラジャ）",roastName:"中煎り",roast:4,t:[4,3,4,4,5],notes:["フローラル","柑橘","キャラメル"],sizeG:200,price:3024,per100:1512,where:["公式通販","百貨店"],pkg:["#1f4d3d","#c8a165"],good:["特別な1杯","贈り物"],decaf:false,confidence:"A",checked:"2026-08"},
 {id:"p35",shop:"キーコーヒー",name:"スペシャルブレンド（缶）",origin:"ブレンド（ブラジル・コロンビア）",roastName:"中煎り",roast:4,t:[3,3,4,3,3],notes:["バランス","コク"],sizeG:320,price:1361,per100:425,where:["スーパー","通販"],pkg:["#c8102e","#f0e9dc"],good:["缶で保存したい","定番の安心感"],decaf:false,confidence:"A",checked:"2026-08"},
-{id:"p36",shop:"AGF",name:"ちょっと贅沢な珈琲店 スペシャル・ブレンド",origin:"ブレンド",roastName:"中深煎り（匠焙煎）",roast:5,t:[2,4,4,3,4],notes:["低酸味","クリアな後味"],sizeG:250,price:880,per100:352,where:["スーパー","通販"],pkg:["#7a1f2b","#d4b483"],good:["酸味が苦手な人","毎日のブラック"],decaf:false,confidence:"B",checked:"2026-08"},
-{id:"p37",shop:"小川珈琲",name:"小川プレミアムブレンド",origin:"ブラジル・メキシコ・コロンビア・エチオピア",roastName:"中深煎り",roast:5,t:[3,4,4,3,4],notes:["芳醇","やわらか"],sizeG:160,price:699,per100:437,where:["スーパー","公式通販"],pkg:["#4a2f24","#c9a227"],good:["京都の喫茶店の味","毎日のブラック"],decaf:false,confidence:"A",checked:"2026-08"},
-{id:"p38",shop:"小川珈琲",name:"有機珈琲 フェアトレード モカブレンド",origin:"ブレンド（エチオピア主体・有機JAS）",roastName:"中煎り",roast:4,t:[4,3,3,4,5],notes:["モカ香","ベリー"],sizeG:160,price:629,per100:393,where:["スーパー","公式通販"],pkg:["#6b8e4e","#f0e6d2"],good:["オーガニック志向","香り重視"],decaf:false,confidence:"A",checked:"2026-08"},
-{id:"p39",shop:"ハマヤ",name:"珈琲専門店用 モカブレンド",origin:"ブレンド（モカベース）",roastName:"やや浅煎り",roast:3,t:[4,2,3,4,5],notes:["赤ワイン様の香り","上品な酸味"],sizeG:200,price:1129,per100:565,where:["公式オンライン","一部スーパー"],pkg:["#8e1b3a","#e7dcc6"],good:["酸味が好き","香りを楽しむ"],decaf:false,confidence:"B",checked:"2026-08"},
-{id:"p40",shop:"ブルックス",name:"有機栽培コーヒー",origin:"ブレンド（有機栽培）",roastName:"中煎り",roast:4,t:[4,3,3,3,4],notes:["上品な酸味","クリーン"],sizeG:200,price:1180,per100:590,where:["公式通販"],pkg:["#2e6f4e","#f3ead6"],good:["オーガニック志向","定期便で切らさない"],decaf:false,confidence:"B",checked:"2026-08"},
 {id:"p41",shop:"猿田彦珈琲",name:"大吉ブレンド",origin:"ブレンド（グアテマラ・ボリビア等）",roastName:"深煎り",roast:6,t:[2,4,5,4,4],notes:["ビターチョコ","ナッツ"],sizeG:100,price:980,per100:980,where:["猿田彦店舗","公式通販"],pkg:["#c8102e","#f5f1e6"],good:["1日の始まりに","贈り物"],decaf:false,confidence:"A",checked:"2026-08"},
 {id:"p42",shop:"猿田彦珈琲",name:"猿田彦フレンチ",origin:"ブレンド",roastName:"深煎り（フレンチ）",roast:7,t:[1,5,5,3,4],notes:["スモーキー","カカオ"],sizeG:100,price:1080,per100:1080,where:["猿田彦店舗","公式通販"],pkg:["#2b2b2b","#c8102e"],good:["カフェオレ向き","苦味好き"],decaf:false,confidence:"A",checked:"2026-08"},
 {id:"p43",shop:"猿田彦珈琲",name:"ディカフェ エチオピア Bombe Natural",origin:"エチオピア",roastName:"深煎り",roast:6,t:[3,4,4,4,4],notes:["ベリー","チョコ"],sizeG:100,price:980,per100:980,where:["猿田彦店舗","公式通販"],pkg:["#5b8c5a","#f5f1e6"],good:["夜のリラックス","カフェインを控えたい"],decaf:true,confidence:"A",checked:"2026-08"},
 {id:"p44",shop:"丸山珈琲",name:"丸山珈琲のブレンド",origin:"ブレンド",roastName:"深煎り",roast:6,t:[2,4,5,4,4],notes:["ダークチョコレート","コク"],sizeG:100,price:874,per100:874,where:["丸山珈琲店舗","公式通販"],pkg:["#7a2f1f","#efe7d8"],good:["スペシャルティ入門","毎日のブラック"],decaf:false,confidence:"A",checked:"2026-08"},
 {id:"p45",shop:"丸山珈琲",name:"さわやかブレンド",origin:"ブレンド",roastName:"浅煎り",roast:3,t:[5,1,2,4,5],notes:["柑橘","フローラル"],sizeG:100,price:874,per100:874,where:["丸山珈琲店舗","公式通販"],pkg:["#7fb3d5","#f7f4ec"],good:["浅煎り好き","アイスでも"],decaf:false,confidence:"A",checked:"2026-08"},
 {id:"p46",shop:"丸山珈琲",name:"モカブレンド 茜すみれ",origin:"ブレンド（エチオピア主体）",roastName:"中煎り",roast:4,t:[4,2,3,5,5],notes:["ベリー","華やか"],sizeG:100,price:874,per100:874,where:["丸山珈琲店舗","公式通販"],pkg:["#8e5572","#f7f4ec"],good:["香り重視","モカ好き"],decaf:false,confidence:"A",checked:"2026-08"},
-{id:"p47",shop:"堀口珈琲",name:"CLASSIC #1 BRIGHT & SILKY",origin:"ブレンド",roastName:"浅煎り",roast:3,t:[5,1,3,4,5],notes:["明るい酸","シルキー"],sizeG:200,price:1836,per100:918,where:["堀口珈琲店舗","公式通販"],pkg:["#d9e3f0","#1f3a5f"],good:["浅煎り好き","食後の1杯"],decaf:false,confidence:"A",checked:"2026-08"},
-{id:"p48",shop:"堀口珈琲",name:"CLASSIC #5 SMOOTH & CHOCOLATY",origin:"ブレンド",roastName:"中煎り",roast:4,t:[3,3,4,4,4],notes:["チョコレート","なめらか"],sizeG:200,price:1836,per100:918,where:["堀口珈琲店舗","公式通販"],pkg:["#6b4226","#efe6d6"],good:["バランス重視","毎日のブラック"],decaf:false,confidence:"A",checked:"2026-08"},
-{id:"p49",shop:"堀口珈琲",name:"CLASSIC #7 BITTERSWEET & FULL-BODIED",origin:"ブレンド",roastName:"深煎り",roast:6,t:[2,5,5,4,4],notes:["ビタースイート","フルボディ"],sizeG:200,price:1836,per100:918,where:["堀口珈琲店舗","公式通販"],pkg:["#3a2318","#c8a165"],good:["深煎りの王道","カフェオレにも"],decaf:false,confidence:"A",checked:"2026-08"},
-{id:"p50",shop:"ONIBUS COFFEE",name:"オニバスブレンド",origin:"ブラジル・グアテマラ・エチオピア",roastName:"中煎り",roast:4,t:[3,3,4,4,4],notes:["チョコレート","ワイン","クリーミー"],sizeG:200,price:1080,per100:540,where:["ONIBUS店舗","公式通販"],pkg:["#1c1c1c","#f2efe9"],good:["どの淹れ方でも","スペシャルティ入門"],decaf:false,confidence:"A",checked:"2026-08"},
-{id:"p51",shop:"ONIBUS COFFEE",name:"シティローストブレンド",origin:"ブラジル・ルワンダ",roastName:"シティロースト",roast:5,t:[3,4,4,4,4],notes:["カカオ","ナッツ"],sizeG:200,price:1102,per100:551,where:["ONIBUS店舗","公式通販"],pkg:["#4a3428","#f2efe9"],good:["ミルクと合わせる","毎日のブラック"],decaf:false,confidence:"A",checked:"2026-08"},
-{id:"p52",shop:"LIGHT UP COFFEE",name:"タンザニア Tembo Tembo",origin:"タンザニア",roastName:"浅煎り",roast:2,t:[5,1,2,4,5],notes:["やわらかい","フローラル"],sizeG:150,price:1700,per100:1133,where:["LIGHT UP店舗","公式通販"],pkg:["#f2c14e","#ffffff"],good:["浅煎り好き","産地の違いを楽しむ"],decaf:false,confidence:"B",checked:"2026-08"},
-{id:"p53",shop:"LIGHT UP COFFEE",name:"ペルー Quero Finca",origin:"ペルー",roastName:"浅煎り",roast:2,t:[4,1,2,5,5],notes:["甘い","フルーティ"],sizeG:150,price:2000,per100:1333,where:["LIGHT UP店舗","公式通販"],pkg:["#e07a5f","#ffffff"],good:["甘さを楽しむ","ハンドドリップ"],decaf:false,confidence:"B",checked:"2026-08"},
-{id:"p54",shop:"土居珈琲",name:"「小さな焙煎」人気銘柄セット",origin:"グアテマラ カペティロ農園ほか",roastName:"中深煎り",roast:5,t:[3,4,4,4,5],notes:["甘み","香ばしさ"],sizeG:200,price:2733,per100:1367,where:["公式通販"],pkg:["#6b4a2f","#f0e8d8"],good:["贈り物","焙煎の違いを味わう"],decaf:false,confidence:"A",checked:"2026-08"},
-{id:"p55",shop:"澤井珈琲",name:"ビクトリーブレンド",origin:"ブレンド",roastName:"中深煎り",roast:5,t:[2,4,5,3,4],notes:["チョコレート","濃厚"],sizeG:500,price:1780,per100:356,where:["公式通販"],pkg:["#8b1a1a","#e8d9b5"],good:["大容量で安く","毎日たっぷり飲む"],decaf:false,confidence:"B",checked:"2026-08"},
-{id:"p56",shop:"珈琲きゃろっと",name:"初回限定お試しセット",origin:"グアテマラ＋季節のおすすめ",roastName:"中煎り・中深煎り",roast:5,t:[3,4,4,4,5],notes:["甘み","クリーン"],sizeG:400,price:2138,per100:535,where:["公式通販"],pkg:["#f08c00","#ffffff"],good:["スペシャルティ入門","焼きたてを試したい"],decaf:false,confidence:"A",checked:"2026-08"}
 ];
 /* =========================================================================
    状態。localStorage は「いつか消えるもの」として扱い、書き出し機能を必ず添える。
@@ -983,6 +963,16 @@ try{S=migrate(JSON.parse(localStorage.getItem(LS)||'{}'))}catch(e){S=DEF()}
 const save=()=>{try{localStorage.setItem(LS,JSON.stringify(S));return true}catch(e){return false}};
 
 const $=s=>document.querySelector(s);
+/* 記録の id は作った時刻から作る。ただし時刻だけだと、同じミリ秒のうちに2つ作ったときに
+   まったく同じ id になってしまう。保存のときに「同じ id は上書き」と判断しているので、
+   ぶつかると片方が黙って消える。最後に出した値を覚えておき、必ず1つずつ進めることで防ぐ。
+   進めても時刻としてはミリ秒しか違わないので、id から日付を取り出す処理には影響しない。 */
+let lastUid=0;
+function uid(prefix){
+  const t=Date.now();
+  lastUid=t>lastUid?t:lastUid+1;
+  return prefix+lastUid;
+}
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const byId=id=>BEANS.find(b=>b.id===id);
 /* 抽出記録では、産地の豆とお店の商品のどちらも選べる。焙煎度さえ取れれば提案は動く。 */
@@ -1961,26 +1951,30 @@ function renderEsp(){
     '<p class="muted" style="margin:6px 0 10px">'+shotLine(s)+'</p>'+
     '<button class="btn ghost wide" data-act="reuse" data-id="'+s.id+'">このレシピで淹れる</button></div>'}).join(''):'';
 
-  const done=S.shots.filter(s=>s.status==='done').slice(-12);
+  /* 飲んだ日を選べるようにしたので、記録した順ではなく飲んだ日の順に並べる。 */
+  const done=S.shots.filter(s=>s.status==='done').slice()
+    .sort((a,b)=>a.at-b.at).slice(-12);
   $('#esp-history').innerHTML=done.length?'<div class="card">'+done.map(s=>{
-    const col=s.bal<0?'var(--s2)':s.bal>0?'var(--s1)':'var(--ok)';
-    /* 時間を測っていない記録は、棒いっぱいに色だけを見せる */
-    const w=s.timeSec>0?Math.min(100,s.timeSec/45*100):100;
-    return '<div class="shotrow" data-act="shotdetail" data-id="'+s.id+'"><span class="tiny">'+
+    const b=anyById(s.beanId);
+    /* 挽き目は毎回変える値なので必ず出す。時間と味は入っていれば足す。 */
+    const nums=['挽き目 '+s.grindValue+esc(G().unit)]
+      .concat(s.timeSec>0?[s.timeSec+'秒']:[])
+      .concat(BALS[String(s.bal||0)]?[BALS[String(s.bal||0)]]:[])
+      .join(' ／ ');
+    return '<div class="shotrow" data-act="shotdetail" data-id="'+s.id+'">'+
+      '<span class="tiny">'+
       new Date(s.at).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'})+'</span>'+
-      '<span class="bar"><i style="width:'+w+'%;background:'+col+'"'+
-      (s.timeSec>0?'':';opacity:.5')+'></i></span>'+
-      '<span class="tiny" style="text-align:right">'+(s.timeSec>0?s.timeSec+'秒':'—')+'</span>'+
-      '<span class="tiny" style="text-align:right;color:var(--gold)">'+(s.rating?'★'+s.rating:'—')+'</span>'+
+      '<span class="shotmain"><b>'+esc(b?b.name:'（いまは無い豆）')+'</b>'+
+      '<span class="shotnum">'+nums+'</span></span>'+
+      '<span class="tiny" style="color:var(--gold);white-space:nowrap">'+
+      (s.rating?'★'+s.rating:'—')+'</span>'+
       '<button data-act="delshot" data-id="'+s.id+'" aria-label="この記録を消す" '+
       'style="color:var(--mute);display:grid;place-items:center">'+ICON.trash+'</button>'+
       (s.memo?'<span class="shotmemo">'+esc(s.memo)+'</span>':'')+'</div>'}).join('')+
     '<p class="tiny" style="margin-top:12px">'+
-    '<b>行を押すと、その一杯の豆・粉の量・挽き目・メモまで見返せます。</b><br>'+
-    '棒の長さ＝抽出時間（測っていない記録は薄い色で全幅）。'+
-    '<span style="color:var(--s2);font-weight:700">青緑</span>＝酸っぱい／'+
-    '<span style="color:var(--ok);font-weight:700">緑</span>＝ちょうど／<span style="color:var(--s1);font-weight:700">赤茶</span>＝苦い。'+
-    '緑がそろってきたら、その豆のダイヤルインは完了です。右のごみ箱で1件ずつ消せます。</p></div>':
+    '<b>行を押すと、粉の量・出来上がり・そのとき出た提案まで見返せます。</b><br>'+
+    '右の★は総合の評価です。同じ豆で★が伸びていれば、その方向で合っています。'+
+    '右のごみ箱で1件ずつ消せます。</p></div>':
     '<div class="empty" style="padding:24px"><span class="g">☕</span>まだ記録がありません。<br>1杯目を記録すると、次にどう調整すればいいかを提案します。'+
     '<p class="tiny" style="margin-top:16px;text-align:left">いまの設定<br>'+
     '・'+esc(M().name)+'（'+M().basketMm+'mm・約'+M().capacityG+'g'+(M().bottomless?'・ボトムレス':'')+'）<br>'+
@@ -1991,6 +1985,8 @@ function renderEsp(){
    棒と星だけでは、そのとき何gでどう淹れたのかが分からず、見返す意味がなかった。
    記録した数値をそのまま並べ、そのとき出た提案とメモも一緒に見せる。 */
 const BALW={'-2':'すごく酸っぱい','-1':'やや酸っぱい','0':'ちょうどいい','1':'やや苦い','2':'すごく苦い'};
+/* 一覧の行は幅が狭いので、同じ意味の短い言い方を別に持つ */
+const BALS={'-2':'すごく酸味','-1':'やや酸味','0':'ちょうど','1':'やや苦い','2':'すごく苦い'};
 const STRW={'-1':'薄い','0':'ちょうど','1':'濃い'};
 function shotDetailSheet(id){
   const s=S.shots.find(x=>x.id===id);if(!s)return;
@@ -2026,11 +2022,19 @@ function shotDetailSheet(id){
     '<button class="btn" data-act="reuse" data-id="'+s.id+'" style="flex:2">この設定でもう一杯</button>');
 }
 
+/* 選んだ日を記録の時刻に変える。今日なら「いま」、過去の日なら正午にしておく。
+   時刻まで選ばせると入力が重くなるし、その日のうちのどこかが分かれば足りる。 */
+function atFrom(d){
+  if(!d||d===today())return Date.now();
+  const t=Date.parse(d+'T12:00:00');
+  return isNaN(t)?Date.now():t;
+}
 /* 記録フォーム */
 let form={};
 function shotSheet(pre){
   const g=G(), m=M(), last=[...S.shots].reverse()[0];
-  form=Object.assign({beanId:(BEANS.find(b=>b.brew.includes('エスプレッソ'))||BEANS[0]).id,
+  form=Object.assign({date:today(),
+    beanId:(BEANS.find(b=>b.brew.includes('エスプレッソ'))||BEANS[0]).id,
     doseG:m.capacityG,yieldG:+(m.capacityG*2).toFixed(1),timeSec:0,milkMl:150,
     grindValue:+((espLo()+espHi())/2).toFixed(1)},
     last?{beanId:last.beanId,doseG:last.doseG,yieldG:last.yieldG,timeSec:last.timeSec||0,
@@ -2040,6 +2044,14 @@ function shotSheet(pre){
     '<span class="val" id="f-'+k+'">'+stepLabel(k,dec)+'<small>'+unit+'</small></span>'+
     '<button data-act="st" data-k="'+k+'" data-d="1">＋</button></div></div>';
   const body='<div class="pad">'+
+    /* いつ飲んだかは選べるようにしてある。あとからまとめて入れることがあるので、
+       「記録した日」と「飲んだ日」は別物として扱う。 */
+    '<div class="field"><label>いつ飲んだか</label>'+
+      '<input type="date" id="f-date" value="'+esc(form.date||today())+'">'+
+      '<div class="chips" style="margin-top:8px">'+
+        '<button class="chip" data-act="setdate" data-d="0">今日</button>'+
+        '<button class="chip" data-act="setdate" data-d="1">昨日</button>'+
+        '<button class="chip" data-act="setdate" data-d="2">おととい</button></div></div>'+
     '<div class="field"><label>豆</label><select id="f-bean">'+
       ((S.myBeans||[]).length?'<optgroup label="自分で登録した豆">'+S.myBeans.map(p=>'<option value="'+p.id+'"'+
         (p.id===form.beanId?' selected':'')+'>'+esc((p.shop?p.shop+' ':'')+p.name)+'</option>').join('')+'</optgroup>':'')+
@@ -2100,7 +2112,9 @@ function stepField(k,d){
   if(navigator.vibrate)navigator.vibrate(8);
 }
 function saveShot(){
-  const s=Object.assign({id:'s'+Date.now(),at:Date.now(),status:'draft',bal:0,str:0,rating:0,
+  /* 飲んだ日は画面で選べる。記録を作る前に、その入力欄を読む。 */
+  const de=$('#f-date');if(de&&de.value)form.date=de.value;
+  const s=Object.assign({id:uid('s'),at:atFrom(form.date),status:'draft',bal:0,str:0,rating:0,
     spray:false,timeSec:0,milkMl:0,memo:'',stockId:'',adv:null},form);
   /* 評価まちの記録を捨てて上書きするときは、その1杯ぶんの豆を残量に戻してから捨てる。
      戻さないと、淹れていない豆が減ったままになる。 */
@@ -2251,7 +2265,7 @@ let myForm=null;
 const ROAST6=[2,3,4,5,6,7];
 const roast6Index=r=>ROAST6.indexOf(Math.max(2,Math.min(7,Math.round(+r||5))))+1;
 function newMyBean(){return{
-  id:'m'+Date.now(),mine:true,shop:'',name:'',origin:'',roastName:'',roast:5,
+  id:uid('m'),mine:true,shop:'',name:'',origin:'',roastName:'',roast:5,
   t:[3,3,3,3,3],notes:[],sizeG:200,price:0,per100:0,where:['自分で登録'],
   pkg:['#8a6a55','#e0cdb5'],good:[],decaf:false,confidence:'MY',
   checked:new Date().toISOString().slice(0,7),memo:'',_new:true}}
@@ -2553,7 +2567,7 @@ function renderStock(){
 function toHistory(st){
   const b=anyById(st.beanId)||{};
   const shots=S.shots.filter(x=>x.beanId===st.beanId&&x.status==='done');
-  return {id:'h'+Date.now(),beanId:st.beanId,
+  return {id:uid('h'),beanId:st.beanId,
     name:b.name||'（消えた豆）',shop:b.shop||'',roast:b.roast||0,
     buyDate:st.buyDate||dateOf(st.id),roastDate:st.roastDate||'',
     openDate:st.openDate||'',bestBy:st.bestBy||'',
@@ -2600,7 +2614,7 @@ function stockSheet(editId,beanId){
   else{
     const b=anyById(beanId)||anyById((lastDone()||{}).beanId)||PRODUCTS[0];
     const g=b&&b.sizeG>0?b.sizeG:200;
-    stForm={id:'st'+Date.now(),beanId:b.id,buyDate:today(),roastDate:'',openDate:'',bestBy:'',
+    stForm={id:uid('st'),beanId:b.id,buyDate:today(),roastDate:'',openDate:'',bestBy:'',
       startG:g,leftG:g,_new:true};
   }
   renderStockForm();
@@ -2736,7 +2750,13 @@ function renderMy(){
     return '<div class="card" data-act="'+(byId(id)?'detail':'pdetail')+'" data-id="'+id+'"><div class="between">'+
       '<strong>'+esc(b.shop?b.shop+' '+b.name:b.name)+'</strong><span style="font-size:20px">'+l.rate+'</span></div>'+
       (l.memo?'<p class="muted" style="margin-top:6px">'+esc(l.memo)+'</p>':'')+'</div>'}).join(''):
-    '<div class="empty" style="padding:20px"><span class="g">📔</span>まだ記録がありません。</div>';
+    '<div class="empty" style="padding:20px"><span class="g">📔</span>'+
+    '豆の画面をひらいて<b>「◎また買う」</b>を押すと、ここに並びます。<br>'+
+    '<p class="tiny" style="margin-top:12px;text-align:left">'+
+    '「さがす」や「味の地図」から豆を選ぶと、いちばん下に'+
+    '<b>「飲んだ感想を残す」</b>があります。<br>'+
+    'エスプレッソの抽出記録とは別のもので、こちらは<b>その豆をまた買いたいか</b>を残す場所です。'+
+    '3件たまると、上の「好みの傾向」に産地や焙煎の共通点が出ます。</p></div>';
 
   const days=S.lastExport?Math.floor((Date.now()-S.lastExport)/86400000):null;
   $('#my-data').innerHTML='<div class="card">'+
@@ -2909,6 +2929,8 @@ document.addEventListener('click',e=>{
   else if(a==='st'){stepField(t.dataset.k,+t.dataset.d)}
   else if(a==='setsec'){form.timeSec=+t.dataset.v;
     const e=$('#f-timeSec');if(e)e.innerHTML=stepLabel('timeSec')+'<small>秒</small>';calc()}
+  else if(a==='setdate'){const d=new Date();d.setDate(d.getDate()-(+t.dataset.d||0));
+    form.date=ymd(d);const e=$('#f-date');if(e)e.value=form.date}
   else if(a==='setmilk'){form.milkMl=+t.dataset.v;
     const e=$('#f-milkMl');if(e)e.innerHTML=stepLabel('milkMl')+'<small>ml</small>';calc()}
   else if(a==='delshot'){if(!confirm('この記録を消しますか？'))return;
