@@ -385,6 +385,14 @@ body[data-view="esp"] #v-esp,body[data-view="my"] #v-my{display:block}
   padding:7px 0;border-bottom:1px solid var(--line);font-size:12px;
   font-variant-numeric:tabular-nums}
 .shotrow:last-of-type{border-bottom:none}
+/* 行そのものを押すと、その一杯の記録を見返せる。押せることが伝わるように、
+   触れている間だけ地の色を変える。中のごみ箱を押したときは、そちらが先に拾われる。 */
+.shotrow[data-act]{cursor:pointer;border-radius:var(--r-s)}
+.shotrow[data-act]:active{background:var(--chip)}
+/* メモは畳まずに、その行の下へ全幅で出す。隠してしまうと、
+   せっかく書いた文が二度と読まれない。 */
+.shotrow .shotmemo{grid-column:1/-1;font-size:11.5px;color:var(--sub);line-height:1.65;
+  margin:1px 0 5px;overflow-wrap:anywhere}
 .shotrow .bar{height:12px;border-radius:3px;background:var(--track);position:relative;overflow:hidden}
 .shotrow .bar i{position:absolute;left:0;top:0;bottom:0;border-radius:3px;display:block}
 .shotrow button{min-height:30px;border-radius:var(--r-s)}
@@ -658,6 +666,7 @@ body[data-view="search"] #tray.on ~ .fab{bottom:calc(136px + env(safe-area-inset
     <div class="pad" style="padding-bottom:8px"><h2 class="sect" style="margin-bottom:8px">味の地図</h2>
       <p class="muted" id="maplead" style="margin:0"></p></div>
     <div class="chiprow" id="axisrow"></div>
+    <div class="chiprow" id="mapshoprow"></div>
     <div id="mapbody"></div>
     <div class="pad tiny" id="maphint"></div>
     <details><summary>味の地図の読み方</summary><div class="in tiny" id="maphelp"></div></details>
@@ -680,6 +689,8 @@ body[data-view="search"] #tray.on ~ .fab{bottom:calc(136px + env(safe-area-inset
     <div class="pad"><h2 style="font-size:17px">わたしの記録</h2></div>
     <div class="sec-title">いま家にある豆</div>
     <div id="my-stock"></div>
+    <div class="sec-title">飲み終わった豆</div>
+    <div id="my-history"></div>
     <div id="my-taste"></div>
     <div class="sec-title">自分で登録した豆</div>
     <div id="my-own"></div>
@@ -926,10 +937,16 @@ const PRODUCTS=[
    schemaVersion は後から項目を増やしたときの変換のために最初から入れておく。
    ========================================================================= */
 const LS='mamekurabe.v1';
-const DEF=()=>({schemaVersion:3,fav:[],log:{},pref:null,shots:[],
+const DEF=()=>({schemaVersion:4,fav:[],log:{},pref:null,shots:[],
   /* stock は「いま家にある豆」。ひとつの豆につき1件だけ持つ。
      残量は抽出を記録するたびに自動で減らすので、手で数える必要がない。 */
   stock:[],
+  /* history は飲み切った豆。stock から抜いたものをここへ移す。
+     使い切ったら消えるだけの作りだと「先月どれを飲んでいたか」が何も残らないため、
+     買った日・飲み終えた日・淹れた杯数を残すようにした。
+     豆そのものが後から消されても読めるよう、名前や焙煎度はこの時点の値を写し取って持つ。
+     id の参照だけにすると、自分で登録した豆を消したときに履歴まで読めなくなる。 */
+  history:[],
   /* myBeans は自分で登録した豆。PRODUCTS とまったく同じ形にしてあるので、
      一覧・絞り込み・比較・抽出記録のコードをそのまま共用できる。
      photos は id ごとの写真（JPEGのdataURL）。撮った時点で縮小して入れる。 */
@@ -953,7 +970,12 @@ function migrate(d){
   /* v3 で「いま家にある豆」を足した。古い保存データには無いので空で補う。 */
   if(!Array.isArray(d.stock))d.stock=[];
   d.stock=d.stock.filter(x=>x&&x.id&&x.beanId);
-  d.schemaVersion=3;
+  /* v4 で「買った日」「賞味期限」と、飲み切った豆の履歴を足した。 */
+  d.stock.forEach(x=>{if(typeof x.buyDate!=='string')x.buyDate='';
+    if(typeof x.bestBy!=='string')x.bestBy=''});
+  if(!Array.isArray(d.history))d.history=[];
+  d.history=d.history.filter(x=>x&&x.id);
+  d.schemaVersion=4;
   return d;
 }
 let S;
@@ -1737,8 +1759,29 @@ function renderScatter(){
       'その豆をタップすると名前が出ます。お店や焙煎で絞ると、名前が出る数が増えます。':'')+
     '<br>※味の感じ方には個人差があります。';
 }
+/* 味の地図の中でもお店を選べるようにしてある。以前は「さがす」の画面まで戻らないと
+   お店を変えられず、地図を見ながら店を切り替えることができなかった。
+   絞り込みは「さがす」と同じ S.filter.shop を共有している。地図だけ別の絞り込みを
+   持たせると、同じ条件のはずなのに画面ごとに件数が違う、という分かりにくさが出る。 */
+function renderMapShops(){
+  const el=$('#mapshoprow');if(!el)return;
+  if(S.mode!=='shop'){
+    /* 産地で見ているときは、そもそも商品が並んでいない。切り替える入口だけ置く。 */
+    el.innerHTML='<span class="rowlab">お店</span>'+
+      '<button class="chip" data-act="mapshopmode">お店から選ぶ</button>';
+    return;
+  }
+  const sel=S.filter.shop;
+  el.innerHTML='<span class="rowlab">お店</span>'+
+    '<button class="chip" data-act="allshops" aria-pressed="'+(!sel.length)+'">すべて</button>'+
+    shopCounts().map(function(e){
+      return '<button class="chip" data-act="f" data-k="shop" data-v="'+esc(e[0])+
+        '" aria-pressed="'+sel.includes(e[0])+'">'+esc(e[0])+
+        '<span style="opacity:.55;margin-left:5px">'+e[1]+'</span></button>';}).join('');
+}
 function renderMap(){
   const byShop=S.mode==='shop';
+  renderMapShops();
   $('#axisrow').innerHTML=[['group',byShop?'お店ごと':'産地ごと'],['scatter','味で並べる'],
     ['grid','焙煎で並べる']].map(v=>
       '<button class="chip" data-act="mapview" data-v="'+v[0]+'" aria-pressed="'+(mapView===v[0])+'">'+
@@ -1759,8 +1802,9 @@ function renderMap(){
     '自分が好きな豆の場所を覚えておくと、次はその近くを選べば外れません。'+
     '<br><br><b>焙煎で並べる</b>：横が焙煎の深さ、縦がコクの強さ。'+
     '右へ行くほど深く焼かれていて、苦味とコクが増え、酸味は減っていきます。'+
-    '<br><br>どの並べ方でも、「さがす」の絞り込みがそのまま効いています。'+
-    '数が多くて見づらいときは、お店や焙煎で絞ってください。';
+    '<br><br><b>お店をしぼる</b>：上の「お店」の行から、この画面のまま選べます。'+
+    'ここで選んだお店は「さがす」の絞り込みと共通なので、'+
+    '地図で決めた条件のまま一覧へ移れます。数が多くて見づらいときに使ってください。';
 }
 
 /* =========================================================================
@@ -1920,15 +1964,18 @@ function renderEsp(){
     const col=s.bal<0?'var(--s2)':s.bal>0?'var(--s1)':'var(--ok)';
     /* 時間を測っていない記録は、棒いっぱいに色だけを見せる */
     const w=s.timeSec>0?Math.min(100,s.timeSec/45*100):100;
-    return '<div class="shotrow"><span class="tiny">'+
+    return '<div class="shotrow" data-act="shotdetail" data-id="'+s.id+'"><span class="tiny">'+
       new Date(s.at).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'})+'</span>'+
       '<span class="bar"><i style="width:'+w+'%;background:'+col+'"'+
       (s.timeSec>0?'':';opacity:.5')+'></i></span>'+
       '<span class="tiny" style="text-align:right">'+(s.timeSec>0?s.timeSec+'秒':'—')+'</span>'+
       '<span class="tiny" style="text-align:right;color:var(--gold)">'+(s.rating?'★'+s.rating:'—')+'</span>'+
       '<button data-act="delshot" data-id="'+s.id+'" aria-label="この記録を消す" '+
-      'style="color:var(--mute);display:grid;place-items:center">'+ICON.trash+'</button></div>'}).join('')+
-    '<p class="tiny" style="margin-top:12px">棒の長さ＝抽出時間（測っていない記録は薄い色で全幅）。'+
+      'style="color:var(--mute);display:grid;place-items:center">'+ICON.trash+'</button>'+
+      (s.memo?'<span class="shotmemo">'+esc(s.memo)+'</span>':'')+'</div>'}).join('')+
+    '<p class="tiny" style="margin-top:12px">'+
+    '<b>行を押すと、その一杯の豆・粉の量・挽き目・メモまで見返せます。</b><br>'+
+    '棒の長さ＝抽出時間（測っていない記録は薄い色で全幅）。'+
     '<span style="color:var(--s2);font-weight:700">青緑</span>＝酸っぱい／'+
     '<span style="color:var(--ok);font-weight:700">緑</span>＝ちょうど／<span style="color:var(--s1);font-weight:700">赤茶</span>＝苦い。'+
     '緑がそろってきたら、その豆のダイヤルインは完了です。右のごみ箱で1件ずつ消せます。</p></div>':
@@ -1936,6 +1983,45 @@ function renderEsp(){
     '<p class="tiny" style="margin-top:16px;text-align:left">いまの設定<br>'+
     '・'+esc(M().name)+'（'+M().basketMm+'mm・約'+M().capacityG+'g'+(M().bottomless?'・ボトムレス':'')+'）<br>'+
     '・'+esc(G().name)+'（エスプレッソに使う範囲 '+espLo()+'〜'+espHi()+esc(G().unit)+'）</p></div>';
+}
+
+/* 「これまでの調整」の1行を押したときに出す画面。
+   棒と星だけでは、そのとき何gでどう淹れたのかが分からず、見返す意味がなかった。
+   記録した数値をそのまま並べ、そのとき出た提案とメモも一緒に見せる。 */
+const BALW={'-2':'すごく酸っぱい','-1':'やや酸っぱい','0':'ちょうどいい','1':'やや苦い','2':'すごく苦い'};
+const STRW={'-1':'薄い','0':'ちょうど','1':'濃い'};
+function shotDetailSheet(id){
+  const s=S.shots.find(x=>x.id===id);if(!s)return;
+  const b=anyById(s.beanId), dt=new Date(s.at);
+  const kv=(k,v)=>'<dt>'+k+'</dt><dd>'+v+'</dd>';
+  const body='<div class="pad">'+
+    '<dl class="kv" style="font-size:14px">'+
+      kv('淹れた日',esc(dateJP(ymd(dt))+' '+dt.getHours()+':'+
+        String(dt.getMinutes()).padStart(2,'0')))+
+      kv('豆',esc(b?((b.shop?b.shop+' ':'')+b.name):'（いまは無い豆）'))+
+      kv('粉の量','<b>'+s.doseG+'</b> g')+
+      kv('出来上がり','<b>'+s.yieldG+'</b> g　<span class="tiny">レシオ 1:'+
+        (s.yieldG/s.doseG).toFixed(1)+'</span>')+
+      kv('抽出時間',s.timeSec>0?'<b>'+s.timeSec+'</b> 秒　<span class="tiny">流量 '+
+        (s.yieldG/s.timeSec).toFixed(1)+' g/秒</span>':'測っていない')+
+      kv('挽き目','<b>'+s.grindValue+'</b> '+esc(G().unit))+
+      (s.milkMl>0?kv('牛乳',s.milkMl+' ml'):'')+
+      (M().bottomless?kv('抽出の様子',s.spray?'横に飛び散った':'まっすぐ落ちた'):'')+
+      kv('味の傾向',esc(BALW[String(s.bal||0)]||'—'))+
+      kv('濃さ',esc(STRW[String(s.str||0)]||'—'))+
+      kv('総合',s.rating>0?'<span style="color:var(--gold)">'+'★'.repeat(s.rating)+'</span>':'—')+
+    '</dl>'+
+    (s.adv?'<div class="note" style="margin-top:14px;border-left:3px solid var(--warn)">'+
+      '<b>このとき出した提案</b><br>'+esc(s.adv.doIt)+
+      '<br><span class="tiny">'+esc(s.adv.why)+'</span></div>':'')+
+    '<div class="field" style="margin-top:18px"><label>メモ</label>'+
+      '<textarea id="d-memo" rows="3" placeholder="飲んだ感想や、次に試すことを書き足せます">'+
+      esc(s.memo||'')+'</textarea>'+
+      '<button class="btn ghost wide" style="margin-top:8px" data-act="savshotmemo" data-id="'+
+      s.id+'">メモを保存する</button></div></div>';
+  openSheet('この一杯の記録',body,
+    '<button class="btn ghost" data-close style="flex:1">閉じる</button>'+
+    '<button class="btn" data-act="reuse" data-id="'+s.id+'" style="flex:2">この設定でもう一杯</button>');
 }
 
 /* 記録フォーム */
@@ -2013,7 +2099,7 @@ function stepField(k,d){
 }
 function saveShot(){
   const s=Object.assign({id:'s'+Date.now(),at:Date.now(),status:'draft',bal:0,str:0,rating:0,
-    spray:false,timeSec:0,milkMl:0,adv:null},form);
+    spray:false,timeSec:0,milkMl:0,memo:'',adv:null},form);
   /* 評価まちの記録を捨てて上書きするときは、その1杯ぶんの豆を残量に戻してから捨てる。
      戻さないと、淹れていない豆が減ったままになる。 */
   const d=draft();if(d){useStock(d.beanId,d.doseG,-1);S.shots=S.shots.filter(x=>x.id!==d.id)}
@@ -2021,6 +2107,9 @@ function saveShot(){
   useStock(s.beanId,s.doseG,1);
   save();closeSheet();renderAll();tasteSheet(s.id);
 }
+/* 味の評価画面は、◎や★を押すたびに全部描き直している。
+   書きかけのメモが消えてしまわないよう、描き直す前に必ずここを通して s.memo に移す。 */
+function readTasteMemo(s){const e=$('#t-memo');if(e&&s)s.memo=e.value}
 function tasteSheet(id){
   const s=S.shots.find(x=>x.id===id);if(!s)return;
   const seg=(k,opts)=>'<div class="seg">'+opts.map(o=>'<button data-act="tset" data-k="'+k+'" data-v="'+o[0]+
@@ -2037,7 +2126,14 @@ function tasteSheet(id){
       seg('str',[[-1,'💧','薄い'],[0,'◎','ちょうど'],[1,'⬛','濃い']])+
       '<p class="tiny" style="margin-top:6px">「苦いのに薄い」と感じたら、両方を正直に選んでください。原因の切り分けに使います。</p></div>'+
     '<div class="field"><label>総合</label><div class="stars">'+
-      [1,2,3,4,5].map(n=>'<button data-act="star" data-v="'+n+'" class="'+(s.rating>=n?'on':'')+'">★</button>').join('')+'</div></div></div>';
+      [1,2,3,4,5].map(n=>'<button data-act="star" data-v="'+n+'" class="'+(s.rating>=n?'on':'')+'">★</button>').join('')+'</div></div>'+
+    /* 数字だけでは「なぜその設定にしたのか」があとから思い出せない。
+       飲んだ感想と、次にどうするかを書き残せるようにしてある。 */
+    '<div class="field"><label>メモ（飲んだ感想、次に試すこと）</label>'+
+      '<textarea id="t-memo" rows="3" placeholder="例：氷で薄まると酸味が立つ。次は1目盛り細かくして、出来上がりを2g減らす">'+
+      esc(s.memo||'')+'</textarea>'+
+      '<p class="tiny" style="margin-top:6px">あとから「これまでの調整」で読み返せます。'+
+      '空のままでも保存できます。</p></div></div>';
   openSheet('飲んだ感想',body,
     '<button class="btn wide" data-act="donetaste" data-id="'+id+'">記録して、次の一手を見る</button>');
 }
@@ -2272,8 +2368,18 @@ function deleteMyBean(id){
    2週間ほどを目安にしている。どちらも無ければ判定しない。嘘の日数を出すより、
    「日付を入れてください」と言うほうが役に立つ。
    ========================================================================= */
-const today=()=>{const d=new Date();
-  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const ymd=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const today=()=>ymd(new Date());
+/* id は 'st1755600000000' のように作った時刻を含んでいる。買った日を入れずに
+   登録した古いデータでも、だいたいの日付をここから復元できる。 */
+const dateOf=id=>{const n=+String(id||'').replace(/[^0-9]/g,'');return n>0?ymd(new Date(n)):''};
+/* 日付を「8月20日」の形にする。年は同じ年なら省く。画面が数字だらけになるのを避けるため。 */
+function dateJP(v){
+  if(!v)return '—';
+  const p=String(v).split('-');if(p.length<3)return v;
+  const y=+p[0], m=+p[1], d=+p[2];
+  return (y===new Date().getFullYear()?'':y+'年')+m+'月'+d+'日';
+}
 /* 日付が壊れていても落ちないように、読めなければ0日として扱う */
 const dayDiff=(from,to)=>{
   const a=Date.parse(from+'T00:00:00'), b=Date.parse(to+'T00:00:00');
@@ -2289,20 +2395,43 @@ const FRESH=[
    say:'香りが抜けはじめます。早めに飲み切ってください。'},
   {max:1e9,k:'風味おち',tone:'bad',
    say:'焙煎から1か月以上たっています。味が平たくなり、クレマも出にくくなります。'}];
+/* 判定に使う日付は 焙煎日 ＞ 開封日 ＞ 賞味期限 の順。上から順に、豆の状態を
+   よく言い当てる順番になっている。line は画面に1行で出すための文字列で、
+   賞味期限のときだけ「あと何日」と向きが逆になるため、ここで作ってしまう。 */
 function freshness(st,now){
   now=now||today();
-  if(st&&st.roastDate)
-    return Object.assign({basis:'焙煎',days:dayDiff(st.roastDate,now)},
-      FRESH.find(x=>dayDiff(st.roastDate,now)<=x.max));
+  if(st&&st.roastDate){
+    const d=dayDiff(st.roastDate,now);
+    return Object.assign({basis:'焙煎',days:d,line:'焙煎から'+d+'日'},
+      FRESH.find(x=>d<=x.max));
+  }
   if(st&&st.openDate){
     const d=dayDiff(st.openDate,now);
-    return d<=14?{basis:'開封',days:d,k:'飲みごろ',tone:'ok',
+    return d<=14?{basis:'開封',days:d,line:'開封から'+d+'日',k:'飲みごろ',tone:'ok',
         say:'開封から'+d+'日です。まだ大丈夫です。'}
-      :{basis:'開封',days:d,k:'そろそろ',tone:'warn',
+      :{basis:'開封',days:d,line:'開封から'+d+'日',k:'そろそろ',tone:'warn',
         say:'開封から'+d+'日たっています。袋を開けた豆は2週間くらいが目安です。'};
   }
-  return {basis:'',days:null,k:'日付なし',tone:'mute',
-    say:'焙煎日か開封日を入れると、飲みごろが分かります。'};
+  /* スーパーで買う袋には焙煎日がなく、賞味期限しか書かれていないことが多い。
+     ただし賞味期限は焙煎日よりずっと先に決められているので、これだけでは
+     飲みごろは分からない。分からないことは、分からないと言う。
+     それらしい日数をでっち上げるより、日付を足してくださいと言うほうが役に立つ。 */
+  if(st&&st.bestBy){
+    const d=dayDiff(now,st.bestBy);
+    if(d<0)return {basis:'賞味期限',days:-d,line:'賞味期限を'+(-d)+'日すぎています',
+      k:'期限ぎれ',tone:'bad',
+      say:'賞味期限を'+(-d)+'日すぎています。香りはかなり抜けているはずです。'};
+    if(d<=30)return {basis:'賞味期限',days:d,line:'賞味期限まであと'+d+'日',
+      k:'そろそろ',tone:'warn',
+      say:'賞味期限まであと'+d+'日です。早めに飲み切ってください。'};
+    return {basis:'賞味期限',days:d,line:'賞味期限まであと'+d+'日',
+      k:'期限内',tone:'mute',
+      say:'賞味期限まではまだあります。ただし賞味期限は焙煎日よりずっと先に決められている'+
+        'ので、これだけでは飲みごろは分かりません。焙煎日か開封日を入れると正確になります。'};
+  }
+  return {basis:'',days:null,line:'焙煎日・開封日・賞味期限が未入力',k:'日付なし',tone:'mute',
+    say:'焙煎日か開封日を入れると、飲みごろが分かります。'+
+      '袋に賞味期限しか書いていなければ、それだけでも入れておいてください。'};
 }
 const stockOf=id=>(S.stock||[]).find(x=>x.beanId===id)||null;
 /* 1杯ぶんの粉の量。直近の記録から取り、まだ何も記録が無ければ機械の標準量を使う。 */
@@ -2322,7 +2451,7 @@ const TONECOL={ok:'var(--ok)',warn:'var(--warn)',bad:'var(--bad)',mute:'var(--mu
 function stockNote(st){
   const f=freshness(st);
   return '<div class="note" style="margin-top:10px;border-left:3px solid '+TONECOL[f.tone]+'">'+
-    '<b>家にあります。</b>'+(f.days===null?'':esc(f.basis)+'から'+f.days+'日　／　')+
+    '<b>家にあります。</b>'+(f.days===null?'':esc(f.line)+'　／　')+
     '残り'+st.leftG+'g（あと'+cupsLeft(st)+'杯）<br>'+esc(f.say)+'</div>';
 }
 function stockCard(st){
@@ -2334,7 +2463,7 @@ function stockCard(st){
     '<div class="between"><strong style="font-size:15px">'+esc((b.shop?b.shop+' ':'')+b.name)+'</strong>'+
       '<span class="badge" style="background:'+col+';color:#fff">'+esc(f.k)+'</span></div>'+
     '<p class="tiny" style="margin:6px 0 9px">'+
-      (f.days===null?'焙煎日・開封日が未入力':esc(f.basis)+'から'+f.days+'日')+
+      esc(f.line)+
       '　／　残り <b>'+st.leftG+'g</b>'+(cups>0?'（あと'+cups+'杯ぶん）':'（もうすぐ無くなります）')+'</p>'+
     '<span class="track"><i class="fill" style="width:'+pct+'%;background:'+col+'"></i></span>'+
     '<p class="tiny" style="margin:10px 0 0">'+esc(f.say)+'</p>'+
@@ -2345,13 +2474,12 @@ function stockCard(st){
     '</div></div>';
 }
 function renderStock(){
-  /* 早く飲まないといけないものを上に出す。日付が入っていないものは最後。 */
+  /* 早く飲まないといけないものを上に出す。賞味期限だけの豆は days が「あと何日」で
+     向きが逆になるため、日数ではなく判定の重さ（tone）で並べる。 */
+  const TONEORD={bad:0,warn:1,ok:2,mute:3};
   const list=(S.stock||[]).slice().sort((a,b)=>{
-    const da=freshness(a).days, db=freshness(b).days;
-    if(da===null&&db===null)return 0;
-    if(da===null)return 1;
-    if(db===null)return -1;
-    return db-da;});
+    const fa=freshness(a), fb=freshness(b);
+    return (TONEORD[fa.tone]-TONEORD[fb.tone])||((fb.days||0)-(fa.days||0));});
   const el=$('#my-stock');
   if(el)el.innerHTML=(list.length?list.map(stockCard).join(''):
     '<div class="empty" style="padding:20px"><span class="g">🫙</span>'+
@@ -2374,6 +2502,55 @@ function renderStock(){
       '</div>':'';
   }
 }
+/* =========================================================================
+   飲み終わった豆（履歴）
+   ========================================================================= */
+/* 使い切った豆を履歴の形に写し取る。名前や店の名前をここでコピーしているのは、
+   あとから自分で登録した豆を消しても、履歴だけは読めるようにするため。
+   id の参照だけにすると、消した豆の履歴が「（消えた豆）」ばかりになる。 */
+function toHistory(st){
+  const b=anyById(st.beanId)||{};
+  const shots=S.shots.filter(x=>x.beanId===st.beanId&&x.status==='done');
+  return {id:'h'+Date.now(),beanId:st.beanId,
+    name:b.name||'（消えた豆）',shop:b.shop||'',roast:b.roast||0,
+    buyDate:st.buyDate||dateOf(st.id),roastDate:st.roastDate||'',
+    openDate:st.openDate||'',bestBy:st.bestBy||'',
+    startG:st.startG||0,leftG:st.leftG||0,
+    doneAt:today(),cups:shots.length,
+    rating:shots.reduce((m,x)=>Math.max(m,x.rating||0),0)};
+}
+function historyCard(h){
+  const span=(h.buyDate&&h.doneAt)?dayDiff(h.buyDate,h.doneAt):null;
+  const used=h.startG>0?Math.max(0,Math.round((h.startG-(h.leftG||0))*10)/10):0;
+  return '<div class="card">'+
+    '<div class="between"><strong style="font-size:15px">'+
+      esc((h.shop?h.shop+' ':'')+h.name)+'</strong>'+
+      (h.rating>0?'<span style="color:var(--gold);white-space:nowrap">'+
+        '★'.repeat(h.rating)+'</span>':'')+'</div>'+
+    '<dl class="kv" style="margin-top:10px;font-size:13.5px">'+
+      '<dt>買った日</dt><dd>'+esc(dateJP(h.buyDate))+'</dd>'+
+      '<dt>飲み終えた日</dt><dd>'+esc(dateJP(h.doneAt))+
+        (span!==null&&span>=0?'<span class="tiny">（'+span+'日間）</span>':'')+'</dd>'+
+      (h.roastDate?'<dt>焙煎日</dt><dd>'+esc(dateJP(h.roastDate))+'</dd>':'')+
+      (h.bestBy?'<dt>賞味期限</dt><dd>'+esc(dateJP(h.bestBy))+'</dd>':'')+
+      '<dt>飲んだ量</dt><dd>'+(h.startG>0?used+'g／'+h.startG+'g':'—')+
+        (h.cups>0?'<span class="tiny">（'+h.cups+'杯ぶんの記録）</span>':'')+'</dd></dl>'+
+    '<div class="row" style="margin-top:12px">'+
+      '<button class="chip" data-act="rebuy" data-id="'+h.id+'">また買った</button>'+
+      '<button class="iconbtn" data-act="delhist" data-id="'+h.id+
+        '" aria-label="この履歴を消す" style="margin-left:auto;color:var(--mute)">'+
+        ICON.trash+'</button></div></div>';
+}
+/* 新しいものが上。飲み終えた順に上から積み上がる。 */
+function renderHistory(){
+  const el=$('#my-history');if(!el)return;
+  const h=(S.history||[]);
+  el.innerHTML=h.length?h.map(historyCard).join(''):
+    '<div class="empty" style="padding:20px"><span class="g">📦</span>'+
+    '飲み切った豆は、消えずにここへ移ります。<br>'+
+    'いつ買って、いつ飲み終えて、何杯淹れたかを後から見返せます。</div>';
+}
+
 let stForm=null;
 function stockSheet(editId,beanId){
   const ex=editId?(S.stock||[]).find(x=>x.id===editId):null;
@@ -2381,7 +2558,8 @@ function stockSheet(editId,beanId){
   else{
     const b=anyById(beanId)||anyById((lastDone()||{}).beanId)||PRODUCTS[0];
     const g=b&&b.sizeG>0?b.sizeG:200;
-    stForm={id:'st'+Date.now(),beanId:b.id,roastDate:'',openDate:'',startG:g,leftG:g,_new:true};
+    stForm={id:'st'+Date.now(),beanId:b.id,buyDate:today(),roastDate:'',openDate:'',bestBy:'',
+      startG:g,leftG:g,_new:true};
   }
   renderStockForm();
 }
@@ -2394,6 +2572,14 @@ function renderStockForm(){
         S.myBeans.map(p=>opt(p,(p.shop?p.shop+' ':'')+p.name)).join('')+'</optgroup>':'')+
       '<optgroup label="お店の商品">'+PRODUCTS.map(p=>opt(p,p.shop+' '+p.name)).join('')+'</optgroup>'+
       '<optgroup label="産地から">'+BEANS.map(b=>opt(b,b.name)).join('')+'</optgroup></select></div>'+
+    '<div class="field"><label>買った日</label>'+
+      '<input type="date" id="st-buy" value="'+esc(f.buyDate||'')+'">'+
+      '<div class="chips" style="margin-top:8px">'+
+        '<button class="chip" data-act="stdate" data-k="buy" data-d="0">今日買った</button>'+
+        '<button class="chip" data-act="stdate" data-k="buy" data-d="7">1週間前</button>'+
+        '<button class="chip" data-act="stdate" data-k="buy" data-d="-1">消す</button></div>'+
+      '<p class="tiny" style="margin-top:6px">飲み切ったときに、'+
+      '<b>何日で飲み終えたか</b>を「飲み終わった豆」に残します。</p></div>'+
     '<div class="field"><label>焙煎日（袋に書いてあれば）</label>'+
       '<input type="date" id="st-roast" value="'+esc(f.roastDate)+'">'+
       '<div class="chips" style="margin-top:8px">'+
@@ -2408,6 +2594,15 @@ function renderStockForm(){
         '<button class="chip" data-act="stdate" data-k="open" data-d="0">今日あけた</button>'+
         '<button class="chip" data-act="stdate" data-k="open" data-d="-1">まだ未開封</button></div>'+
       '<p class="tiny" style="margin-top:6px">焙煎日が分からないときは、こちらだけでも判定できます。</p></div>'+
+    '<div class="field"><label>賞味期限（袋の裏に書いてある日付）</label>'+
+      '<input type="date" id="st-best" value="'+esc(f.bestBy||'')+'">'+
+      '<div class="chips" style="margin-top:8px">'+
+        '<button class="chip" data-act="stdate" data-k="best" data-d="-1">書いていない</button></div>'+
+      '<p class="tiny" style="margin-top:6px">スーパーの袋には焙煎日がなく、'+
+      '賞味期限しか書かれていないことがよくあります。そのときはここに入れてください。'+
+      '<b>空欄なら「不明」として扱い、何も決めつけません。</b>'+
+      'ただし賞味期限は焙煎日よりずっと先に決められているので、'+
+      '上の2つが入っているときは、そちらを優先して飲みごろを出します。</p></div>'+
     '<div class="field"><label>買ったときの量と、いまの残り</label>'+
       '<div class="row"><input type="number" id="st-start" inputmode="decimal" value="'+(f.startG||'')+
         '" placeholder="200" style="flex:1"><span>g 買った</span>'+
@@ -2433,8 +2628,10 @@ function readStockForm(){
   const v=(id,def)=>{const e=$('#'+id);const x=e?e.value:undefined;
     return x===undefined||x===null?def:x};
   stForm.beanId=v('st-bean',stForm.beanId)||stForm.beanId;
+  stForm.buyDate=v('st-buy',stForm.buyDate)||'';
   stForm.roastDate=v('st-roast',stForm.roastDate)||'';
   stForm.openDate=v('st-open',stForm.openDate)||'';
+  stForm.bestBy=v('st-best',stForm.bestBy)||'';
   stForm.startG=Math.max(0,+v('st-start',stForm.startG)||0);
   stForm.leftG=Math.max(0,+v('st-left',stForm.leftG)||0);
 }
@@ -2621,8 +2818,14 @@ document.addEventListener('click',e=>{
 
   if(a==='detail'){if(e.target.closest('[data-act="fav"],[data-act="cmp"]'))return;openDetail(id)}
   else if(a==='pdetail'){if(e.target.closest('[data-act="fav"]'))return;openProd(id)}
-  else if(a==='mode'){S.mode=t.dataset.v;S.filter.shop=[];save();$('#q').value='';renderList()}
-  else if(a==='allshops'){S.filter.shop=[];save();renderList();window.scrollTo(0,0)}
+  else if(a==='mode'){S.mode=t.dataset.v;S.filter.shop=[];save();$('#q').value='';
+    renderList();renderMap()}
+  else if(a==='allshops'){S.filter.shop=[];save();renderList();renderMap();
+    /* 一覧から押したときだけ先頭へ戻す。地図で押して上へ飛ぶと、
+       いま見ていた場所を見失うため。 */
+    if(document.body.dataset.view==='search')window.scrollTo(0,0)}
+  else if(a==='mapshopmode'){S.mode='shop';S.filter.shop=[];save();
+    const q=$('#q');if(q)q.value='';renderList();renderMap()}
   else if(a==='opensort'){sortSheet()}
   else if(a==='shotwithp'){closeFull();setView('esp');shotSheet({beanId:id})}
   else if(a==='fav'){e.stopPropagation();
@@ -2672,10 +2875,17 @@ document.addEventListener('click',e=>{
     if(st){st.openDate=today();save();renderAll()}}
   else if(a==='usedup'){const st=(S.stock||[]).find(x=>x.id===id);if(!st)return;
     const nm=(anyById(st.beanId)||{}).name||'この豆';
-    if(!confirm('「'+nm+'」を使い切ったことにして、一覧から消します。よろしいですか？'))return;
+    if(!confirm('「'+nm+'」を飲み切ったことにします。'+String.fromCharCode(10)+
+      '「いま家にある豆」からは消えますが、「飲み終わった豆」に記録として残ります。'))return;
+    S.history.unshift(toHistory(st));
     S.stock=(S.stock||[]).filter(x=>x.id!==id);stForm=null;save();closeSheet();renderAll()}
+  else if(a==='delhist'){
+    if(!confirm('この履歴を消しますか？　抽出の記録そのものは残ります。'))return;
+    S.history=(S.history||[]).filter(x=>x.id!==id);save();renderHistory()}
+  else if(a==='rebuy'){const h=(S.history||[]).find(x=>x.id===id);if(h)stockSheet(null,h.beanId)}
   else if(a==='stdate'){readStockForm();
-    const k=t.dataset.k==='roast'?'roastDate':'openDate', back=+t.dataset.d;
+    const KMAP={roast:'roastDate',open:'openDate',buy:'buyDate',best:'bestBy'};
+    const k=KMAP[t.dataset.k]||'openDate', back=+t.dataset.d;
     /* -1 は「日付なし」。それ以外は今日から数えて何日前か。 */
     if(back<0)stForm[k]='';
     else{const dt=new Date();dt.setDate(dt.getDate()-back);
@@ -2685,13 +2895,20 @@ document.addEventListener('click',e=>{
   else if(a==='saveshot'){saveShot()}
   else if(a==='taste'){tasteSheet(id)}
   else if(a==='tset'){const s=S.shots.find(x=>x.status==='draft');if(!s)return;
-    s[t.dataset.k]=+t.dataset.v;save();tasteSheet(s.id)}
+    readTasteMemo(s);s[t.dataset.k]=+t.dataset.v;save();tasteSheet(s.id)}
   else if(a==='spray'){const s=S.shots.find(x=>x.status==='draft');if(!s)return;
-    s.spray=t.dataset.v==='1';save();tasteSheet(s.id)}
+    readTasteMemo(s);s.spray=t.dataset.v==='1';save();tasteSheet(s.id)}
   else if(a==='star'){const s=S.shots.find(x=>x.status==='draft');if(!s)return;
-    s.rating=+t.dataset.v;save();tasteSheet(s.id)}
+    readTasteMemo(s);s.rating=+t.dataset.v;save();tasteSheet(s.id)}
   else if(a==='donetaste'){const s=S.shots.find(x=>x.id===id);if(!s)return;
+    readTasteMemo(s);
     s.status='done';s.adv=advise(s);save();closeSheet();renderEsp();setView('esp')}
+  else if(a==='shotdetail'){shotDetailSheet(id)}
+  else if(a==='savshotmemo'){const sh=S.shots.find(x=>x.id===id);if(!sh)return;
+    const e=$('#d-memo');if(e)sh.memo=e.value;
+    if(!save()){alert('保存できませんでした。端末の容量がいっぱいのようです。');return}
+    renderEsp();t.textContent='保存しました';
+    setTimeout(function(){t.textContent='メモを保存する'},1200)}
   else if(a==='applyadv'){const L=lastDone();shotSheet(Object.assign({beanId:L.beanId,doseG:L.doseG,
     yieldG:L.yieldG,timeSec:L.timeSec||0,milkMl:L.milkMl||0,grindValue:L.grindValue},L.adv.next))}
   else if(a==='reuse'){const s=S.shots.find(x=>x.id===id);if(s)shotSheet({beanId:s.beanId,doseG:s.doseG,
@@ -2926,7 +3143,7 @@ $('#glossary').innerHTML=[
   '<p class="tiny" style="margin-top:3px">'+g[1]+'</p></div>').join('');
 
 /* ===== 起動 ===== */
-function renderAll(){renderList();renderMap();renderEsp();renderMy();renderStock()}
+function renderAll(){renderList();renderMap();renderEsp();renderMy();renderStock();renderHistory()}
 if(S.theme)document.documentElement.setAttribute('data-theme',S.theme);
 renderAll();setView('search');
 if(!S.pref&&!Object.keys(S.log).length&&!S.shots.length)setTimeout(diagSheet,400);
