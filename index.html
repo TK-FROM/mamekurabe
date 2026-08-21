@@ -1395,10 +1395,6 @@ function openDetail(id){
 /* 商品の詳細。パッケージの色からヒーローの背景を作り、明るい色なら文字色を反転する。 */
 function lum(hex){const n=parseInt(hex.slice(1),16);
   return (0.2126*(n>>16)+0.7152*((n>>8)&255)+0.0722*(n&255))/255}
-function nearestBeans(p,n){
-  return BEANS.map(b=>({b,d:b.t.reduce((s,v,i)=>s+Math.abs(v-p.t[i]),0)+Math.abs(b.roast-p.roast)*0.9}))
-    .sort((x,y)=>x.d-y.d).slice(0,n).map(x=>x.b);
-}
 function openProd(id){
   const p=byPid(id);if(!p)return;
   const log=S.log[p.id], fav=S.fav.includes(p.id);
@@ -1455,11 +1451,6 @@ function openProd(id){
        :'<button class="btn ghost wide" style="margin-top:10px" data-act="addstockfor" data-id="'+p.id+
          '">家にある豆に足す</button>')+
      '</div>';
-
-  const near=nearestBeans(p,3);
-  h+='<div class="pad" style="padding-bottom:2px"><h3 class="sect">味が近い産地の豆</h3>'+
-     '<p class="muted" style="margin:-6px 0 0">この商品の味に近いのはこのあたりです。産地から選ぶときの目印になります。</p></div>'+
-     near.map(beanCard).join('');
 
   h+='<div class="card"><h3 class="sect">飲んだ感想を残す</h3>'+
      '<div class="seg">'+[['◎','また買う'],['○','ふつう'],['×','もういい']].map(o=>
@@ -2593,14 +2584,57 @@ function historyCard(h){
         (h.cups>0?'<span class="tiny">（'+h.cups+'杯ぶんの記録）</span>':'')+'</dd></dl>'+
     '<div class="row" style="margin-top:12px">'+
       '<button class="chip" data-act="rebuy" data-id="'+h.id+'">また買った</button>'+
+      '<button class="chip" data-act="edithist" data-id="'+h.id+'">日付をなおす</button>'+
       '<button class="iconbtn" data-act="delhist" data-id="'+h.id+
         '" aria-label="この履歴を消す" style="margin-left:auto;color:var(--mute)">'+
         ICON.trash+'</button></div></div>';
 }
-/* 新しいものが上。飲み終えた順に上から積み上がる。 */
+/* 飲み切ったその日にボタンを押せるとは限らない（気づくのは次に淹れようとしたとき）。
+   あとから日付を直せるようにしてある。買った日も同じ理由で直せる。 */
+let hForm=null;
+function historySheet(id){
+  const h=(S.history||[]).find(x=>x.id===id);if(!h)return;
+  hForm=Object.assign({},h);
+  renderHistoryForm();
+}
+function renderHistoryForm(){
+  const f=hForm;if(!f)return;
+  const day=(k,label,opts)=>'<div class="field"><label>'+label+'</label>'+
+    '<input type="date" id="h-'+k+'" value="'+esc((k==='buy'?f.buyDate:f.doneAt)||'')+'">'+
+    '<div class="chips" style="margin-top:8px">'+opts.map(o=>
+      '<button class="chip" data-act="hdate" data-k="'+k+'" data-d="'+o[0]+'">'+o[1]+'</button>').join('')+
+    '</div></div>';
+  const body='<div class="pad">'+
+    '<p class="muted" style="margin:0 0 18px">'+esc((f.shop?f.shop+' ':'')+f.name)+'</p>'+
+    day('buy','買った日',[[0,'今日'],[7,'1週間前'],[-1,'消す']])+
+    day('done','飲み終えた日',[[0,'今日'],[1,'昨日'],[2,'おととい'],[7,'1週間前']])+
+    '<p class="tiny">飲み切ったその日にボタンを押せないことがあるので、あとから直せます。'+
+    '2つの日付から「何日で飲み終えたか」を出しています。</p></div>';
+  openSheet('日付をなおす',body,
+    '<button class="btn ghost" data-close style="flex:1">やめる</button>'+
+    '<button class="btn" data-act="savehist" style="flex:2">保存する</button>');
+}
+function readHistoryForm(){
+  if(!hForm)return;
+  const v=id=>{const e=$('#'+id);return e&&typeof e.value==='string'?e.value:null};
+  const b=v('h-buy'), d=v('h-done');
+  if(b!==null)hForm.buyDate=b;
+  if(d!==null)hForm.doneAt=d;
+}
+function saveHistory(){
+  readHistoryForm();
+  if(!hForm)return;
+  const i=(S.history||[]).findIndex(x=>x.id===hForm.id);
+  if(i<0){hForm=null;closeSheet();return}
+  S.history[i]=Object.assign({},hForm);
+  if(!save()){alert('保存できませんでした。端末の容量がいっぱいのようです。');return}
+  hForm=null;closeSheet();renderHistory();
+}
+/* 飲み終えた日が新しいものを上に出す。日付を直したら並びも入れ替わる。 */
 function renderHistory(){
   const el=$('#my-history');if(!el)return;
-  const h=(S.history||[]);
+  const h=(S.history||[]).slice().sort((a,b)=>
+    String(b.doneAt||'').localeCompare(String(a.doneAt||'')));
   el.innerHTML=h.length?h.map(historyCard).join(''):
     '<div class="empty" style="padding:20px"><span class="g">📦</span>'+
     '飲み切った豆は、消えずにここへ移ります。<br>'+
@@ -2953,6 +2987,14 @@ document.addEventListener('click',e=>{
     if(!confirm('この履歴を消しますか？　抽出の記録そのものは残ります。'))return;
     S.history=(S.history||[]).filter(x=>x.id!==id);save();renderHistory()}
   else if(a==='rebuy'){const h=(S.history||[]).find(x=>x.id===id);if(h)stockSheet(null,h.beanId)}
+  else if(a==='edithist'){historySheet(id)}
+  else if(a==='savehist'){saveHistory()}
+  else if(a==='hdate'){readHistoryForm();if(!hForm)return;
+    const k=t.dataset.k==='buy'?'buyDate':'doneAt', back=+t.dataset.d;
+    /* -1 は「日付なし」。それ以外は今日から数えて何日前か。 */
+    if(back<0)hForm[k]='';
+    else{const dt=new Date();dt.setDate(dt.getDate()-back);hForm[k]=ymd(dt)}
+    renderHistoryForm()}
   else if(a==='stdate'){readStockForm();
     const KMAP={roast:'roastDate',open:'openDate',buy:'buyDate',best:'bestBy'};
     const k=KMAP[t.dataset.k]||'openDate', back=+t.dataset.d;
