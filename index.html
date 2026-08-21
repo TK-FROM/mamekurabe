@@ -1459,7 +1459,9 @@ function openProd(id){
      '<button class="btn wide" style="margin-top:14px" data-act="shotwithp" data-id="'+p.id+'">この豆で抽出を記録する</button>'+
      /* いま家にある豆なら鮮度を出し、無ければその場で登録できるようにする。
         買ってきた直後にこのページを開くので、登録の入口として自然な場所である。 */
-     (stockOf(p.id)?stockNote(stockOf(p.id))
+     (stockOf(p.id)?stockNotes(p.id)+
+       '<button class="btn ghost wide" style="margin-top:10px" data-act="addstockfor" data-id="'+p.id+
+         '">もう1袋ふやす</button>'
        :'<button class="btn ghost wide" style="margin-top:10px" data-act="addstockfor" data-id="'+p.id+
          '">家にある豆に足す</button>')+
      '</div>';
@@ -2099,12 +2101,15 @@ function stepField(k,d){
 }
 function saveShot(){
   const s=Object.assign({id:'s'+Date.now(),at:Date.now(),status:'draft',bal:0,str:0,rating:0,
-    spray:false,timeSec:0,milkMl:0,memo:'',adv:null},form);
+    spray:false,timeSec:0,milkMl:0,memo:'',stockId:'',adv:null},form);
   /* 評価まちの記録を捨てて上書きするときは、その1杯ぶんの豆を残量に戻してから捨てる。
      戻さないと、淹れていない豆が減ったままになる。 */
-  const d=draft();if(d){useStock(d.beanId,d.doseG,-1);S.shots=S.shots.filter(x=>x.id!==d.id)}
+  const d=draft();if(d){useStock(d.beanId,d.doseG,-1,d.stockId);
+    S.shots=S.shots.filter(x=>x.id!==d.id)}
   S.shots.push(s);
-  useStock(s.beanId,s.doseG,1);
+  /* どの袋から使ったかを覚えておく。記録を消したときに、同じ袋へ戻すため。 */
+  const used=useStock(s.beanId,s.doseG,1);
+  s.stockId=used?used.id:'';
   save();closeSheet();renderAll();tasteSheet(s.id);
 }
 /* 味の評価画面は、◎や★を押すたびに全部描き直している。
@@ -2433,38 +2438,69 @@ function freshness(st,now){
     say:'焙煎日か開封日を入れると、飲みごろが分かります。'+
       '袋に賞味期限しか書いていなければ、それだけでも入れておいてください。'};
 }
-const stockOf=id=>(S.stock||[]).find(x=>x.beanId===id)||null;
+/* 同じ豆を2袋持っていることがある（買い置き、飲みくらべ、封を切る前の予備）。
+   以前は1つの豆につき1件しか持てず、2袋目を登録すると前の袋が黙って消えていた。
+   実際に記録が消える事故が起きたので、袋ごとに1件持てるようにした。 */
+function stocksOf(id){return (S.stock||[]).filter(x=>x.beanId===id)}
+/* 袋を使う順番。先に開けた袋から飲むので、開封日が古いものが先。
+   まだ開けていない袋（開封日なし）は後ろに回す。同じ条件なら先に登録したほう。 */
+function bagOrder(x,y){
+  const ox=x.openDate||'9999-99-99', oy=y.openDate||'9999-99-99';
+  if(ox!==oy)return ox<oy?-1:1;
+  return String(x.id)<String(y.id)?-1:1;
+}
+/* その豆で「いま飲んでいる袋」を1つ返す。中身が残っている袋を優先し、
+   その中でいちばん先に開けたものを選ぶ。 */
+const stockOf=id=>{
+  const a=stocksOf(id);if(!a.length)return null;
+  const left=a.filter(x=>x.leftG>0);
+  return (left.length?left:a).slice().sort(bagOrder)[0];
+};
 /* 1杯ぶんの粉の量。直近の記録から取り、まだ何も記録が無ければ機械の標準量を使う。 */
 const oneDose=()=>{const s=[...S.shots].reverse().find(x=>x.doseG>0);
   return s?s.doseG:(M().capacityG||14)};
 const cupsLeft=st=>{const d=oneDose();return d>0?Math.floor(st.leftG/d):0};
 /* 使ったぶんだけ残りを減らす。sign を -1 にすると足し戻す（記録を消したとき）。
    手で引き算させると必ず続かなくなるので、抽出の記録と連動させている。 */
-function useStock(beanId,g,sign){
-  const st=stockOf(beanId);if(!st||!(g>0))return null;
+/* stockId を渡すと、その袋を直接さわる。記録を消して豆を戻すときに使う。
+   戻し先を指定しないと、いま飲んでいる別の袋に増えてしまうことがある。 */
+function useStock(beanId,g,sign,stockId){
+  const st=(stockId&&(S.stock||[]).find(x=>x.id===stockId))||stockOf(beanId);
+  if(!st||!(g>0))return null;
   const max=st.startG>0?st.startG:g*999;
   st.leftG=Math.max(0,Math.min(max,Math.round((st.leftG-(sign||1)*g)*10)/10));
   return st;
 }
 const TONECOL={ok:'var(--ok)',warn:'var(--warn)',bad:'var(--bad)',mute:'var(--mute)'};
 /* 詳細ページやエスプレッソ画面に差し込む、1行だけの鮮度表示 */
-function stockNote(st){
+function stockNote(st,no){
   const f=freshness(st);
   return '<div class="note" style="margin-top:10px;border-left:3px solid '+TONECOL[f.tone]+'">'+
-    '<b>家にあります。</b>'+(f.days===null?'':esc(f.line)+'　／　')+
+    '<b>'+(no?no+'袋目。':'家にあります。')+'</b>'+(f.days===null?'':esc(f.line)+'　／　')+
     '残り'+st.leftG+'g（あと'+cupsLeft(st)+'杯）<br>'+esc(f.say)+'</div>';
 }
-function stockCard(st){
+/* 同じ豆を2袋以上持っていることがあるので、全部まとめて出す。
+   1袋しかないときは番号を付けない。「1袋目」とだけ出ても意味が伝わらないため。 */
+function stockNotes(beanId){
+  const a=stocksOf(beanId).slice().sort(bagOrder);
+  return a.map(function(st,i){return stockNote(st,a.length>1?i+1:0)}).join('');
+}
+/* no は「何袋目か」。同じ豆を複数持っているときだけ 1 以上が入る。
+   同じ名前のカードが2枚並ぶと、どちらを直しているのか分からなくなるため、
+   番号と買った日で見分けられるようにしてある。 */
+function stockCard(st,no){
   const b=anyById(st.beanId);if(!b)return '';
   const f=freshness(st), col=TONECOL[f.tone];
   const pct=st.startG>0?Math.max(0,Math.min(100,st.leftG/st.startG*100)):0;
   const cups=cupsLeft(st);
   return '<div class="card">'+
-    '<div class="between"><strong style="font-size:15px">'+esc((b.shop?b.shop+' ':'')+b.name)+'</strong>'+
+    '<div class="between"><strong style="font-size:15px">'+esc((b.shop?b.shop+' ':'')+b.name)+
+      (no?'<span class="badge" style="margin-left:7px">'+no+'袋目</span>':'')+'</strong>'+
       '<span class="badge" style="background:'+col+';color:#fff">'+esc(f.k)+'</span></div>'+
     '<p class="tiny" style="margin:6px 0 9px">'+
       esc(f.line)+
-      '　／　残り <b>'+st.leftG+'g</b>'+(cups>0?'（あと'+cups+'杯ぶん）':'（もうすぐ無くなります）')+'</p>'+
+      '　／　残り <b>'+st.leftG+'g</b>'+(cups>0?'（あと'+cups+'杯ぶん）':'（もうすぐ無くなります）')+
+      (no&&st.buyDate?'<br>'+esc(dateJP(st.buyDate))+'に買ったぶん':'')+'</p>'+
     '<span class="track"><i class="fill" style="width:'+pct+'%;background:'+col+'"></i></span>'+
     '<p class="tiny" style="margin:10px 0 0">'+esc(f.say)+'</p>'+
     '<div class="row" style="margin-top:12px">'+
@@ -2480,8 +2516,14 @@ function renderStock(){
   const list=(S.stock||[]).slice().sort((a,b)=>{
     const fa=freshness(a), fb=freshness(b);
     return (TONEORD[fa.tone]-TONEORD[fb.tone])||((fb.days||0)-(fa.days||0));});
+  /* 番号は「開けた順」で決める。画面の並び順（早く飲むべき順）で番号を振ると、
+     鮮度が変わるたびに番号が入れ替わってしまう。 */
+  const bags={},seq={};
+  (S.stock||[]).slice().sort(bagOrder).forEach(function(x){
+    bags[x.beanId]=(bags[x.beanId]||0)+1;seq[x.id]=bags[x.beanId]});
+  const card=st=>stockCard(st,bags[st.beanId]>1?seq[st.id]:0);
   const el=$('#my-stock');
-  if(el)el.innerHTML=(list.length?list.map(stockCard).join(''):
+  if(el)el.innerHTML=(list.length?list.map(card).join(''):
     '<div class="empty" style="padding:20px"><span class="g">🫙</span>'+
     'いま家にある豆を入れておくと、<b>飲みごろ</b>と<b>残りの量</b>がひと目で分かります。<br>'+
     '抽出を記録するたび、残りは自動で減ります。</div>')+
@@ -2645,9 +2687,15 @@ function saveStock(){
   const i=(S.stock||[]).findIndex(x=>x.id===saved.id);
   if(i>=0)S.stock[i]=saved;
   else{
-    /* 同じ豆が2件並ぶと、残りがどちらのものか分からなくなる。1豆1件にまとめる。 */
-    const dup=(S.stock||[]).findIndex(x=>x.beanId===saved.beanId);
-    if(dup>=0)S.stock[dup]=saved;else S.stock.push(saved);
+    /* 同じ豆がすでにあっても消さない。買い置きの2袋目かもしれないため。
+       ただし選ぶ豆を間違えたまま登録したときの取り違えも防ぎたいので、
+       増やす前に一度だけ確かめる。 */
+    const same=stocksOf(saved.beanId).length;
+    if(same>0&&!confirm('この豆は「いま家にある豆」にすでに'+same+'袋あります。'+
+      String.fromCharCode(10)+'別の袋として、もう1件ふやしますか？'+
+      String.fromCharCode(10)+String.fromCharCode(10)+
+      '（いいえを選ぶと、何も足さずに戻ります）'))return;
+    S.stock.push(saved);
   }
   if(!save()){alert('保存できませんでした。端末の容量がいっぱいのようです。');return}
   stForm=null;closeSheet();renderAll();
@@ -2865,7 +2913,7 @@ document.addEventListener('click',e=>{
     const e=$('#f-milkMl');if(e)e.innerHTML=stepLabel('milkMl')+'<small>ml</small>';calc()}
   else if(a==='delshot'){if(!confirm('この記録を消しますか？'))return;
     /* 淹れなかったことにするので、使ったぶんの豆を残量に戻す */
-    const s0=S.shots.find(x=>x.id===id);if(s0)useStock(s0.beanId,s0.doseG,-1);
+    const s0=S.shots.find(x=>x.id===id);if(s0)useStock(s0.beanId,s0.doseG,-1,s0.stockId);
     S.shots=S.shots.filter(x=>x.id!==id);save();closeSheet();renderAll()}
   else if(a==='addstock'){stockSheet()}
   else if(a==='addstockfor'){closeFull();setView('my');stockSheet(null,id)}
