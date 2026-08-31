@@ -395,6 +395,10 @@ body[data-view="esp"] #v-esp,body[data-view="my"] #v-my{display:block}
 .shotrow:last-of-type{border-bottom:none}
 /* 行そのものを押すと、その一杯の記録を見返せる。押せることが伝わるように、
    触れている間だけ地の色を変える。中のごみ箱を押したときは、そちらが先に拾われる。 */
+/* 押せるカード（飲み終わった豆）。触れている間だけ枠の色を変えて、押せることを伝える。 */
+.card[data-act]{cursor:pointer}
+.card[data-act]:active{border-color:color-mix(in srgb,var(--accent) 30%,var(--line));
+  box-shadow:var(--shadow-lift)}
 .shotrow[data-act]{cursor:pointer;border-radius:var(--r-s)}
 .shotrow[data-act]:active{background:var(--chip)}
 /* メモは畳まずに、その行の下へ全幅で出す。隠してしまうと、
@@ -1992,7 +1996,7 @@ function renderEsp(){
 const BALW={'-2':'すごく酸っぱい','-1':'やや酸っぱい','0':'ちょうどいい','1':'やや苦い','2':'すごく苦い'};
 /* 一覧の行は幅が狭いので、同じ意味の短い言い方を別に持つ */
 const BALS={'-2':'すごく酸味','-1':'やや酸味','0':'ちょうど','1':'やや苦い','2':'すごく苦い'};
-const STRW={'-1':'薄い','0':'ちょうど','1':'濃い'};
+const STRW={'-2':'とても薄い','-1':'やや薄い','0':'ちょうど','1':'やや濃い','2':'とても濃い'};
 function shotDetailSheet(id){
   const s=S.shots.find(x=>x.id===id);if(!s)return;
   const b=anyById(s.beanId), dt=new Date(s.at);
@@ -2014,9 +2018,15 @@ function shotDetailSheet(id){
       kv('濃さ',esc(STRW[String(s.str||0)]||'—'))+
       kv('総合',s.rating>0?'<span style="color:var(--gold)">'+'★'.repeat(s.rating)+'</span>':'—')+
     '</dl>'+
-    (s.adv?'<div class="note" style="margin-top:14px;border-left:3px solid var(--warn)">'+
-      '<b>このとき出した提案</b><br>'+esc(s.adv.doIt)+
-      '<br><span class="tiny">'+esc(s.adv.why)+'</span></div>':'')+
+    /* そのとき出した「つぎの一手」を、エスプレッソ画面と同じ見た目で残す。
+       何を言われてこの設定にしたのかが分からないと、記録を見返す意味が半分になる。 */
+    (s.adv?'<div class="advice'+(s.adv.k==='完成'?' ok':'')+'" style="margin:16px 0 0">'+
+      '<div class="k">このときの つぎの一手 ／ '+esc(s.adv.k)+'</div>'+
+      (s.adv.why?'<div class="muted" style="font-size:13px">'+esc(s.adv.why)+'</div>':'')+
+      '<div class="do">'+esc(s.adv.doIt)+'</div>'+
+      (s.adv.tip?'<p class="tiny">'+esc(s.adv.tip)+'</p>':'')+'</div>'
+     :'<div class="note" style="margin-top:16px">この記録には、つぎの一手が残っていません。'+
+      '（「記録して、次の一手を見る」を押す前に閉じた記録です）</div>')+
     '<div class="field" style="margin-top:18px"><label>メモ</label>'+
       '<textarea id="d-memo" rows="3" placeholder="飲んだ感想や、次に試すことを書き足せます">'+
       esc(s.memo||'')+'</textarea>'+
@@ -2146,9 +2156,15 @@ function tasteSheet(id){
       'いちばん確実なサインなので、挽き目を触る前にこちらを直してください。</p></div>':'')+
     '<div class="field"><label>味の傾向</label>'+
       seg('bal',[[-2,'😖','すごく酸っぱい'],[-1,'🙂','やや酸っぱい'],[0,'◎','ちょうどいい'],[1,'🙁','やや苦い'],[2,'😖','すごく苦い']])+'</div>'+
+    /* 濃さは5段階。3段階だと「ちょうど寄りだけど少し薄い」が表せず、
+       毎回まん中を選ぶことになって、記録として意味が無くなっていた。
+       提案エンジンは「薄いか濃いか」しか見ないので、段階を増やしても判断は変わらない。 */
     '<div class="field"><label>濃さ</label>'+
-      seg('str',[[-1,'💧','薄い'],[0,'◎','ちょうど'],[1,'⬛','濃い']])+
-      '<p class="tiny" style="margin-top:6px">「苦いのに薄い」と感じたら、両方を正直に選んでください。原因の切り分けに使います。</p></div>'+
+      seg('str',[[-2,'💧','とても薄い'],[-1,'🥛','やや薄い'],[0,'◎','ちょうど'],
+        [1,'⬛','やや濃い'],[2,'🖤','とても濃い']])+
+      '<p class="tiny" style="margin-top:6px">上の「味の傾向」とは別々に選びます。'+
+      '<b>「苦いのに薄い」なら、味の傾向で「苦い」・濃さで「薄い」</b>のように、'+
+      'それぞれ正直に選んでください。この組み合わせで原因を切り分けています。</p></div>'+
     '<div class="field"><label>総合</label><div class="stars">'+
       [1,2,3,4,5].map(n=>'<button data-act="star" data-v="'+n+'" class="'+(s.rating>=n?'on':'')+'">★</button>').join('')+'</div></div>'+
     /* 数字だけでは「なぜその設定にしたのか」があとから思い出せない。
@@ -2580,9 +2596,16 @@ function toHistory(st){
     doneAt:today(),cups:shots.length,
     rating:shots.reduce((m,x)=>Math.max(m,x.rating||0),0)};
 }
+/* 感想が入っているか。古いデータや壊れた値でも落ちないように、形まで確かめる。 */
+function hasReview(h){
+  return !!(h&&h.review&&Array.isArray(h.review.t)&&h.review.t.length===3);
+}
 function historyCard(h){
   const span=(h.buyDate&&h.doneAt)?dayDiff(h.buyDate,h.doneAt):null;
-  return '<div class="card">'+
+  const rv=hasReview(h)?h.review:null;
+  /* カードごと押すと感想の入力が開く。「飲み終わった豆から豆を押して感想を書く」という
+     使い方がいちばん自然なので、ボタンを探させない。中のボタンはそちらが先に拾われる。 */
+  return '<div class="card" data-act="review" data-id="'+h.id+'">'+
     '<div class="between"><strong style="font-size:15px">'+
       esc((h.shop?h.shop+' ':'')+h.name)+'</strong>'+
       (h.rating>0?'<span style="color:var(--gold);white-space:nowrap">'+
@@ -2594,13 +2617,67 @@ function historyCard(h){
         (span!==null&&span>=0?'<span class="tiny">（'+span+'日間）</span>':'')+'</dd>'+
       (h.roastDate?'<dt>焙煎日</dt><dd>'+esc(dateJP(h.roastDate))+'</dd>':'')+
       (h.bestBy?'<dt>賞味期限</dt><dd>'+esc(dateJP(h.bestBy))+'</dd>':'')+'</dl>'+
+    (rv?'<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">'+
+      '<div class="between" style="margin-bottom:9px">'+
+        '<strong style="font-size:13px">飲んだ感想</strong>'+
+        (rv.repeat?'<span class="badge">リピート '+esc(rv.repeat)+'</span>':'')+'</div>'+
+      [0,1,2].map(i=>tbar(i,rv.t[i],'var(--s3)')).join('')+
+      (rv.memo?'<p class="muted" style="margin:10px 0 0;white-space:pre-wrap">'+
+        esc(rv.memo)+'</p>':'')+'</div>':'')+
     '<div class="row" style="margin-top:12px">'+
+      '<button class="chip" data-act="review" data-id="'+h.id+'">'+
+        (rv?'感想をなおす':'感想を書く')+'</button>'+
       '<button class="chip" data-act="rebuy" data-id="'+h.id+'">また買った</button>'+
       '<button class="chip" data-act="edithist" data-id="'+h.id+'">日付をなおす</button>'+
       '<button class="iconbtn" data-act="delhist" data-id="'+h.id+
         '" aria-label="この履歴を消す" style="margin-left:auto;color:var(--mute)">'+
         ICON.trash+'</button></div></div>';
 }
+/* 飲み終えた豆の感想。豆そのものの説明（PRODUCTS が持つ味）とは別に、
+   自分が飲んでどう感じたかを残す。項目は自分で豆を登録するときと同じ
+   酸味・苦味・コクの3つに絞ってある。甘みと香りは飲んだ直後でも自信をもって
+   点を付けられず、当てずっぽうの数字が並ぶだけなので入れていない（登録画面と同じ判断）。 */
+let rvForm=null;
+function reviewSheet(id){
+  const h=(S.history||[]).find(x=>x.id===id);if(!h)return;
+  const r=hasReview(h)?h.review:{};
+  rvForm={id:h.id,name:h.name,shop:h.shop,
+    t:(Array.isArray(r.t)&&r.t.length===3)?r.t.slice():[3,3,3],
+    repeat:r.repeat||'',memo:r.memo||''};
+  renderReviewForm();
+}
+function renderReviewForm(){
+  const f=rvForm;if(!f)return;
+  const dotRow=i=>'<div class="dots"><span class="lb">'+TL[i]+'</span><span class="dd">'+
+    [1,2,3,4,5].map(v=>'<button data-act="rvdot" data-i="'+i+'" data-v="'+v+'" class="'+
+      (f.t[i]>=v?'on':'')+'" aria-label="'+TL[i]+'を'+v+'にする"></button>').join('')+
+    '</span><span class="wd">'+word(f.t[i])+'</span></div>';
+  const body='<div class="pad">'+
+    '<p class="muted" style="margin:0 0 4px">'+esc((f.shop?f.shop+' ':'')+f.name)+'</p>'+
+    '<p class="tiny" style="margin:0 0 20px">豆そのものの説明ではなく、'+
+    '<b>自分が飲んでどう感じたか</b>を残す欄です。あとからいつでも直せます。</p>'+
+    '<div class="field"><label>味（飲んだ印象で）</label>'+[0,1,2].map(dotRow).join('')+'</div>'+
+    '<div class="field"><label>リピート</label><div class="seg">'+
+      ['有り','普通','無し'].map(o=>'<button data-act="rvrep" data-v="'+o+
+        '" aria-pressed="'+(f.repeat===o)+'">'+o+'</button>').join('')+'</div>'+
+      '<p class="tiny" style="margin-top:6px">同じものをもう一度押すと選び直せます。</p></div>'+
+    '<div class="field"><label>感想</label>'+
+      '<textarea id="rv-memo" rows="4" placeholder="例：最後の1週間で香りが落ちた。次はもう少し早く飲み切る">'+
+      esc(f.memo||'')+'</textarea></div></div>';
+  openSheet('飲んだ感想',body,
+    '<button class="btn ghost" data-close style="flex:1">やめる</button>'+
+    '<button class="btn" data-act="savereview" style="flex:2">保存する</button>');
+}
+function saveReview(){
+  if(!rvForm)return;
+  const e=$('#rv-memo');if(e&&typeof e.value==='string')rvForm.memo=e.value;
+  const i=(S.history||[]).findIndex(x=>x.id===rvForm.id);
+  if(i<0){rvForm=null;closeSheet();return}
+  S.history[i].review={t:rvForm.t.slice(),repeat:rvForm.repeat,memo:rvForm.memo};
+  if(!save()){alert('保存できませんでした。端末の容量がいっぱいのようです。');return}
+  rvForm=null;closeSheet();renderHistory();
+}
+
 /* 飲み切ったその日にボタンを押せるとは限らない（気づくのは次に淹れようとしたとき）。
    あとから日付を直せるようにしてある。買った日も同じ理由で直せる。 */
 /* 履歴で直せる日付。画面の id（h-buy など）と、保存する項目名の対応表。 */
@@ -3001,6 +3078,20 @@ document.addEventListener('click',e=>{
     S.history=(S.history||[]).filter(x=>x.id!==id);save();renderHistory()}
   else if(a==='rebuy'){const h=(S.history||[]).find(x=>x.id===id);if(h)stockSheet(null,h.beanId)}
   else if(a==='edithist'){historySheet(id)}
+  else if(a==='review'){reviewSheet(id)}
+  else if(a==='savereview'){saveReview()}
+  /* まるを押した行だけを描き直す。全部作り直すと、書きかけの感想が消えるため。 */
+  else if(a==='rvdot'){if(!rvForm)return;
+    const i=+t.dataset.i,v=+t.dataset.v,row=t.closest('.dots');
+    rvForm.t[i]=v;
+    Array.prototype.forEach.call(row.querySelectorAll('.dd button'),
+      (b,k)=>b.classList.toggle('on',k<v));
+    row.querySelector('.wd').textContent=word(v)}
+  else if(a==='rvrep'){if(!rvForm)return;
+    /* 同じものをもう一度押したら選択を外す。選び間違えたときに戻せないと困る。 */
+    rvForm.repeat=rvForm.repeat===t.dataset.v?'':t.dataset.v;
+    Array.prototype.forEach.call(t.parentNode.children,
+      b=>b.setAttribute('aria-pressed',b===t&&rvForm.repeat!==''))}
   else if(a==='savehist'){saveHistory()}
   else if(a==='hdate'){readHistoryForm();if(!hForm)return;
     const k=HKEY[t.dataset.k]||'doneAt', back=+t.dataset.d;
