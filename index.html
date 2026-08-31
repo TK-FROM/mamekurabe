@@ -192,8 +192,11 @@ body[data-view="esp"] #v-esp,body[data-view="my"] #v-my{display:block}
 .searchbar input{width:100%;background:var(--card);border:1px solid var(--line);border-radius:var(--r-m);
   padding:13px 15px;min-height:48px}
 .searchbar input::placeholder{color:var(--mute)}
+/* 「飲みごろ」のような短い札。横に長い豆の名前と並べると、flex に押し潰されて
+   「飲みご／ろ」と折り返されてしまっていた。札は縮めず、名前の側を縮める。 */
 .badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;letter-spacing:.02em;
-  padding:3px 9px;border-radius:var(--r-s);background:var(--chip);color:var(--sub)}
+  padding:3px 9px;border-radius:var(--r-s);background:var(--chip);color:var(--sub);
+  white-space:nowrap;flex:none}
 /* 焙煎の色を地にしたラベル。
    浅・中は「ほぼ黒」の文字、深だけ白抜きにする。中煎りの茶（--roast-m）は明るさが
    ちょうど中間で、白抜きにしても濃茶にしても読みにくくなる帯にある。
@@ -395,6 +398,22 @@ body[data-view="esp"] #v-esp,body[data-view="my"] #v-my{display:block}
 .shotrow:last-of-type{border-bottom:none}
 /* 行そのものを押すと、その一杯の記録を見返せる。押せることが伝わるように、
    触れている間だけ地の色を変える。中のごみ箱を押したときは、そちらが先に拾われる。 */
+/* カードの下のボタン行。3〜4個並ぶので、幅が足りなければ折り返す。
+   折り返さない指定だと、いちばん右のごみ箱がカードからはみ出す（実際にはみ出していた）。
+   ボタンは少しだけ小さくしてあるが、指で押せる大きさは保っている。 */
+.cardacts{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:12px}
+.cardacts .chip{padding:8px 13px;font-size:12.5px;min-height:38px}
+.cardacts .iconbtn{width:38px;height:38px;margin-left:auto;flex:none}
+.cardacts .iconbtn svg{width:17px;height:17px}
+/* 見出しは「お店の名前」を上の行に小さく、豆の名前を下の行に置く。
+   1行にまとめると、名前が長いときに右の札を押し潰してしまう。 */
+.cardhead{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.cardhead .nm{min-width:0}
+.cardhead .nm .sh{font-size:11.5px;color:var(--sub);line-height:1.5;
+  overflow-wrap:anywhere;margin-bottom:1px}
+.cardhead .nm b{display:block;font-size:15px;font-weight:700;line-height:1.45;
+  letter-spacing:-.01em;overflow-wrap:anywhere}
+
 /* 押せるカード（飲み終わった豆）。触れている間だけ枠の色を変えて、押せることを伝える。 */
 .card[data-act]{cursor:pointer}
 .card[data-act]:active{border-color:color-mix(in srgb,var(--accent) 30%,var(--line));
@@ -2529,8 +2548,10 @@ function stockCard(st,no){
   const pct=st.startG>0?Math.max(0,Math.min(100,st.leftG/st.startG*100)):0;
   const cups=cupsLeft(st);
   return '<div class="card">'+
-    '<div class="between"><strong style="font-size:15px">'+esc((b.shop?b.shop+' ':'')+b.name)+
-      (no?'<span class="badge" style="margin-left:7px">'+no+'袋目</span>':'')+'</strong>'+
+    '<div class="cardhead"><span class="nm">'+
+      (b.shop?'<span class="sh">'+esc(b.shop)+'</span>':'')+
+      '<b>'+esc(b.name)+
+      (no?'<span class="badge" style="margin-left:7px">'+no+'袋目</span>':'')+'</b></span>'+
       '<span class="badge" style="background:'+col+';color:#fff">'+esc(f.k)+'</span></div>'+
     '<p class="tiny" style="margin:6px 0 9px">'+
       esc(f.line)+
@@ -2538,7 +2559,7 @@ function stockCard(st,no){
       (no&&st.buyDate?'<br>'+esc(dateJP(st.buyDate))+'に買ったぶん':'')+'</p>'+
     '<span class="track"><i class="fill" style="width:'+pct+'%;background:'+col+'"></i></span>'+
     '<p class="tiny" style="margin:10px 0 0">'+esc(f.say)+'</p>'+
-    '<div class="row" style="margin-top:12px">'+
+    '<div class="cardacts">'+
       (st.openDate?'':'<button class="chip" data-act="openbag" data-id="'+st.id+'">今日あけた</button>')+
       '<button class="chip" data-act="editstock" data-id="'+st.id+'">なおす</button>'+
       '<button class="chip" data-act="usedup" data-id="'+st.id+'" style="margin-left:auto">使い切った</button>'+
@@ -2606,9 +2627,10 @@ function historyCard(h){
   /* カードごと押すと感想の入力が開く。「飲み終わった豆から豆を押して感想を書く」という
      使い方がいちばん自然なので、ボタンを探させない。中のボタンはそちらが先に拾われる。 */
   return '<div class="card" data-act="review" data-id="'+h.id+'">'+
-    '<div class="between"><strong style="font-size:15px">'+
-      esc((h.shop?h.shop+' ':'')+h.name)+'</strong>'+
-      (h.rating>0?'<span style="color:var(--gold);white-space:nowrap">'+
+    '<div class="cardhead"><span class="nm">'+
+      (h.shop?'<span class="sh">'+esc(h.shop)+'</span>':'')+
+      '<b>'+esc(h.name)+'</b></span>'+
+      (h.rating>0?'<span style="color:var(--gold);white-space:nowrap;flex:none">'+
         '★'.repeat(h.rating)+'</span>':'')+'</div>'+
     '<dl class="kv" style="margin-top:10px;font-size:13.5px">'+
       '<dt>買った日</dt><dd>'+esc(dateJP(h.buyDate))+'</dd>'+
@@ -2624,7 +2646,7 @@ function historyCard(h){
       [0,1,2].map(i=>tbar(i,rv.t[i],'var(--s3)')).join('')+
       (rv.memo?'<p class="muted" style="margin:10px 0 0;white-space:pre-wrap">'+
         esc(rv.memo)+'</p>':'')+'</div>':'')+
-    '<div class="row" style="margin-top:12px">'+
+    '<div class="cardacts">'+
       '<button class="chip" data-act="review" data-id="'+h.id+'">'+
         (rv?'感想をなおす':'感想を書く')+'</button>'+
       '<button class="chip" data-act="rebuy" data-id="'+h.id+'">また買った</button>'+
