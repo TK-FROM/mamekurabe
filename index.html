@@ -142,7 +142,7 @@ body[data-view="esp"] #v-esp,body[data-view="my"] #v-my{display:block}
 
 /* ===== 共通パーツ ===== */
 .pad{padding:14px 18px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-l);padding:18px;margin:0 16px 12px;
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-l);padding:15px;margin:0 14px 10px;
   box-shadow:var(--shadow)}
 .muted{color:var(--sub);font-size:13.5px}
 .tiny{color:var(--mute);font-size:12px;line-height:1.7}
@@ -207,7 +207,7 @@ body[data-view="esp"] #v-esp,body[data-view="my"] #v-my{display:block}
 .badge.r-dark{background:var(--roast-d);color:#fffaf4}
 
 /* ===== 味バー ===== */
-.tbar{display:grid;grid-template-columns:50px 1fr 56px;align-items:center;gap:10px;min-height:28px}
+.tbar{display:grid;grid-template-columns:50px 1fr 56px;align-items:center;gap:10px;min-height:25px}
 .tbar .lb{font-size:12.5px;color:var(--sub);font-weight:600;letter-spacing:0}
 .tbar .wd{font-family:var(--mono);font-size:11px;color:var(--mute);text-align:right;font-weight:500}
 .track{display:block;height:8px;border-radius:99px;background:var(--track);overflow:hidden}
@@ -398,13 +398,15 @@ body[data-view="esp"] #v-esp,body[data-view="my"] #v-my{display:block}
 .shotrow:last-of-type{border-bottom:none}
 /* 行そのものを押すと、その一杯の記録を見返せる。押せることが伝わるように、
    触れている間だけ地の色を変える。中のごみ箱を押したときは、そちらが先に拾われる。 */
-/* カードの下のボタン行。3〜4個並ぶので、幅が足りなければ折り返す。
-   折り返さない指定だと、いちばん右のごみ箱がカードからはみ出す（実際にはみ出していた）。
-   ボタンは少しだけ小さくしてあるが、指で押せる大きさは保っている。 */
-.cardacts{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:12px}
-.cardacts .chip{padding:8px 13px;font-size:12.5px;min-height:38px}
-.cardacts .iconbtn{width:38px;height:38px;margin-left:auto;flex:none}
-.cardacts .iconbtn svg{width:17px;height:17px}
+/* カードの下のボタン行。ごみ箱まで含めて一行に収める。
+   ごみ箱だけが次の行に落ちると、そのぶん高さを丸ごと一行ぶん損する。
+   そこで文字を12pxまで下げ、左右の詰めも削って、ふつうのスマホの幅（360px以上）なら
+   4つとも一行に並ぶようにしてある。指で押せる高さ（34px）は残してある。
+   それでも足りない極端に狭い画面だけ、折り返して逃がす。 */
+.cardacts{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:11px}
+.cardacts .chip{padding:7px 9px;font-size:12px;min-height:34px;letter-spacing:-.01em}
+.cardacts .iconbtn{width:34px;height:34px;margin-left:auto;flex:none}
+.cardacts .iconbtn svg{width:16px;height:16px}
 /* 見出しは「お店の名前」を上の行に小さく、豆の名前を下の行に置く。
    1行にまとめると、名前が長いときに右の札を押し潰してしまう。 */
 .cardhead{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
@@ -514,8 +516,10 @@ details>summary::-webkit-details-marker{display:none}
 details>summary::after{content:"▾";color:var(--mute);font-size:12px}
 details[open]>summary::after{content:"▴"}
 details .in{padding:0 18px 18px}
-.kv{display:grid;grid-template-columns:88px 1fr;gap:9px 12px;font-size:14px}
-.kv dt{color:var(--mute);font-size:11.5px;font-weight:700;letter-spacing:.05em}
+/* 日付などの一覧。縦の間隔は詰めてある。ここが広いと、
+   スマホの一画面に入る情報が目に見えて減る。 */
+.kv{display:grid;grid-template-columns:84px 1fr;gap:4px 10px;font-size:14px;line-height:1.55}
+.kv dt{color:var(--mute);font-size:11.5px;font-weight:700;letter-spacing:.05em;line-height:1.6}
 .kv dd{margin:0}
 .note{background:var(--chip);border-radius:var(--r-m);padding:13px 15px;font-size:12.5px;color:var(--sub);
   line-height:1.8}
@@ -2632,19 +2636,19 @@ function historyCard(h){
       '<b>'+esc(h.name)+'</b></span>'+
       (h.rating>0?'<span style="color:var(--gold);white-space:nowrap;flex:none">'+
         '★'.repeat(h.rating)+'</span>':'')+'</div>'+
-    '<dl class="kv" style="margin-top:10px;font-size:13.5px">'+
+    '<dl class="kv" style="margin-top:9px;font-size:13.5px">'+
       '<dt>買った日</dt><dd>'+esc(dateJP(h.buyDate))+'</dd>'+
       '<dt>開封日</dt><dd>'+esc(dateJP(h.openDate))+'</dd>'+
       '<dt>飲み終えた日</dt><dd>'+esc(dateJP(h.doneAt))+
         (span!==null&&span>=0?'<span class="tiny">（'+span+'日間）</span>':'')+'</dd>'+
       (h.roastDate?'<dt>焙煎日</dt><dd>'+esc(dateJP(h.roastDate))+'</dd>':'')+
       (h.bestBy?'<dt>賞味期限</dt><dd>'+esc(dateJP(h.bestBy))+'</dd>':'')+'</dl>'+
-    (rv?'<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">'+
-      '<div class="between" style="margin-bottom:9px">'+
+    (rv?'<div style="margin-top:11px;padding-top:10px;border-top:1px solid var(--line)">'+
+      '<div class="between" style="margin-bottom:7px">'+
         '<strong style="font-size:13px">飲んだ感想</strong>'+
         (rv.repeat?'<span class="badge">リピート '+esc(rv.repeat)+'</span>':'')+'</div>'+
       [0,1,2].map(i=>tbar(i,rv.t[i],'var(--s3)')).join('')+
-      (rv.memo?'<p class="muted" style="margin:10px 0 0;white-space:pre-wrap">'+
+      (rv.memo?'<p class="muted" style="margin:8px 0 0;white-space:pre-wrap">'+
         esc(rv.memo)+'</p>':'')+'</div>':'')+
     '<div class="cardacts">'+
       '<button class="chip" data-act="review" data-id="'+h.id+'">'+
