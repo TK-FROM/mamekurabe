@@ -138,7 +138,8 @@ svg{display:block}
   border-radius:999px;background:var(--accent-soft)}
 main>section{display:none;padding:0 0 28px}
 body[data-view="search"] #v-search,body[data-view="map"] #v-map,
-body[data-view="esp"] #v-esp,body[data-view="my"] #v-my{display:block}
+body[data-view="esp"] #v-esp,body[data-view="my"] #v-my,
+body[data-view="box"] #v-box{display:block}
 
 /* ===== 共通パーツ ===== */
 .pad{padding:14px 18px}
@@ -667,6 +668,131 @@ body[data-view="search"] #tray.on ~ .fab{bottom:calc(136px + env(safe-area-inset
 .cup-body{transform-origin:center bottom;animation:cup-breathe 3.6s ease-in-out infinite}
 .cupmsg{font-size:11.5px;color:var(--mute);font-weight:700;letter-spacing:.04em}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ===== ためばこ（画像の保管） =====================================
+   画像を貯めておく画面。ここだけ主役が文字ではなく画像なので、
+   枠や飾りを削って画面のほとんどを画像に明け渡している。
+
+   クラス名が全部 tb で始まっているのは、まめ比べ側の .card や .chip と
+   ぶつからないようにするため。ここを普通の名前に戻すと、豆の一覧の
+   見た目まで巻き添えで変わる。 */
+#v-box{padding:0 0 28px}
+.tbbar{display:flex;align-items:center;gap:6px;padding:10px 14px 6px}
+.tbbar input{flex:1;min-width:0;background:var(--card);border:1px solid var(--line);
+  border-radius:var(--r-s);padding:8px 11px;font-size:13.5px;min-height:36px;color:var(--text)}
+.tbbar input:focus{outline:none;border-color:var(--accent)}
+.tbbar .cnt{font-family:var(--mono);font-size:11.5px;color:var(--mute);flex:none}
+.tbico{width:36px;height:36px;border-radius:var(--r-s);display:grid;place-items:center;
+  color:var(--sub);flex:none;background:none;border:none;padding:0;cursor:pointer}
+.tbico:active{background:var(--chip)}
+.tbico.on{background:var(--chipOn);color:var(--chipOnText)}
+.tbico svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.9;
+  stroke-linecap:round;stroke-linejoin:round}
+.tbtags{display:flex;gap:5px;overflow-x:auto;padding:0 14px 7px;scrollbar-width:none}
+.tbtags::-webkit-scrollbar{display:none}
+.tbtags:empty{display:none}
+.tbtag{flex:none;background:var(--chip);color:var(--sub);border-radius:999px;padding:4px 11px;
+  font-size:12px;font-weight:600;white-space:nowrap;border:none;cursor:pointer}
+.tbtag.on{background:var(--chipOn);color:var(--chipOnText)}
+.tbtag .n{font-family:var(--mono);font-size:10.5px;opacity:.7;margin-left:3px}
+/* 一覧は3列。2列だと1画面に6枚しか入らず、4列だと何が写っているか分からない。
+   画像の間は4pxまで詰めてある。ここを広げると一画面に入る枚数が目に見えて減る。 */
+.tbgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:0 4px}
+.tbcell{position:relative;aspect-ratio:1/1;background:var(--bg2);border-radius:var(--r-s);
+  overflow:hidden;display:block;padding:0;border:none;cursor:pointer}
+.tbcell img{width:100%;height:100%;object-fit:cover;display:block}
+.tbcell:active{opacity:.7}
+/* メモやタグが入っている画像のしるし。一覧に文字を置くと目で探しにくくなるので点だけ。 */
+.tbcell .dot{position:absolute;right:4px;bottom:4px;width:7px;height:7px;border-radius:50%;
+  background:var(--chipOn);box-shadow:0 0 0 2px rgba(0,0,0,.25)}
+.tbcell .pick{position:absolute;inset:0;border:3px solid var(--chipOn);border-radius:var(--r-s);
+  display:none}
+body.tbsel .tbcell.on .pick{display:block}
+body.tbsel .tbcell.on img{opacity:.72}
+.tbempty{margin:36px 20px;text-align:center;color:var(--mute);font-size:13.5px;line-height:2}
+.tbempty b{display:block;color:var(--text);font-size:15px;margin-bottom:6px}
+/* 追加ボタン。まめ比べの「豆を登録する」と同じ位置・同じ形にそろえてある。 */
+.tbfab{position:fixed;right:16px;bottom:calc(78px + env(safe-area-inset-bottom));z-index:34;
+  padding:0 18px;height:50px;border-radius:var(--r-m);background:var(--chipOn);color:var(--chipOnText);
+  display:none;align-items:center;gap:8px;font-weight:700;font-size:14.5px;
+  box-shadow:var(--shadow-lift);cursor:pointer}
+.tbfab svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+body[data-view="box"] .tbfab{display:flex}
+body.tbsel .tbfab{display:none}
+.tbselbar{position:fixed;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom));z-index:36;
+  padding:8px 12px;background:var(--bg);border-top:1px solid var(--line);display:none;gap:8px}
+body[data-view="box"].tbsel .tbselbar{display:flex}
+.tbbtn{flex:1;border-radius:var(--r-m);padding:11px 14px;font-size:14px;font-weight:700;
+  min-height:44px;display:flex;align-items:center;justify-content:center;gap:7px;
+  background:var(--chipOn);color:var(--chipOnText);border:none;cursor:pointer}
+.tbbtn.sub{background:var(--card);color:var(--text);border:1px solid var(--line)}
+.tbbtn.danger{background:var(--bad);color:#fff}
+.tbbtn:active{opacity:.85}
+
+/* 画像を開いた画面。まめ比べの全画面（z-index 70）より上に出す。 */
+/* この2つは hidden を付けて隠しているが、display:flex を書くと
+   hidden の効き目（display:none）を打ち消してしまい、見えないまま画面全体を覆って
+   タブが押せなくなる。隠すときの指定を必ずセットで書くこと。 */
+.tbviewer[hidden],.tbsheet[hidden]{display:none}
+/* 画面の終わりのコーヒーカップは、豆の一覧を最後まで見たごほうびとして置いてある。
+   画像を並べるだけの「保存」タブでは意味が違ってくるので、ここでは出さない。 */
+body[data-view="box"] .cupzone{display:none}
+.tbviewer{position:fixed;inset:0;z-index:80;background:var(--bg);display:flex;
+  flex-direction:column;overflow:hidden}
+.tbvhead{display:flex;align-items:center;gap:6px;padding:calc(6px + env(safe-area-inset-top)) 8px 6px;
+  border-bottom:1px solid var(--line);flex:none}
+.tbvhead .nm{flex:1;min-width:0;font-size:12px;color:var(--mute);font-family:var(--mono);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 画像は画面いっぱいに収める。押すと原寸に切り替わり、はみ出した分は指で動かせる。 */
+.tbvpic{flex:1;min-height:0;overflow:auto;display:flex;align-items:center;justify-content:center;
+  background:var(--bg2);-webkit-overflow-scrolling:touch;position:relative}
+.tbvpic img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+.tbvpic.zoom{align-items:flex-start;justify-content:flex-start}
+.tbvpic.zoom img{max-width:none;max-height:none}
+.tbvinfo{flex:none;padding:8px 12px calc(10px + env(safe-area-inset-bottom));
+  border-top:1px solid var(--line);background:var(--bg)}
+.tbvinfo textarea{width:100%;background:var(--card);border:1px solid var(--line);color:var(--text);
+  border-radius:var(--r-s);padding:8px 10px;font-size:13.5px;line-height:1.6;resize:none;min-height:50px}
+.tbvinfo textarea:focus{outline:none;border-color:var(--accent)}
+.tbvrow{display:flex;align-items:center;gap:6px;margin-top:7px;flex-wrap:wrap}
+.tbvrow input{flex:1;min-width:110px;background:var(--card);border:1px solid var(--line);color:var(--text);
+  border-radius:var(--r-s);padding:7px 10px;font-size:13px;min-height:34px}
+.tbvrow input:focus{outline:none;border-color:var(--accent)}
+.tbchip{background:var(--chip);color:var(--text);border-radius:999px;padding:7px 11px;
+  font-size:12.5px;font-weight:600;min-height:34px;display:inline-flex;align-items:center;
+  white-space:nowrap;border:none;cursor:pointer}
+.tbmeta{font-size:11px;color:var(--mute);font-family:var(--mono);margin-top:6px}
+.tbnav{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:62px;
+  display:flex;align-items:center;justify-content:center;color:#fff;border:none;
+  background:rgba(0,0,0,.28);border-radius:var(--r-s);z-index:5;cursor:pointer}
+.tbnav.prev{left:4px}
+.tbnav.next{right:4px}
+.tbnav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.4;
+  stroke-linecap:round;stroke-linejoin:round}
+/* 設定と取り込み中の紙 */
+.tbsheet{position:fixed;inset:0;z-index:82;background:rgba(20,14,12,.45);
+  display:flex;align-items:flex-end}
+.tbsheet .in{background:var(--bg);width:100%;max-height:88vh;overflow:auto;
+  border-radius:var(--r-l) var(--r-l) 0 0;padding:16px 16px calc(20px + env(safe-area-inset-bottom))}
+.tbsheet h2{margin:0 0 10px;font-size:16px;font-weight:800}
+.tbsheet h3{margin:16px 0 6px;font-size:13px;font-weight:800;color:var(--sub)}
+.tbsheet p{margin:6px 0;font-size:13px;color:var(--sub);line-height:1.75}
+.tbsheet .note{background:var(--chip);border-radius:var(--r-m);padding:11px 13px;font-size:12.5px;
+  color:var(--sub);line-height:1.8}
+.tbsheet details{border:1px solid var(--line);border-radius:var(--r-m);background:var(--card);
+  margin-top:7px;overflow:hidden}
+.tbsheet details>summary{padding:10px 13px;font-size:13px;font-weight:700;cursor:pointer;
+  list-style:none;display:flex;align-items:center;justify-content:space-between;min-height:42px}
+.tbsheet details>summary::-webkit-details-marker{display:none}
+.tbsheet details>summary::after{content:"▾";color:var(--mute);font-size:11px}
+.tbsheet details[open]>summary::after{content:"▴"}
+.tbsheet details .in2{padding:0 13px 12px;font-size:12.5px;color:var(--sub);line-height:1.85}
+.tbbar2{height:8px;border-radius:999px;background:var(--chip);overflow:hidden;margin:8px 0 4px}
+.tbbar2 i{display:block;height:100%;background:var(--chipOn)}
+.tbtoast{position:fixed;left:50%;transform:translateX(-50%);
+  bottom:calc(88px + env(safe-area-inset-bottom));background:var(--text);color:var(--bg);
+  padding:9px 16px;border-radius:999px;font-size:13px;font-weight:600;z-index:90;
+  box-shadow:var(--shadow-lift);max-width:88%;text-align:center}
 </style>
 </head>
 <body data-view="search">
@@ -733,6 +859,23 @@ body[data-view="search"] #tray.on ~ .fab{bottom:calc(136px + env(safe-area-inset
     <div id="my-log"></div>
     <div class="sec-title">データ</div>
     <div id="my-data"></div>
+  </section>
+  <!-- ためばこ。ネットで拾った画像やスクリーンショットを貯めておく場所。
+       画像はこの端末の中（IndexedDB）にあり、外には出ない。 -->
+  <section id="v-box">
+    <div class="tbbar">
+      <input id="tbq" type="search" placeholder="メモやタグでさがす" autocomplete="off">
+      <span class="cnt" id="tbcount"></span>
+      <button class="tbico" id="tbSel" aria-label="えらんで消す">
+        <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      </button>
+      <button class="tbico" id="tbMenu" aria-label="設定とバックアップ">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
+      </button>
+    </div>
+    <div class="tbtags" id="tbtags"></div>
+    <div class="tbgrid" id="tbgrid"></div>
+    <div class="tbempty" id="tbempty" hidden></div>
   </section>
 </main>
 
@@ -803,7 +946,22 @@ body[data-view="search"] #tray.on ~ .fab{bottom:calc(136px + env(safe-area-inset
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
       <path d="M6.5 3H18a1.5 1.5 0 0 1 1.5 1.5v15A1.5 1.5 0 0 1 18 21H6.5A1.5 1.5 0 0 1 5 19.5v-15A1.5 1.5 0 0 1 6.5 3Z"/>
       <path d="M9 3v18"/><path d="M12.5 8.5h4M12.5 12.5h4"/></svg><span>記録</span></button>
+  <button role="tab" data-go="box" aria-selected="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.7"/>
+      <path d="M4 17l4.5-4.5 3.5 3.5 3-2.5 5 4.5"/></svg><span>保存</span></button>
 </nav>
+
+<!-- ためばこの部品。画面いっぱいに出すものは、section の外に置く必要がある。 -->
+<label class="tbfab" for="tbfile">
+  <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>画像を追加</label>
+<input type="file" id="tbfile" accept="image/*" multiple hidden>
+<div class="tbselbar">
+  <button class="tbbtn sub" id="tbSelCancel">やめる</button>
+  <button class="tbbtn danger" id="tbSelDel">えらんだ分を消す</button>
+</div>
+<div class="tbviewer" id="tbviewer" hidden></div>
+<div class="tbsheet" id="tbsheet" hidden></div>
 
 <div class="sheet" id="sheet"><div class="veil" data-close></div>
   <div class="panel"><div class="grab"></div>
@@ -3362,9 +3520,12 @@ function backTarget(){
 function setView(v){
   document.body.dataset.view=v;
   document.querySelectorAll('.tabbar button').forEach(b=>b.setAttribute('aria-selected',b.dataset.go===v));
-  $('#apptitle').textContent={search:'まめ比べ',map:'味の地図',esp:'エスプレッソ',my:'わたしの記録'}[v];
+  $('#apptitle').textContent={search:'まめ比べ',map:'味の地図',esp:'エスプレッソ',
+    my:'わたしの記録',box:'保存'}[v];
   $('#btn-filter').style.display=(v==='search'||v==='map')?'grid':'none';
   if(v==='map')renderMap();if(v==='esp')renderEsp();if(v==='my')renderMy();
+  /* ためばこは画像の読み込みに時間がかかるので、開いたときだけ読む。 */
+  if(v==='box'&&window.TB)TB.open();
   window.scrollTo(0,0);
 }
 
@@ -3389,6 +3550,594 @@ function renderAll(){renderList();renderMap();renderEsp();renderMy();renderStock
 if(S.theme)document.documentElement.setAttribute('data-theme',S.theme);
 renderAll();setView('search');
 if(!S.pref&&!Object.keys(S.log).length&&!S.shots.length)setTimeout(diagSheet,400);
+
+/* ===========================================================================
+   ためばこ（「保存」タブ）— 画像をこの端末の中に貯めておく
+
+   仕組みの要点（あとで直すときはここを先に読む）
+
+   ・画像は「IndexedDB」というブラウザの保管庫に入れている。まめ比べの記録が
+     使っている localStorage は文字しか入らず容量も5MB程度しかないので、
+     画像には使えない。こちらは画像そのもの（Blob）を置けて容量も桁違いに大きい。
+   ・入れるときに縮めている。iPhoneの写真は1枚4MBを超えることがあり、そのまま
+     貯めると数十枚で行き詰まる。長辺1800pxのJPEGに直すと1枚200〜400KBに収まる。
+   ・一覧用の小さい画像を別に作って持っている。一覧で大きい画像を3列並べると
+     スクロールが目に見えて重くなるため。
+   ・サーバーには一切送っていない。だから画像は他人には見えないし、同時に
+     この端末から出ることもない（機種変更のときは控えの書き出しが要る）。
+
+   まめ比べの他の部分と名前がぶつからないよう、全体をこの入れ物（即時実行関数）の
+   中に閉じ込めてある。外に出しているのは window.TB だけ。
+   画面の部品を押したときの目印も data-act ではなく data-tbact を使っている。
+   data-act にすると、まめ比べ側の「押されたときの動き」に拾われてしまう。
+   =========================================================================== */
+window.TB=(function(){
+"use strict";
+const $=s=>document.querySelector(s);
+/* 画面に出す文字は必ずこれを通す。メモに < や " が入っていても、
+   それが指示として解釈されないようにするため。 */
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad2=n=>String(n).padStart(2,'0');
+function when(t){
+  if(!t)return '';
+  const d=new Date(t), n=new Date();
+  return (d.getFullYear()===n.getFullYear()?'':d.getFullYear()+'年')+
+    (d.getMonth()+1)+'月'+d.getDate()+'日 '+pad2(d.getHours())+':'+pad2(d.getMinutes());
+}
+function size(b){
+  if(!(b>0))return '0KB';
+  if(b<1024*1024)return Math.round(b/1024)+'KB';
+  if(b<1024*1024*1024)return (b/1024/1024).toFixed(1)+'MB';
+  return (b/1024/1024/1024).toFixed(1)+'GB';
+}
+let toastTimer=null;
+function toast(msg){
+  let el=$('#tbtoast');
+  if(!el){el=document.createElement('div');el.id='tbtoast';el.className='tbtoast';
+    document.body.appendChild(el)}
+  el.textContent=msg; el.hidden=false;
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>{el.hidden=true},2200);
+}
+/* id は時刻から作るが、まとめて追加すると同じミリ秒が続いて重なる。
+   前に配った値より必ず大きくなるようにして、上書き事故を防ぐ。
+   まめ比べの在庫で実際に起きた事故と同じ原因なので、ここは戻さないこと。 */
+let lastUid=0;
+function uid(){
+  const t=Date.now();
+  lastUid = t>lastUid ? t : lastUid+1;
+  return 'i'+lastUid;
+}
+
+/* ---- 保管庫 ---- */
+const DB_NAME='tamebako', STORE='items', DB_VER=1;
+let _db=null;
+function openDB(){
+  if(_db)return Promise.resolve(_db);
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open(DB_NAME,DB_VER);
+    r.onupgradeneeded=e=>{
+      const d=e.target.result;
+      if(!d.objectStoreNames.contains(STORE)){
+        const st=d.createObjectStore(STORE,{keyPath:'id'});
+        st.createIndex('addedAt','addedAt');
+      }
+    };
+    r.onsuccess=()=>{_db=r.result;res(_db)};
+    r.onerror=()=>rej(r.error);
+  });
+}
+const store=mode=>openDB().then(d=>d.transaction(STORE,mode).objectStore(STORE));
+const dbAll=()=>store('readonly').then(st=>new Promise((res,rej)=>{
+  const r=st.getAll(); r.onsuccess=()=>res(r.result||[]); r.onerror=()=>rej(r.error)}));
+const dbPut=v=>store('readwrite').then(st=>new Promise((res,rej)=>{
+  const r=st.put(v); r.onsuccess=()=>res(); r.onerror=()=>rej(r.error)}));
+const dbDel=id=>store('readwrite').then(st=>new Promise((res,rej)=>{
+  const r=st.delete(id); r.onsuccess=()=>res(); r.onerror=()=>rej(r.error)}));
+
+/* ---- いま画面に出しているもの ---- */
+let items=[];        /* 新しいものが先 */
+let urls=new Map();  /* id から一覧用の一時URL。作りっぱなしにすると端末のメモリを食う */
+let filter={q:'',tag:''};
+let selMode=false, picked=new Set(), viewId=null, ready=false;
+
+/* ---- 画像を縮める ----------------------------------------------------------
+   canvas に描き直してJPEGにする。写真の「向き」の情報（EXIF）は描き直すと
+   消えるので、読み込む時点で向きを反映させる（from-image）。これを忘れると
+   iPhoneで縦に撮った写真が横倒しで保存される。 */
+function loadImgEl(blob){
+  return new Promise((res,rej)=>{
+    const u=URL.createObjectURL(blob), im=new Image();
+    im.onload=()=>{URL.revokeObjectURL(u);res(im)};
+    im.onerror=()=>{URL.revokeObjectURL(u);rej(new Error('画像として読めません'))};
+    im.src=u;
+  });
+}
+function loadBitmap(blob){
+  if(window.createImageBitmap){
+    return createImageBitmap(blob,{imageOrientation:'from-image'}).catch(()=>loadImgEl(blob));
+  }
+  return loadImgEl(blob);
+}
+function drawTo(src,max,quality){
+  const w=src.width||src.naturalWidth, h=src.height||src.naturalHeight;
+  const r=Math.min(1,max/Math.max(w,h));
+  const cw=Math.max(1,Math.round(w*r)), ch=Math.max(1,Math.round(h*r));
+  const cv=document.createElement('canvas');
+  cv.width=cw; cv.height=ch;
+  const g=cv.getContext('2d');
+  /* 透明な部分は白で埋める。JPEGは透明を扱えず、埋めないと黒くつぶれる。 */
+  g.fillStyle='#ffffff'; g.fillRect(0,0,cw,ch);
+  g.drawImage(src,0,0,cw,ch);
+  return new Promise(res=>{
+    if(cv.toBlob)cv.toBlob(b=>res(b?{blob:b,w:cw,h:ch}:null),'image/jpeg',quality);
+    else res(null);
+  });
+}
+const MAX_FULL=1800, Q_FULL=.85, MAX_THUMB=460, Q_THUMB=.72;
+
+/* ---- 追加する ---- */
+async function addFiles(files){
+  const list=Array.from(files||[]).filter(f=>
+    /^image\//.test(f.type)||/\.(jpe?g|png|gif|webp|heic|heif|bmp)$/i.test(f.name||''));
+  if(!list.length){toast('画像が見つかりませんでした');return}
+  const sh=$('#tbsheet');
+  const draw=(i,n)=>{
+    sh.innerHTML='<div class="in"><h2>取り込み中</h2><p>'+i+' / '+n+' 枚</p>'+
+      '<div class="tbbar2"><i style="width:'+Math.round(i/n*100)+'%"></i></div>'+
+      '<p class="note">画像を小さく作り直しています。枚数が多いと少し時間がかかります。</p></div>';
+  };
+  sh.hidden=false; draw(0,list.length);
+  let ok=0, ng=0;
+  for(let i=0;i<list.length;i++){
+    try{await addOne(list[i]);ok++}
+    catch(e){ng++;console.error(e)}
+    draw(i+1,list.length);
+    /* 画面を描き直す隙を作る。これが無いと進み具合が止まって見える。 */
+    await new Promise(r=>setTimeout(r,0));
+  }
+  sh.hidden=true; sh.innerHTML='';
+  await reload();
+  toast(ok+'枚を入れました'+(ng?'（'+ng+'枚は読めませんでした）':''));
+}
+async function addOne(file){
+  const src=await loadBitmap(file);
+  const full=await drawTo(src,MAX_FULL,Q_FULL);
+  const th=await drawTo(src,MAX_THUMB,Q_THUMB);
+  if(src.close)src.close();
+  if(!full||!th)throw new Error('画像を作り直せません');
+  /* 縮めたほうが大きくなる場合（もともと小さい画像）は元をそのまま持つ。 */
+  const keep=(full.blob.size>=file.size&&file.size>0&&/^image\/(jpeg|png|webp)$/.test(file.type))
+    ? file : full.blob;
+  await dbPut({id:uid(),full:keep,thumb:th.blob,w:full.w,h:full.h,
+    bytes:keep.size+th.blob.size,name:String(file.name||'').slice(0,120),
+    memo:'',tags:[],addedAt:Date.now()});
+}
+
+/* ---- 読み直して並べる ---- */
+async function reload(){
+  const a=await dbAll();
+  a.sort((x,y)=>y.addedAt-x.addedAt);
+  items=a;
+  render();
+}
+function shown(){
+  const q=filter.q.trim().toLowerCase();
+  return items.filter(it=>{
+    if(filter.tag&&!(it.tags||[]).includes(filter.tag))return false;
+    if(!q)return true;
+    return ((it.memo||'')+' '+(it.tags||[]).join(' ')+' '+(it.name||''))
+      .toLowerCase().includes(q);
+  });
+}
+function thumbURL(it){
+  let u=urls.get(it.id);
+  if(!u){u=URL.createObjectURL(it.thumb);urls.set(it.id,u)}
+  return u;
+}
+function dropURL(id){
+  const u=urls.get(id);
+  if(u){URL.revokeObjectURL(u);urls.delete(id)}
+}
+function render(){
+  const list=shown();
+  $('#tbcount').textContent=items.length
+    ? (list.length===items.length ? items.length+'枚' : list.length+' / '+items.length+'枚')
+    : '';
+  /* タグの並び。使われている数が多い順。 */
+  const cnt=new Map();
+  items.forEach(it=>(it.tags||[]).forEach(t=>cnt.set(t,(cnt.get(t)||0)+1)));
+  $('#tbtags').innerHTML=Array.from(cnt.entries())
+    .sort((a,b)=>b[1]-a[1]||(a[0]<b[0]?-1:1))
+    .map(e=>'<button class="tbtag'+(filter.tag===e[0]?' on':'')+'" data-tbact="tag" '+
+      'data-tag="'+esc(e[0])+'">'+esc(e[0])+'<span class="n">'+e[1]+'</span></button>').join('');
+
+  $('#tbgrid').innerHTML=list.map(it=>
+    '<button class="tbcell'+(picked.has(it.id)?' on':'')+'" data-tbact="cell" '+
+    'data-id="'+esc(it.id)+'">'+
+    '<img src="'+thumbURL(it)+'" alt="'+esc(it.memo||it.name||'画像')+'" loading="lazy">'+
+    (it.memo||(it.tags||[]).length?'<span class="dot"></span>':'')+
+    '<span class="pick"></span></button>').join('');
+
+  const em=$('#tbempty');
+  if(!items.length){
+    em.hidden=false;
+    em.innerHTML='<b>まだ何も入っていません</b>右下の「画像を追加」から、'+
+      'カメラロールの写真やスクリーンショットを入れられます。';
+  }else if(!list.length){
+    em.hidden=false;
+    em.innerHTML='<b>見つかりません</b>探す言葉やタグを変えてみてください。';
+  }else em.hidden=true;
+}
+
+/* ---- 画像を開く ---- */
+function drawView(){
+  const it=items.find(x=>x.id===viewId);
+  const v=$('#tbviewer');
+  if(!it){v.hidden=true;v.innerHTML='';return}
+  const list=shown(), pos=list.findIndex(x=>x.id===it.id);
+  const u=URL.createObjectURL(it.full);
+  v.hidden=false;
+  v.innerHTML=
+    '<div class="tbvhead">'+
+      '<button class="tbico" data-tbact="close" aria-label="閉じる">'+
+        '<svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>'+
+      '<span class="nm">'+esc(it.name||'画像')+'</span>'+
+      '<button class="tbico" data-tbact="save" aria-label="この端末に保存">'+
+        '<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>'+
+        '<path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></button>'+
+      '<button class="tbico" data-tbact="del" aria-label="この画像を消す">'+
+        '<svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button>'+
+    '</div>'+
+    '<div class="tbvpic" id="tbvpic">'+
+      (pos>0?'<button class="tbnav prev" data-tbact="prev" aria-label="前の画像">'+
+        '<svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>':'')+
+      '<img id="tbvimg" src="'+u+'" alt="'+esc(it.memo||it.name||'画像')+'">'+
+      (pos>=0&&pos<list.length-1?'<button class="tbnav next" data-tbact="next" aria-label="次の画像">'+
+        '<svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button>':'')+
+    '</div>'+
+    '<div class="tbvinfo">'+
+      '<textarea id="tbvmemo" placeholder="メモ（どこで見つけた画像か、何が気になったか）">'+
+        esc(it.memo||'')+'</textarea>'+
+      '<div class="tbvrow">'+
+        (it.tags||[]).map(t=>'<button class="tbchip" data-tbact="untag" data-tag="'+esc(t)+'">'+
+          esc(t)+' ×</button>').join('')+
+        '<input id="tbvtagin" placeholder="タグを足す（例：浅煎り）" autocomplete="off">'+
+      '</div>'+
+      '<div class="tbmeta">'+esc(when(it.addedAt))+' ・ '+it.w+'×'+it.h+' ・ '+
+        esc(size(it.bytes))+'</div>'+
+    '</div>';
+  /* 開き直したときに前のURLが残らないよう、閉じるときに片付ける。 */
+  v.dataset.url=u;
+  const pic=$('#tbvpic');
+  $('#tbvimg').addEventListener('click',()=>pic.classList.toggle('zoom'));
+}
+function closeView(){
+  const v=$('#tbviewer');
+  if(v.dataset.url){URL.revokeObjectURL(v.dataset.url);v.dataset.url=''}
+  v.hidden=true; v.innerHTML=''; viewId=null;
+}
+async function saveMemo(){
+  const it=items.find(x=>x.id===viewId), ta=$('#tbvmemo');
+  if(!it||!ta)return;
+  if((it.memo||'')===ta.value)return;
+  it.memo=ta.value;
+  await dbPut(it);
+  render();
+}
+function step(d){
+  const list=shown(), i=list.findIndex(x=>x.id===viewId);
+  if(i<0)return;
+  const j=i+d;
+  if(j<0||j>=list.length)return;
+  saveMemo();
+  const v=$('#tbviewer');
+  if(v.dataset.url){URL.revokeObjectURL(v.dataset.url);v.dataset.url=''}
+  viewId=list[j].id;
+  drawView();
+}
+async function addTag(word){
+  const it=items.find(x=>x.id===viewId);
+  const t=String(word||'').trim().replace(/\s+/g,' ').slice(0,24);
+  if(!it||!t)return;
+  it.tags=it.tags||[];
+  if(!it.tags.includes(t))it.tags.push(t);
+  await dbPut(it);
+  drawView(); render();
+}
+async function delTag(t){
+  const it=items.find(x=>x.id===viewId);
+  if(!it)return;
+  it.tags=(it.tags||[]).filter(x=>x!==t);
+  await dbPut(it);
+  drawView(); render();
+}
+function saveToDevice(it){
+  const u=URL.createObjectURL(it.full);
+  const a=document.createElement('a');
+  a.href=u;
+  a.download=(it.name&&/\.(jpe?g)$/i.test(it.name)?it.name:'ためばこ-'+it.id+'.jpg');
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(u),4000);
+  toast('保存先を選んでください');
+}
+
+/* ---- 書き出し・読み込み ----------------------------------------------------
+   機種変更やブラウザのデータ消去に備えるための命綱。画像をひとつの文字の塊に
+   直して1ファイルにまとめる。文字に直すと約1.37倍にふくらむ。 */
+function blobToDataURL(b){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=()=>res(r.result); r.onerror=()=>rej(r.error);
+    r.readAsDataURL(b);
+  });
+}
+function dataURLToBlob(u){
+  const m=/^data:([^;,]+)?(;base64)?,/.exec(String(u||''));
+  if(!m)throw new Error('形式が違います');
+  const body=String(u).slice(m[0].length);
+  /* 控えのファイルは自分で書き出したものしか読まない想定だが、中身は書き換えられる。
+     画像以外の種類（HTMLやSVGなど）を名乗られても画像として扱う。 */
+  const type=/^image\/(jpeg|png|gif|webp|bmp)$/.test(m[1]||'')?m[1]:'image/jpeg';
+  if(!m[2])return new Blob([decodeURIComponent(body)],{type});
+  const bin=atob(body), arr=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+  return new Blob([arr],{type});
+}
+async function exportAll(){
+  if(!items.length){toast('入っている画像がありません');return}
+  const sh=$('#tbsheet');
+  sh.innerHTML='<div class="in"><h2>書き出し中</h2><p>0 / '+items.length+' 枚</p></div>';
+  sh.hidden=false;
+  const out=[];
+  for(let i=0;i<items.length;i++){
+    const it=items[i];
+    out.push({id:it.id,name:it.name,memo:it.memo,tags:it.tags,addedAt:it.addedAt,
+      w:it.w,h:it.h,full:await blobToDataURL(it.full)});
+    sh.querySelector('p').textContent=(i+1)+' / '+items.length+' 枚';
+    await new Promise(r=>setTimeout(r,0));
+  }
+  const b=new Blob([JSON.stringify({app:'tamebako',v:1,exportedAt:Date.now(),items:out})],
+    {type:'application/json'});
+  const u=URL.createObjectURL(b), d=new Date();
+  const a=document.createElement('a');
+  a.href=u;
+  a.download='まめ比べ保存_'+d.getFullYear()+pad2(d.getMonth()+1)+pad2(d.getDate())+'.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(u),8000);
+  sh.hidden=true; sh.innerHTML='';
+  toast('保存先を選んでください（'+size(b.size)+'）');
+}
+async function importAll(file){
+  let data;
+  try{data=JSON.parse(await file.text())}
+  catch(e){toast('読み込めないファイルです');return}
+  if(!data||data.app!=='tamebako'||!Array.isArray(data.items)){
+    toast('保存タブの控えではないようです');return;
+  }
+  const have=new Set(items.map(x=>x.id));
+  const sh=$('#tbsheet');
+  sh.innerHTML='<div class="in"><h2>読み込み中</h2><p>0 / '+data.items.length+' 枚</p></div>';
+  sh.hidden=false;
+  let add=0, skip=0;
+  for(let i=0;i<data.items.length;i++){
+    const r=data.items[i];
+    try{
+      if(have.has(r.id))skip++;
+      else{
+        const full=dataURLToBlob(r.full);
+        const src=await loadBitmap(full);
+        const th=await drawTo(src,MAX_THUMB,Q_THUMB);
+        if(src.close)src.close();
+        await dbPut({id:r.id,full:full,thumb:th.blob,w:r.w||th.w,h:r.h||th.h,
+          bytes:full.size+th.blob.size,name:r.name||'',memo:r.memo||'',
+          tags:Array.isArray(r.tags)?r.tags:[],addedAt:r.addedAt||Date.now()});
+        add++;
+      }
+    }catch(e){console.error(e)}
+    sh.querySelector('p').textContent=(i+1)+' / '+data.items.length+' 枚';
+    await new Promise(r=>setTimeout(r,0));
+  }
+  sh.hidden=true; sh.innerHTML='';
+  await reload();
+  toast(add+'枚を読み込みました'+(skip?'（'+skip+'枚はすでにあります）':''));
+}
+
+/* ---- 設定の紙 ---- */
+async function openMenu(){
+  let used=0, quota=0, persisted=false;
+  try{
+    if(navigator.storage&&navigator.storage.estimate){
+      const e=await navigator.storage.estimate();
+      used=e.usage||0; quota=e.quota||0;
+    }
+    if(navigator.storage&&navigator.storage.persisted)persisted=await navigator.storage.persisted();
+  }catch(e){}
+  const mine=items.reduce((s,x)=>s+(x.bytes||0),0);
+  const pct=quota?Math.min(100,Math.round(used/quota*100)):0;
+  const sh=$('#tbsheet');
+  sh.hidden=false;
+  sh.innerHTML='<div class="in">'+
+    '<h2>保存の設定</h2>'+
+    '<h3>いま使っている量</h3>'+
+    '<div class="tbbar2"><i style="width:'+pct+'%"></i></div>'+
+    '<p>画像 '+items.length+'枚 ・ '+esc(size(mine))+
+      (quota?'（この端末がまめ比べに許している上限は約 '+esc(size(quota))+'）':'')+'</p>'+
+    (persisted
+      ? '<p class="note">この端末は、まめ比べのデータを「消さない」設定になっています。</p>'
+      : '<p class="note"><b>大事なお願い。</b>iPhoneのSafariは、しばらく開かないページの'+
+        'データを自動で消すことがあります。<b>まめ比べをホーム画面に追加して、'+
+        'そこから開くようにしてください。</b>（Safariの下の共有ボタン → 「ホーム画面に追加」）'+
+        'そうすると消えにくくなります。それでも、大事な画像は下の「控えを書き出す」で'+
+        '時々バックアップしてください。</p>')+
+    '<h3>バックアップ</h3>'+
+    '<button class="tbbtn" data-tbact="export" style="margin-top:6px;width:100%">'+
+      '控えを書き出す（1ファイル）</button>'+
+    '<label class="tbbtn sub" for="tbimpfile" style="margin-top:7px;width:100%">'+
+      '控えから読み込む</label>'+
+    '<input type="file" id="tbimpfile" accept="application/json,.json" hidden>'+
+    '<p class="note" style="margin-top:8px">書き出したファイルは「ファイル」アプリや'+
+    'iCloud Driveに保存できます。新しい端末では、まめ比べを開いて「控えから読み込む」を'+
+    '選べば元に戻ります。</p>'+
+    '<h3>よくある質問</h3>'+
+    '<details><summary>この画像は他の人に見られますか？</summary><div class="in2">'+
+      '見られません。画像はインターネットに送られておらず、<b>この端末のブラウザの中だけ</b>に'+
+      '入っています。まめ比べのURLを人に教えても、相手にはこのタブが空で見えるだけです。'+
+      '</div></details>'+
+    '<details><summary>パソコンからも同じ画像を見られますか？</summary><div class="in2">'+
+      '見られません。保管場所が端末ごとに分かれているためです。どうしても移したいときは'+
+      '「控えを書き出す」で作ったファイルを移してください。</div></details>'+
+    '<details><summary>入れた画像は元のままの画質ですか？</summary><div class="in2">'+
+      '長辺1800pxのJPEGに作り直しています。画面で見るぶんには元とほぼ同じですが、'+
+      '印刷に使うような大きさは残りません。元の画像も残したい場合は、カメラロールから'+
+      '消さずに置いてください。</div></details>'+
+    '<details><summary>「タグ」とは何ですか？</summary><div class="in2">'+
+      '画像に付けておく短い目印です。「浅煎り」「買いたい」「器具」のように付けておくと、'+
+      '上の帯からその言葉を押すだけで、その画像だけを並べられます。'+
+      '1枚にいくつ付けてもかまいません。</div></details>'+
+    '<button class="tbbtn sub" data-tbact="closesheet" style="margin-top:14px;width:100%">'+
+      '閉じる</button></div>';
+}
+
+/* ---- 押されたときの動き ---- */
+document.addEventListener('click',async e=>{
+  const t=e.target.closest('[data-tbact]');
+  if(!t)return;
+  const act=t.dataset.tbact;
+  if(act==='cell'){
+    const id=t.dataset.id;
+    if(selMode){
+      if(picked.has(id))picked.delete(id);else picked.add(id);
+      render();
+    }else{viewId=id;drawView()}
+    return;
+  }
+  if(act==='tag'){
+    filter.tag = filter.tag===t.dataset.tag ? '' : t.dataset.tag;
+    render(); return;
+  }
+  if(act==='untag'){delTag(t.dataset.tag);return}
+  if(act==='close'){saveMemo();closeView()}
+  else if(act==='prev'){step(-1)}
+  else if(act==='next'){step(1)}
+  else if(act==='save'){const it=items.find(x=>x.id===viewId);if(it)saveToDevice(it)}
+  else if(act==='del'){
+    const it=items.find(x=>x.id===viewId);
+    if(it&&confirm('この画像を消します。元に戻せません。よろしいですか？')){
+      closeView();
+      await dbDel(it.id); dropURL(it.id); await reload();
+      toast('消しました');
+    }
+  }
+  else if(act==='export'){exportAll()}
+  else if(act==='closesheet'){const sh=$('#tbsheet');sh.hidden=true;sh.innerHTML=''}
+});
+/* 設定の紙は、外側（暗いところ）を押しても閉じる。 */
+$('#tbsheet').addEventListener('click',e=>{
+  if(e.target.id==='tbsheet'){e.target.hidden=true;e.target.innerHTML=''}
+});
+$('#tbsheet').addEventListener('change',e=>{
+  if(e.target.id==='tbimpfile'&&e.target.files&&e.target.files[0]){
+    const f=e.target.files[0], sh=$('#tbsheet');
+    sh.hidden=true; sh.innerHTML='';
+    importAll(f);
+  }
+});
+$('#tbfile').addEventListener('change',e=>{
+  if(e.target.files&&e.target.files.length)addFiles(e.target.files);
+  e.target.value='';
+});
+$('#tbq').addEventListener('input',e=>{filter.q=e.target.value;render()});
+$('#tbMenu').addEventListener('click',openMenu);
+$('#tbSel').addEventListener('click',()=>{
+  selMode=!selMode; picked.clear();
+  document.body.classList.toggle('tbsel',selMode);
+  $('#tbSel').classList.toggle('on',selMode);
+  render();
+});
+$('#tbSelCancel').addEventListener('click',()=>
+  $('#tbSel').click());
+$('#tbSelDel').addEventListener('click',async()=>{
+  if(!picked.size){toast('画像を選んでください');return}
+  if(!confirm(picked.size+'枚を消します。元に戻せません。よろしいですか？'))return;
+  for(const id of picked){await dbDel(id);dropURL(id)}
+  picked.clear();
+  $('#tbSel').click();
+  toast('消しました');
+});
+/* メモは離れたときに保存する。保存ボタンを押させると必ず押し忘れる。 */
+document.addEventListener('focusout',e=>{
+  if(e.target&&e.target.id==='tbvmemo')saveMemo();
+});
+/* タグ入力は Enter（iPhoneでは「改行」キー）で確定する。 */
+document.addEventListener('keydown',e=>{
+  if(e.target&&e.target.id==='tbvtagin'&&e.key==='Enter'){
+    e.preventDefault();
+    const v=e.target.value; e.target.value='';
+    addTag(v);
+    return;
+  }
+  if(!viewId)return;
+  if(e.target&&/^(INPUT|TEXTAREA)$/.test(e.target.tagName))return;
+  if(e.key==='Escape'){saveMemo();closeView()}
+  else if(e.key==='ArrowLeft')step(-1);
+  else if(e.key==='ArrowRight')step(1);
+});
+/* 指で左右にはらうと前後の画像に移る。縦の動きは無視する（スクロールと区別）。 */
+let tx0=0, ty0=0;
+document.addEventListener('touchstart',e=>{
+  if(!viewId||!e.touches[0])return;
+  tx0=e.touches[0].clientX; ty0=e.touches[0].clientY;
+},{passive:true});
+document.addEventListener('touchend',e=>{
+  if(!viewId||!e.changedTouches[0])return;
+  const pic=$('#tbvpic');
+  if(pic&&pic.classList.contains('zoom'))return;
+  const dx=e.changedTouches[0].clientX-tx0, dy=e.changedTouches[0].clientY-ty0;
+  if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.6)step(dx<0?1:-1);
+},{passive:true});
+/* パソコンからは、画像を落としても貼り付けても入れられる。
+   「保存」タブを開いているときだけ効かせる。他のタブでの操作を横取りしないため。 */
+const onBox=()=>document.body.dataset.view==='box';
+document.addEventListener('dragover',e=>{if(onBox())e.preventDefault()});
+document.addEventListener('drop',e=>{
+  if(!onBox())return;
+  e.preventDefault();
+  if(e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files.length)addFiles(e.dataTransfer.files);
+});
+document.addEventListener('paste',e=>{
+  if(!onBox())return;
+  const f=e.clipboardData&&e.clipboardData.files;
+  if(f&&f.length)addFiles(f);
+});
+
+/* ---- 開いたときに一度だけ読み込む ----
+   画像の読み込みは時間がかかるので、まめ比べを開いた瞬間ではなく、
+   「保存」タブを最初に開いたときに読む。 */
+async function open(){
+  if(ready)return;
+  ready=true;
+  try{
+    /* 「このページのデータは消さないでほしい」と端末に頼んでおく。
+       断られることもあるが、頼んでおいて損はない。 */
+    if(navigator.storage&&navigator.storage.persist&&navigator.storage.persisted){
+      if(!(await navigator.storage.persisted()))await navigator.storage.persist();
+    }
+  }catch(e){}
+  try{
+    await reload();
+  }catch(e){
+    console.error(e);
+    const em=$('#tbempty');
+    em.hidden=false;
+    em.innerHTML='<b>保管庫を開けませんでした</b>'+
+      'ブラウザのプライベートモードでは画像を貯められません。ふつうのタブで開いてください。';
+  }
+}
+return {open:open,render:render,count:()=>items.length};
+})();
+
 </script>
 </body>
 </html>
