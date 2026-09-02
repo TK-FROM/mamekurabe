@@ -709,6 +709,10 @@ body[data-view="search"] #tray.on ~ .fab{bottom:calc(136px + env(safe-area-inset
   display:none}
 body.tbsel .tbcell.on .pick{display:block}
 body.tbsel .tbcell.on img{opacity:.72}
+/* Artifact で開いたときだけ出す案内。 */
+.tbwarn{margin:8px 14px 4px;background:var(--accent-soft);border:1px solid var(--line);
+  border-radius:var(--r-m);padding:11px 13px;font-size:12.5px;line-height:1.8;color:var(--sub)}
+.tbwarn a{color:var(--accent);font-weight:700;overflow-wrap:anywhere}
 .tbempty{margin:36px 20px;text-align:center;color:var(--mute);font-size:13.5px;line-height:2}
 .tbempty b{display:block;color:var(--text);font-size:15px;margin-bottom:6px}
 /* 追加ボタン。まめ比べの「豆を登録する」と同じ位置・同じ形にそろえてある。 */
@@ -873,6 +877,7 @@ body[data-view="box"] .cupzone{display:none}
         <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
       </button>
     </div>
+    <div class="tbwarn" id="tbwarn" hidden></div>
     <div class="tbtags" id="tbtags"></div>
     <div class="tbgrid" id="tbgrid"></div>
     <div class="tbempty" id="tbempty" hidden></div>
@@ -3636,6 +3641,11 @@ const dbPut=v=>store('readwrite').then(st=>new Promise((res,rej)=>{
 const dbDel=id=>store('readwrite').then(st=>new Promise((res,rej)=>{
   const r=st.delete(id); r.onsuccess=()=>res(); r.onerror=()=>rej(r.error)}));
 
+/* Artifact（claude.ai）の中では、このページは枠の中に埋め込まれた形で動く。
+   そのときファイルの保存ができず、画像の保管場所も別々になる。
+   自分が枠の中にいるかどうかは、これで分かる。 */
+const alone=()=>{try{return window.self===window.top}catch(e){return false}};
+
 /* ---- いま画面に出しているもの ---- */
 let items=[];        /* 新しいものが先 */
 let urls=new Map();  /* id から一覧用の一時URL。作りっぱなしにすると端末のメモリを食う */
@@ -3741,6 +3751,17 @@ function dropURL(id){
   if(u){URL.revokeObjectURL(u);urls.delete(id)}
 }
 function render(){
+  const w=$('#tbwarn');
+  if(w){
+    w.hidden=alone();
+    if(!alone()&&!w.innerHTML){
+      w.innerHTML='この画面（Claudeのページ）でも画像は入れられますが、'+
+        '<b>ふだん使っているまめ比べとは別の場所に貯まります。</b>'+
+        '控えの書き出しもここではできません。画像を貯めるときは'+
+        '<a href="https://tk-from.github.io/mamekurabe/" target="_blank" rel="noopener">'+
+        'いつものまめ比べ</a>から開いてください。';
+    }
+  }
   const list=shown();
   $('#tbcount').textContent=items.length
     ? (list.length===items.length ? items.length+'枚' : list.length+' / '+items.length+'枚')
@@ -3784,9 +3805,9 @@ function drawView(){
       '<button class="tbico" data-tbact="close" aria-label="閉じる">'+
         '<svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>'+
       '<span class="nm">'+esc(it.name||'画像')+'</span>'+
-      '<button class="tbico" data-tbact="save" aria-label="この端末に保存">'+
+      (alone()?'<button class="tbico" data-tbact="save" aria-label="この端末に保存">'+
         '<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>'+
-        '<path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></button>'+
+        '<path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></button>':'')+
       '<button class="tbico" data-tbact="del" aria-label="この画像を消す">'+
         '<svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button>'+
     '</div>'+
@@ -3972,14 +3993,19 @@ async function openMenu(){
         'そうすると消えにくくなります。それでも、大事な画像は下の「控えを書き出す」で'+
         '時々バックアップしてください。</p>')+
     '<h3>バックアップ</h3>'+
-    '<button class="tbbtn" data-tbact="export" style="margin-top:6px;width:100%">'+
-      '控えを書き出す（1ファイル）</button>'+
-    '<label class="tbbtn sub" for="tbimpfile" style="margin-top:7px;width:100%">'+
-      '控えから読み込む</label>'+
-    '<input type="file" id="tbimpfile" accept="application/json,.json" hidden>'+
-    '<p class="note" style="margin-top:8px">書き出したファイルは「ファイル」アプリや'+
-    'iCloud Driveに保存できます。新しい端末では、まめ比べを開いて「控えから読み込む」を'+
-    '選べば元に戻ります。</p>'+
+    (alone()
+      ? '<button class="tbbtn" data-tbact="export" style="margin-top:6px;width:100%">'+
+        '控えを書き出す（1ファイル）</button>'+
+        '<label class="tbbtn sub" for="tbimpfile" style="margin-top:7px;width:100%">'+
+        '控えから読み込む</label>'+
+        '<input type="file" id="tbimpfile" accept="application/json,.json" hidden>'+
+        '<p class="note" style="margin-top:8px">書き出したファイルは「ファイル」アプリや'+
+        'iCloud Driveに保存できます。新しい端末では、まめ比べを開いて「控えから読み込む」を'+
+        '選べば元に戻ります。</p>'
+      : '<p class="note">この画面ではファイルを保存できません。'+
+        '<a href="https://tk-from.github.io/mamekurabe/" target="_blank" rel="noopener" '+
+        'style="color:var(--accent);font-weight:700">いつものまめ比べ</a>'+
+        'から開くと、控えの書き出しと読み込みができます。</p>')+
     '<h3>よくある質問</h3>'+
     '<details><summary>この画像は他の人に見られますか？</summary><div class="in2">'+
       '見られません。画像はインターネットに送られておらず、<b>この端末のブラウザの中だけ</b>に'+
