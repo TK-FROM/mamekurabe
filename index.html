@@ -359,6 +359,35 @@ body[data-view="box"] #v-box{display:block}
   font-variant-numeric:tabular-nums;letter-spacing:-.03em}
 .step .val small{font-family:var(--disp);display:block;font-size:11px;font-weight:600;color:var(--mute);
   letter-spacing:.06em}
+/* 数字そのものをタップして打ち込める。抽出量は豆と挽き目で 25g→70g のように大きく動くので、
+   ＋−だけだと目的の値まで何十回も押すことになっていた。 */
+.step .val input{width:100%;background:transparent;border:0;border-bottom:1px dashed var(--line);
+  font-family:var(--mono);text-align:center;font-size:26px;font-weight:600;color:var(--text);
+  font-variant-numeric:tabular-nums;letter-spacing:-.03em;padding:0 0 2px;-moz-appearance:textfield}
+.step .val input::-webkit-outer-spin-button,.step .val input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.step .val input:focus{outline:none;border-bottom:1px solid var(--accent)}
+/* ===== 圧力計 ===== */
+/* EM450J の圧力計を横一直線のバーに写したもの。0〜11 の 0.5 刻み。
+   マックスに近いほど濃く苦くなるので、右へ行くほど色を濃くして目で分かるようにしている。 */
+.pres{display:flex;align-items:center;gap:10px}
+.pres input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:24px;background:transparent;margin:0}
+.pres input[type=range]::-webkit-slider-runnable-track{height:24px;border-radius:12px;border:1px solid var(--line);
+  background:linear-gradient(90deg,var(--track) 0%,var(--track) 50%,color-mix(in srgb,var(--warn) 30%,var(--track)) 80%,color-mix(in srgb,var(--bad) 45%,var(--track)) 100%)}
+.pres input[type=range]::-moz-range-track{height:24px;border-radius:12px;border:1px solid var(--line);
+  background:linear-gradient(90deg,var(--track) 0%,var(--track) 50%,color-mix(in srgb,var(--warn) 30%,var(--track)) 80%,color-mix(in srgb,var(--bad) 45%,var(--track)) 100%)}
+.pres input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;border-radius:50%;
+  margin-top:-1px;background:var(--text);border:3px solid var(--card);box-shadow:0 0 0 1px var(--line)}
+.pres input[type=range]::-moz-range-thumb{width:26px;height:26px;border-radius:50%;
+  background:var(--text);border:3px solid var(--card);box-shadow:0 0 0 1px var(--line)}
+.pres .pv{font-family:var(--mono);font-size:21px;font-weight:700;min-width:66px;text-align:right;
+  font-variant-numeric:tabular-nums;letter-spacing:-.03em}
+.pres.off input[type=range]{opacity:.3}
+.pres.off .pv{color:var(--mute);font-size:12px;font-family:var(--disp)}
+.chips.tight{gap:6px}
+.chips.tight button{padding:7px 10px}
+.presax{position:relative;height:13px;font-family:var(--mono);font-size:10px;color:var(--mute);
+  margin:3px 76px 0 0}
+.presax span{position:absolute;transform:translateX(-50%)}
 .field{margin:0 0 20px}
 .field>label{display:block;font-size:11.5px;font-weight:700;color:var(--mute);margin-bottom:8px;letter-spacing:.08em}
 .seg{display:flex;gap:6px}
@@ -2012,14 +2041,47 @@ const bigStep=()=>Math.max(1,Math.round(espSteps()*0.25));
 const atFinest=v=>G().finer==='down'?v<=espLo()+1e-9:v>=espHi()-1e-9;
 const atCoarsest=v=>G().finer==='down'?v>=espHi()-1e-9:v<=espLo()+1e-9;
 
+/* ===== 圧力計（EM450J は 0〜11 の目盛りが付いている） =====
+   マックス（11）に近いほど粉の抵抗が強く、濃くて苦いエスプレッソになる。
+   低いところで止まっているなら抵抗が足りず、薄く酸っぱくなる。
+   圧力を見ないまま味だけで判断すると「酸っぱい＝もっと細かく」と言ってしまい、
+   すでにマックス近くまで来ているのにさらに細かくして苦くする、というズレが起きる。
+   境目の数字は実機に合わせて直せるよう、ここにまとめてある。 */
+const PRES={max:11,step:.5,hi:9,vhi:10.5,lo:6};
+/* 「記録なし」（null）と 0 を取り違えないこと。0 は「針がまったく動かなかった」という記録である。 */
+const hasPres=sh=>!!sh&&sh.presMax!==null&&sh.presMax!==undefined&&sh.presMax!=='';
+const presLv=sh=>!hasPres(sh)?'none':
+  (+sh.presMax>=PRES.vhi?'vhi':+sh.presMax>=PRES.hi?'hi':+sh.presMax<PRES.lo?'lo':'mid');
+const presHigh=sh=>presLv(sh)==='hi'||presLv(sh)==='vhi';
+const PRESW={vhi:'ほぼマックス',hi:'高め',mid:'ふつう',lo:'低め'};
+const presWord=sh=>!hasPres(sh)?'記録なし':
+  (+sh.presMax).toFixed(1)+'／'+PRES.max+'（'+PRESW[presLv(sh)]+'）';
+
 /* 挽き目を動かしたいが、使える範囲の端まで来ていることがある。
    そこで「もっと細かく」と言い続けても実行できないので、粉の量に切り替える。
    粉を増やせば抵抗が増えて時間が伸び、減らせば縮む。挽き目と同じ効果が得られる。 */
 function grindOr(sh,fine,n,why,prep){
   const u=G().unit, R=(k,d,t,nx)=>({k,why,doIt:d,tip:t,next:nx||null});
+  /* 圧力がマックス近くまで上がっているのに「もっと細かく」は実行してはいけない。
+     抵抗はもう足りているので、細かくしても苦味が増えるだけである。
+     出方が足りないのは粉の粗さではなく、湯の通り道ができているためと考える。 */
+  if(fine&&presHigh(sh))
+    return {k:'粉の準備',why:why+'／ただし圧力計は '+presWord(sh)+'。抵抗はもう足りています',
+      doIt:'挽き目は変えず、粉のほぐし方を直す',
+      tip:'圧力がここまで上がっているのに出方が足りないのは、粉が粗いからではなく、'+
+        '一部だけを湯が通り抜けているためです。ここで細かくすると苦味だけが増えます。'+prep,next:null};
+  /* 逆に、圧力が低いままなのに「粗く」も実行してはいけない。抵抗が足りていないので、
+     粗くすれば薄いだけの一杯になる。低い圧力で苦い・遅いのも湯の通り道のサインである。 */
+  if(!fine&&presLv(sh)==='lo')
+    return {k:'粉の準備',why:why+'／ただし圧力計は '+presWord(sh)+'。抵抗が足りていません',
+      doIt:'挽き目は変えず、粉のほぐし方を直す',
+      tip:'圧力が上がっていないのにこの結果になるのは、粉の一部に湯の通り道ができているサインです。'+
+        'ここで粗くすると、薄いだけの一杯になります。'+prep,next:null};
   if(fine&&!atFinest(sh.grindValue))
     return R('挽き目','挽き目を '+(n*G().step)+u+' ぶん細かく（'+sh.grindValue+' → '+finer(sh.grindValue,n)+'）',
-      '細かくすると湯が通りにくくなり、時間が伸びて成分が多く溶け出します。',{grindValue:finer(sh.grindValue,n)});
+      '細かくすると湯が通りにくくなり、時間が伸びて成分が多く溶け出します。'+
+      (hasPres(sh)?'':'次からは圧力計のいちばん高かったところも記録してください。細かくしてよいかどうかまで判断できます。'),
+      {grindValue:finer(sh.grindValue,n)});
   if(!fine&&!atCoarsest(sh.grindValue))
     return R('挽き目','挽き目を '+(n*G().step)+u+' ぶん粗く（'+sh.grindValue+' → '+coarser(sh.grindValue,n)+'）',
       '粗くすると湯が早く抜け、出しすぎを抑えられます。',{grindValue:coarser(sh.grindValue,n)});
@@ -2070,17 +2132,29 @@ function advise(sh){
     return R('粉の準備','「苦いのに薄い」は、出しすぎと出し足りないが同時に起きているサインです',
       '挽き目は変えず、粉のほぐし方を直す',PREP);
   if(sh.bal<=-1){
-    if(ratio<T.rmax-0.2)return R('抽出量','酸っぱい＝まだ成分が出きっていません',
+    /* 圧力が低いなら抵抗不足がはっきりしているので、抽出量をいじる前に挽き目を細かくする。
+       この順番を守らないと、圧力が低いまま抽出量だけが伸びて水っぽくなる。 */
+    if(presLv(sh)==='lo')
+      return grindOr(sh,true,1,'酸っぱい＋圧力計が '+presWord(sh)+'＝抵抗が足りていません',PREP);
+    if(ratio<T.rmax-0.2)return R('抽出量','酸っぱい＝まだ成分が出きっていません'+
+      (presHigh(sh)?'（圧力計は '+presWord(sh)+'。挽き目はこれ以上細かくしないこと）':''),
       '抽出量を '+Math.round(sh.doseG*(ratio+0.2))+'g まで伸ばす','同じ粉からもう少し引き出します。',
       {yieldG:+(sh.doseG*(ratio+0.2)).toFixed(1)});
     return grindOr(sh,true,1,'酸っぱい＝まだ成分が出きっていません',PREP);
   }
   if(sh.bal>=1){
+    /* 圧力がマックス近くまで上がっているときの苦味は「出しすぎ」ではなく「詰まりすぎ」である。
+       抽出量を削っても圧力は下がらないので、まず挽き目の数字を1つ増やして（粗くして）圧力を落とす。 */
+    if(presHigh(sh))
+      return grindOr(sh,false,1,'苦い＋圧力計が '+presWord(sh)+'＝粉が詰まりすぎています',PREP);
     if(ratio>T.rmin+0.2)return R('抽出量','苦い＝出しすぎです',
       '抽出量を '+Math.round(sh.doseG*(ratio-0.2))+'g で止める','雑味が出る前に切ります。',
       {yieldG:+(sh.doseG*(ratio-0.2)).toFixed(1)});
     return grindOr(sh,false,1,'苦い＝出しすぎです',PREP);
   }
+  /* 味の方向は良いが薄い。圧力が低いなら濃さの問題ではなく抵抗不足なので、挽き目で直す。 */
+  if(sh.str<=-1&&presLv(sh)==='lo')
+    return grindOr(sh,true,1,'薄い＋圧力計が '+presWord(sh)+'＝抵抗が足りていません',PREP);
   if(sh.str<=-1)return R('抽出量','味の方向は良いですが薄いです',
     '抽出量を '+Math.round(sh.doseG*(ratio-0.3))+'g に減らす',
     'バランスは崩さず濃さだけ上げます。アイスラテにするなら、ここは短めに切るのが正解です。'+
@@ -2090,6 +2164,7 @@ function advise(sh){
     '抽出量を '+Math.round(sh.doseG*(ratio+0.3))+'g まで伸ばす','薄めます。',
     {yieldG:+(sh.doseG*(ratio+0.3)).toFixed(1)});
   return R('完成','ちょうどいい一杯です（1:'+ratio.toFixed(1)+(hasTime?'／'+sh.timeSec+'秒':'')+
+    (hasPres(sh)?'／圧力'+(+sh.presMax).toFixed(1):'')+
     (sh.milkMl>0?'／牛乳'+sh.milkMl+'ml':'')+'）',
     'この設定を、この豆のベストとして覚えておく',
     '次に同じ豆を買ったとき、ここから始めればダイヤルインは一発で終わります。'+
@@ -2108,6 +2183,7 @@ function draft(){return S.shots.find(s=>s.status==='draft')}
 function shotLine(s){
   return s.doseG+'g → '+s.yieldG+'g（1:'+(s.yieldG/s.doseG).toFixed(1)+'）'+
     (s.timeSec>0?'／'+s.timeSec+'秒':'')+
+    (hasPres(s)?'／圧力'+(+s.presMax).toFixed(1):'')+
     (s.milkMl>0?'／牛乳'+s.milkMl+'ml':'')+
     '／挽き目 '+s.grindValue+G().unit;
 }
@@ -2152,10 +2228,11 @@ function renderEsp(){
   $('#esp-history').innerHTML=done.length?'<div class="card">'+done.map(s=>{
     const b=anyById(s.beanId);
     /* 挽き目は毎回変える値なので必ず出す。時間と味は入っていれば足す。 */
-    const nums=['挽き目 '+s.grindValue+esc(G().unit)]
+    const nums=['挽き目'+s.grindValue+esc(G().unit)]
       .concat(s.timeSec>0?[s.timeSec+'秒']:[])
+      .concat(hasPres(s)?['圧'+(+s.presMax).toFixed(1)]:[])
       .concat(BALS[String(s.bal||0)]?[BALS[String(s.bal||0)]]:[])
-      .join(' ／ ');
+      .join('／');
     return '<div class="shotrow" data-act="shotdetail" data-id="'+s.id+'">'+
       '<span class="tiny">'+
       new Date(s.at).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'})+'</span>'+
@@ -2198,6 +2275,8 @@ function shotDetailSheet(id){
       kv('抽出時間',s.timeSec>0?'<b>'+s.timeSec+'</b> 秒　<span class="tiny">流量 '+
         (s.yieldG/s.timeSec).toFixed(1)+' g/秒</span>':'測っていない')+
       kv('挽き目','<b>'+s.grindValue+'</b> '+esc(G().unit))+
+      kv('圧力計',hasPres(s)?'<b>'+(+s.presMax).toFixed(1)+'</b> ／'+PRES.max+
+        '　<span class="tiny">'+esc(PRESW[presLv(s)])+'</span>':'見ていない')+
       (s.milkMl>0?kv('牛乳',s.milkMl+' ml'):'')+
       (M().bottomless?kv('抽出の様子',s.spray?'横に飛び散った':'まっすぐ落ちた'):'')+
       kv('味の傾向',esc(BALW[String(s.bal||0)]||'—'))+
@@ -2237,12 +2316,18 @@ function shotSheet(pre){
   form=Object.assign({date:today(),
     beanId:(BEANS.find(b=>b.brew.includes('エスプレッソ'))||BEANS[0]).id,
     doseG:m.capacityG,yieldG:+(m.capacityG*2).toFixed(1),timeSec:0,milkMl:150,
+    /* 圧力だけは前回の値を引き継がない。見なかった回に前回の数字が残ると、
+       淹れてもいない圧力を記録したことになってしまうため。 */
+    presMax:null,
     grindValue:+((espLo()+espHi())/2).toFixed(1)},
     last?{beanId:last.beanId,doseG:last.doseG,yieldG:last.yieldG,timeSec:last.timeSec||0,
       milkMl:last.milkMl||0,grindValue:last.grindValue}:{},pre||{});
+  /* 数字は input にしてある。＋−で細かく動かすのと、キーボードで一気に打ち込むのを
+     両方できるようにするため。抽出量は豆と挽き目で大きく動くので、これが無いと押し続けることになる。 */
   const step=(k,label,unit,dec)=>'<div class="field"><label>'+label+'</label><div class="step">'+
     '<button data-act="st" data-k="'+k+'" data-d="-1">−</button>'+
-    '<span class="val" id="f-'+k+'">'+stepLabel(k,dec)+'<small>'+unit+'</small></span>'+
+    '<span class="val"><input id="f-'+k+'" type="number" inputmode="decimal" step="any" min="0" '+
+    'value="'+stepVal(k,dec)+'" placeholder="—"><small>'+unit+'</small></span>'+
     '<button data-act="st" data-k="'+k+'" data-d="1">＋</button></div></div>';
   const body='<div class="pad">'+
     /* いつ飲んだかは選べるようにしてある。あとからまとめて入れることがあるので、
@@ -2267,6 +2352,7 @@ function shotSheet(pre){
       '<button class="chip" data-act="setsec" data-v="0">記録しない</button>'+
       [20,24,26,28,30,32,36].map(v=>'<button class="chip" data-act="setsec" data-v="'+v+'">'+v+'秒</button>').join('')+
       '</div><p class="tiny" style="margin-top:6px">時間がないときは、味だけを見て次の一手を出します。</p></div>'+
+    presField()+
     step('milkMl','牛乳の量（アイスカフェラテ用）','ml',0)+
     '<div class="field"><div class="chips">'+
       '<button class="chip" data-act="setmilk" data-v="0">入れない</button>'+
@@ -2279,11 +2365,55 @@ function shotSheet(pre){
     '<div class="note" style="margin-top:10px" id="f-calc"></div></div>';
   openSheet('抽出を記録する',body,
     '<button class="btn ghost" data-close style="flex:1">やめる</button><button class="btn" data-act="saveshot" style="flex:2">保存する</button>',
-    ()=>{$('#f-bean').onchange=e=>{form.beanId=e.target.value;calc()};calc()});
+    ()=>{$('#f-bean').onchange=e=>{form.beanId=e.target.value;calc()};bindShotInputs();calc()});
+}
+/* 圧力の入力欄。横一直線のバーを指でなぞるだけで 0〜11 を 0.5 刻みで選べる。
+   よく使う値はチップでも押せるようにしてある（片手で淹れながら入れるため）。 */
+function presField(){
+  const on=hasPres(form), v=on?+form.presMax:7;
+  return '<div class="field"><label>圧力計のいちばん高かったところ</label>'+
+    '<div class="pres'+(on?'':' off')+'" id="f-preswrap">'+
+    '<input type="range" id="f-pres" min="0" max="'+PRES.max+'" step="'+PRES.step+'" value="'+v+'" '+
+    'aria-label="圧力計の最大値">'+
+    '<span class="pv" id="f-presval">'+(on?v.toFixed(1):'記録なし')+'</span></div>'+
+    '<div class="presax">'+[0,3,6,9,PRES.max].map(x=>'<span style="left:calc(13px + (100% - 26px)*'+
+      (x/PRES.max).toFixed(3)+')">'+x+'</span>').join('')+'</div>'+
+    '<div class="chips tight" style="margin-top:8px">'+
+      '<button class="chip" data-act="setpres" data-v="">記録なし</button>'+
+      /* チップは1行に収める。マックスの注記を入れると2行に増えて、そのぶん画面が減る。 */
+      [6,8,9,10,11].map(x=>'<button class="chip" data-act="setpres" data-v="'+x+'">'+x+'</button>').join('')+'</div>'+
+    '<p class="tiny" style="margin-top:6px">抽出中にいちばん針が上がったところを入れてください。'+
+    'マックス（'+PRES.max+'）に近いほど、濃くて苦いエスプレッソになります。'+
+    '<b>ここを入れておくと「酸っぱいから細かく」のような、これ以上細かくできない提案が出なくなります。</b>'+
+    '見ていなければ「記録なし」のままで構いません。</p></div>';
+}
+/* バーとチップのどちらから変えても、同じ見た目に描き直す */
+function paintPres(){
+  const w=$('#f-preswrap'), v=$('#f-presval'), r=$('#f-pres');
+  const on=hasPres(form);
+  if(w&&w.classList){if(on)w.classList.remove('off');else w.classList.add('off')}
+  if(v)v.textContent=on?(+form.presMax).toFixed(1):'記録なし';
+  if(r&&on)r.value=form.presMax;
+}
+/* 数字の入力欄とバーを form につなぐ。シートを開くたびに呼ぶ。 */
+function bindShotInputs(){
+  ['doseG','yieldG','timeSec','milkMl','grindValue'].forEach(k=>{
+    const e=$('#f-'+k);if(!e)return;
+    e.oninput=ev=>{const x=ev.target.value;
+      form[k]=(x===''||isNaN(+x))?0:Math.max(0,+x);calc()};
+  });
+  const p=$('#f-pres');
+  if(p)p.oninput=ev=>{form.presMax=+ev.target.value;paintPres();calc()};
 }
 function calc(){
-  const r=form.yieldG/form.doseG, fill=form.doseG/M().capacityG;
-  let h='レシオ <b>1:'+r.toFixed(1)+'</b>', warn='';
+  const r=form.doseG>0?form.yieldG/form.doseG:0, fill=form.doseG/M().capacityG;
+  let h='レシオ <b>1:'+(r>0?r.toFixed(1):'—')+'</b>', warn='';
+  if(hasPres(form)){
+    h+='　／　圧力 <b>'+(+form.presMax).toFixed(1)+'</b>／'+PRES.max+'（'+PRESW[presLv(form)]+'）';
+    if(presHigh(form))warn+='<br>⚠ 圧力がマックスに近いので、これ以上細かく挽くと苦くなります';
+    else if(presLv(form)==='lo')warn+='<br>⚠ 圧力が上がりきっていません（挽き目が粗いか、粉が少なめです）';
+  }
+  if(!(form.doseG>0))warn+='<br>⚠ 粉の量を入れてください';
   if(form.timeSec>0){
     const f=form.yieldG/form.timeSec;
     h+='　／　流量 <b>'+f.toFixed(1)+'</b> g/秒';
@@ -2299,24 +2429,27 @@ function calc(){
 const STEP_INC={doseG:0.1,yieldG:0.5,timeSec:1,milkMl:10,grindValue:1};
 const STEP_DEC={doseG:1,yieldG:1,timeSec:0,milkMl:0,grindValue:1};
 const STEP_UNIT={doseG:'g',yieldG:'g',timeSec:'秒',milkMl:'ml',grindValue:''};
-/* 抽出時間と牛乳は「記録しないことがある」ので、0 のときは数字ではなく「—」と見せる */
-function stepLabel(k,dec){
-  if((k==='timeSec'||k==='milkMl')&&!form[k])return '—';
+/* 抽出時間と牛乳は「記録しないことがある」ので、0 のときは空にして placeholder の「—」を見せる。
+   入力欄になったので、以前のように「—」という文字を value に入れてはいけない（数字として読めなくなる）。 */
+function stepVal(k,dec){
+  if((k==='timeSec'||k==='milkMl')&&!form[k])return '';
   return (+form[k]).toFixed(dec===undefined?STEP_DEC[k]:dec);
 }
 function stepField(k,d){
   const inc=k==='grindValue'?G().step:STEP_INC[k];
   form[k]=Math.max(0,+(form[k]+d*inc).toFixed(2));
   const el=$('#f-'+k);
-  if(el)el.innerHTML=stepLabel(k)+'<small>'+STEP_UNIT[k]+'</small>';
+  if(el)el.value=stepVal(k);
   calc();
   if(navigator.vibrate)navigator.vibrate(8);
 }
 function saveShot(){
   /* 飲んだ日は画面で選べる。記録を作る前に、その入力欄を読む。 */
   const de=$('#f-date');if(de&&de.value)form.date=de.value;
+  /* 入力欄を空にしたまま保存されると、レシオも残量の計算も成り立たない */
+  if(!(form.doseG>0)||!(form.yieldG>0)){alert('粉の量と出来上がりの量を入れてください');return}
   const s=Object.assign({id:uid('s'),at:atFrom(form.date),status:'draft',bal:0,str:0,rating:0,
-    spray:false,timeSec:0,milkMl:0,memo:'',stockId:'',adv:null},form);
+    spray:false,timeSec:0,milkMl:0,presMax:null,memo:'',stockId:'',adv:null},form);
   /* 評価まちの記録を捨てて上書きするときは、その1杯ぶんの豆を残量に戻してから捨てる。
      戻さないと、淹れていない豆が減ったままになる。 */
   const d=draft();if(d){useStock(d.beanId,d.doseG,-1,d.stockId);
@@ -3241,11 +3374,13 @@ document.addEventListener('click',e=>{
   else if(a==='newshot'){shotSheet()}
   else if(a==='st'){stepField(t.dataset.k,+t.dataset.d)}
   else if(a==='setsec'){form.timeSec=+t.dataset.v;
-    const e=$('#f-timeSec');if(e)e.innerHTML=stepLabel('timeSec')+'<small>秒</small>';calc()}
+    const e=$('#f-timeSec');if(e)e.value=stepVal('timeSec');calc()}
+  else if(a==='setpres'){const v=t.dataset.v;
+    form.presMax=(v===''||v===undefined||v===null)?null:+v;paintPres();calc()}
   else if(a==='setdate'){const d=new Date();d.setDate(d.getDate()-(+t.dataset.d||0));
     form.date=ymd(d);const e=$('#f-date');if(e)e.value=form.date}
   else if(a==='setmilk'){form.milkMl=+t.dataset.v;
-    const e=$('#f-milkMl');if(e)e.innerHTML=stepLabel('milkMl')+'<small>ml</small>';calc()}
+    const e=$('#f-milkMl');if(e)e.value=stepVal('milkMl');calc()}
   else if(a==='delshot'){if(!confirm('この記録を消しますか？'))return;
     /* 淹れなかったことにするので、使ったぶんの豆を残量に戻す */
     const s0=S.shots.find(x=>x.id===id);if(s0)useStock(s0.beanId,s0.doseG,-1,s0.stockId);
