@@ -2260,6 +2260,8 @@ const BALW={'-2':'すごく酸っぱい','-1':'やや酸っぱい','0':'ちょ�
 /* 一覧の行は幅が狭いので、同じ意味の短い言い方を別に持つ */
 const BALS={'-2':'すごく酸味','-1':'やや酸味','0':'ちょうど','1':'やや苦い','2':'すごく苦い'};
 const STRW={'-2':'とても薄い','-1':'やや薄い','0':'ちょうど','1':'やや濃い','2':'とても濃い'};
+/* いま詳細を開いている記録。圧力を直すときに、どの記録かを知るために使う。 */
+let shotEditId=null;
 function shotDetailSheet(id){
   const s=S.shots.find(x=>x.id===id);if(!s)return;
   const b=anyById(s.beanId), dt=new Date(s.at);
@@ -2275,31 +2277,54 @@ function shotDetailSheet(id){
       kv('抽出時間',s.timeSec>0?'<b>'+s.timeSec+'</b> 秒　<span class="tiny">流量 '+
         (s.yieldG/s.timeSec).toFixed(1)+' g/秒</span>':'測っていない')+
       kv('挽き目','<b>'+s.grindValue+'</b> '+esc(G().unit))+
-      kv('圧力計',hasPres(s)?'<b>'+(+s.presMax).toFixed(1)+'</b> ／'+PRES.max+
-        '　<span class="tiny">'+esc(PRESW[presLv(s)])+'</span>':'見ていない')+
       (s.milkMl>0?kv('牛乳',s.milkMl+' ml'):'')+
       (M().bottomless?kv('抽出の様子',s.spray?'横に飛び散った':'まっすぐ落ちた'):'')+
       kv('味の傾向',esc(BALW[String(s.bal||0)]||'—'))+
       kv('濃さ',esc(STRW[String(s.str||0)]||'—'))+
       kv('総合',s.rating>0?'<span style="color:var(--gold)">'+'★'.repeat(s.rating)+'</span>':'—')+
     '</dl>'+
-    /* そのとき出した「つぎの一手」を、エスプレッソ画面と同じ見た目で残す。
-       何を言われてこの設定にしたのかが分からないと、記録を見返す意味が半分になる。 */
-    (s.adv?'<div class="advice'+(s.adv.k==='完成'?' ok':'')+'" style="margin:16px 0 0">'+
-      '<div class="k">このときの つぎの一手 ／ '+esc(s.adv.k)+'</div>'+
-      (s.adv.why?'<div class="muted" style="font-size:13px">'+esc(s.adv.why)+'</div>':'')+
-      '<div class="do">'+esc(s.adv.doIt)+'</div>'+
-      (s.adv.tip?'<p class="tiny">'+esc(s.adv.tip)+'</p>':'')+'</div>'
-     :'<div class="note" style="margin-top:16px">この記録には、つぎの一手が残っていません。'+
-      '（「記録して、次の一手を見る」を押す前に閉じた記録です）</div>')+
+    /* 圧力だけは、あとから入れ直せるようにしてある。
+       圧力の記録は 2026-09-05 に足したので、それより前の記録には入っていない。
+       あとで思い出したぶんを入れれば、そのときの提案も出し直せる。 */
+    '<div class="field" style="margin:16px 0 0"><label>圧力計のいちばん高かったところ</label>'+
+      presBar('d-pres','dpres',s.presMax)+
+      '<p class="tiny" style="margin-top:6px">ここを直すと、下の「つぎの一手」も出し直します。'+
+      '抽出のときに見ていなかった記録にも、あとから足せます。</p></div>'+
+    '<div id="d-adv">'+advBlock(s)+'</div>'+
     '<div class="field" style="margin-top:18px"><label>メモ</label>'+
       '<textarea id="d-memo" rows="3" placeholder="飲んだ感想や、次に試すことを書き足せます">'+
       esc(s.memo||'')+'</textarea>'+
       '<button class="btn ghost wide" style="margin-top:8px" data-act="savshotmemo" data-id="'+
       s.id+'">メモを保存する</button></div></div>';
+  shotEditId=s.id;
   openSheet('この一杯の記録',body,
     '<button class="btn ghost" data-close style="flex:1">閉じる</button>'+
-    '<button class="btn" data-act="reuse" data-id="'+s.id+'" style="flex:2">この設定でもう一杯</button>');
+    '<button class="btn" data-act="reuse" data-id="'+s.id+'" style="flex:2">この設定でもう一杯</button>',
+    ()=>{const r=$('#d-pres');if(r)r.oninput=e=>setShotPres(e.target.value)});
+}
+/* そのとき出した「つぎの一手」。エスプレッソ画面と同じ見た目で見せる。
+   何を言われてこの設定にしたのかが分からないと、記録を見返す意味が半分になる。 */
+function advBlock(s){
+  return s.adv?'<div class="advice'+(s.adv.k==='完成'?' ok':'')+'" style="margin:16px 0 0">'+
+    '<div class="k">このときの つぎの一手 ／ '+esc(s.adv.k)+'</div>'+
+    (s.adv.why?'<div class="muted" style="font-size:13px">'+esc(s.adv.why)+'</div>':'')+
+    '<div class="do">'+esc(s.adv.doIt)+'</div>'+
+    (s.adv.tip?'<p class="tiny">'+esc(s.adv.tip)+'</p>':'')+'</div>'
+   :'<div class="note" style="margin-top:16px">この記録には、つぎの一手が残っていません。'+
+    '（「記録して、次の一手を見る」を押す前に閉じた記録です）</div>';
+}
+/* あとから圧力を入れ直したら、その記録に出した提案も出し直す。
+   古い提案が残ったままだと、圧力を入れた意味がない。
+   シート全体を描き直さないのは、書きかけのメモを消さないためである。 */
+function setShotPres(v){
+  const s=S.shots.find(x=>x.id===shotEditId);if(!s)return;
+  s.presMax=(v===''||v===undefined||v===null)?null:+v;
+  /* 味を入れる前（評価まち）の記録は、まだ提案を出す材料がそろっていない */
+  if(s.status==='done')s.adv=advise(s);
+  save();
+  paintPres('d-pres',s.presMax);
+  const el=$('#d-adv');if(el)el.innerHTML=advBlock(s);
+  renderEsp();
 }
 
 /* 選んだ日を記録の時刻に変える。今日なら「いま」、過去の日なら正午にしておく。
@@ -2369,31 +2394,38 @@ function shotSheet(pre){
 }
 /* 圧力の入力欄。横一直線のバーを指でなぞるだけで 0〜11 を 0.5 刻みで選べる。
    よく使う値はチップでも押せるようにしてある（片手で淹れながら入れるため）。 */
-function presField(){
-  const on=hasPres(form), v=on?+form.presMax:7;
-  return '<div class="field"><label>圧力計のいちばん高かったところ</label>'+
-    '<div class="pres'+(on?'':' off')+'" id="f-preswrap">'+
-    '<input type="range" id="f-pres" min="0" max="'+PRES.max+'" step="'+PRES.step+'" value="'+v+'" '+
-    'aria-label="圧力計の最大値">'+
-    '<span class="pv" id="f-presval">'+(on?v.toFixed(1):'記録なし')+'</span></div>'+
+/* 圧力のバーは2か所で使う。淹れたときに記録する画面と、あとから直す画面。
+   見た目を1つにしておきたいので、id の頭と押されたときの目印だけを差し替える形にしてある。
+   目盛りの数字は left:calc(13px + (100% - 26px)*割合) で置く。flex の等間隔だと
+   9→11 の間隔だけ狭いことを表現できず、数字と針が最大 0.75 ぶんズレるため。26px はつまみの直径。 */
+function presBar(pfx,act,v){
+  const on=hasPres({presMax:v});
+  return '<div class="pres'+(on?'':' off')+'" id="'+pfx+'wrap">'+
+    '<input type="range" id="'+pfx+'" min="0" max="'+PRES.max+'" step="'+PRES.step+'" '+
+    'value="'+(on?+v:7)+'" aria-label="圧力計の最大値">'+
+    '<span class="pv" id="'+pfx+'val">'+(on?(+v).toFixed(1):'記録なし')+'</span></div>'+
     '<div class="presax">'+[0,3,6,9,PRES.max].map(x=>'<span style="left:calc(13px + (100% - 26px)*'+
       (x/PRES.max).toFixed(3)+')">'+x+'</span>').join('')+'</div>'+
+    /* チップは1行に収める。増やすと2行に落ちて、そのぶん画面に入る情報が減る。 */
     '<div class="chips tight" style="margin-top:8px">'+
-      '<button class="chip" data-act="setpres" data-v="">記録なし</button>'+
-      /* チップは1行に収める。マックスの注記を入れると2行に増えて、そのぶん画面が減る。 */
-      [6,8,9,10,11].map(x=>'<button class="chip" data-act="setpres" data-v="'+x+'">'+x+'</button>').join('')+'</div>'+
+      '<button class="chip" data-act="'+act+'" data-v="">記録なし</button>'+
+      [6,8,9,10,11].map(x=>'<button class="chip" data-act="'+act+'" data-v="'+x+'">'+x+
+        '</button>').join('')+'</div>';
+}
+function presField(){
+  return '<div class="field"><label>圧力計のいちばん高かったところ</label>'+
+    presBar('f-pres','setpres',form.presMax)+
     '<p class="tiny" style="margin-top:6px">抽出中にいちばん針が上がったところを入れてください。'+
     'マックス（'+PRES.max+'）に近いほど、濃くて苦いエスプレッソになります。'+
-    '<b>ここを入れておくと「酸っぱいから細かく」のような、これ以上細かくできない提案が出なくなります。</b>'+
     '見ていなければ「記録なし」のままで構いません。</p></div>';
 }
 /* バーとチップのどちらから変えても、同じ見た目に描き直す */
-function paintPres(){
-  const w=$('#f-preswrap'), v=$('#f-presval'), r=$('#f-pres');
-  const on=hasPres(form);
+function paintPres(pfx,v){
+  const on=hasPres({presMax:v});
+  const w=$('#'+pfx+'wrap'), t=$('#'+pfx+'val'), r=$('#'+pfx);
   if(w&&w.classList){if(on)w.classList.remove('off');else w.classList.add('off')}
-  if(v)v.textContent=on?(+form.presMax).toFixed(1):'記録なし';
-  if(r&&on)r.value=form.presMax;
+  if(t)t.textContent=on?(+v).toFixed(1):'記録なし';
+  if(r&&on)r.value=v;
 }
 /* 数字の入力欄とバーを form につなぐ。シートを開くたびに呼ぶ。 */
 function bindShotInputs(){
@@ -2403,7 +2435,7 @@ function bindShotInputs(){
       form[k]=(x===''||isNaN(+x))?0:Math.max(0,+x);calc()};
   });
   const p=$('#f-pres');
-  if(p)p.oninput=ev=>{form.presMax=+ev.target.value;paintPres();calc()};
+  if(p)p.oninput=ev=>{form.presMax=+ev.target.value;paintPres('f-pres',form.presMax);calc()};
 }
 function calc(){
   const r=form.doseG>0?form.yieldG/form.doseG:0, fill=form.doseG/M().capacityG;
@@ -3376,7 +3408,9 @@ document.addEventListener('click',e=>{
   else if(a==='setsec'){form.timeSec=+t.dataset.v;
     const e=$('#f-timeSec');if(e)e.value=stepVal('timeSec');calc()}
   else if(a==='setpres'){const v=t.dataset.v;
-    form.presMax=(v===''||v===undefined||v===null)?null:+v;paintPres();calc()}
+    form.presMax=(v===''||v===undefined||v===null)?null:+v;paintPres('f-pres',form.presMax);calc()}
+  /* あとから記録の圧力を直したとき */
+  else if(a==='dpres'){setShotPres(t.dataset.v)}
   else if(a==='setdate'){const d=new Date();d.setDate(d.getDate()-(+t.dataset.d||0));
     form.date=ymd(d);const e=$('#f-date');if(e)e.value=form.date}
   else if(a==='setmilk'){form.milkMl=+t.dataset.v;
