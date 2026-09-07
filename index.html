@@ -367,14 +367,27 @@ body[data-view="box"] #v-box{display:block}
 .step .val input::-webkit-outer-spin-button,.step .val input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .step .val input:focus{outline:none;border-bottom:1px solid var(--accent)}
 /* ===== 圧力計 ===== */
-/* EM450J の圧力計を横一直線のバーに写したもの。0〜11 の 0.5 刻み。
-   マックスに近いほど濃く苦くなるので、右へ行くほど色を濃くして目で分かるようにしている。 */
+/* EM450J の圧力計を横一直線のバーに写したもの。目盛りは 0〜11 だが、
+   **抽出できるのは 9 まで**で、それを超えると圧力がかかりすぎて抽出が止まる。
+   だから 9 のところに赤い線を引き、そこから先は「使えないところ」として灰色にしてある。
+   色の変わり目・赤い線・目盛りの数字は、すべて calc(13px + (100% - 26px)*割合) で
+   同じ位置に置いている（26px はつまみの直径。ここを揃えないと針と数字がズレる）。 */
 .pres{display:flex;align-items:center;gap:10px}
+.presbar{position:relative;flex:1;display:flex}
+/* 9 のところの赤い線。指の操作を邪魔しないよう pointer-events は切る。 */
+.presbar .mk{position:absolute;top:-4px;bottom:-4px;width:2px;border-radius:1px;
+  background:var(--bad);pointer-events:none;left:calc(13px + (100% - 26px)*0.818)}
 .pres input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:24px;background:transparent;margin:0}
 .pres input[type=range]::-webkit-slider-runnable-track{height:24px;border-radius:12px;border:1px solid var(--line);
-  background:linear-gradient(90deg,var(--track) 0%,var(--track) 50%,color-mix(in srgb,var(--warn) 30%,var(--track)) 80%,color-mix(in srgb,var(--bad) 45%,var(--track)) 100%)}
+  background:linear-gradient(90deg,var(--track) 0,var(--track) calc(13px + (100% - 26px)*0.45),
+    color-mix(in srgb,var(--warn) 32%,var(--track)) calc(13px + (100% - 26px)*0.68),
+    color-mix(in srgb,var(--bad) 48%,var(--track)) calc(13px + (100% - 26px)*0.818),
+    var(--line) calc(13px + (100% - 26px)*0.818),var(--line) 100%)}
 .pres input[type=range]::-moz-range-track{height:24px;border-radius:12px;border:1px solid var(--line);
-  background:linear-gradient(90deg,var(--track) 0%,var(--track) 50%,color-mix(in srgb,var(--warn) 30%,var(--track)) 80%,color-mix(in srgb,var(--bad) 45%,var(--track)) 100%)}
+  background:linear-gradient(90deg,var(--track) 0,var(--track) calc(13px + (100% - 26px)*0.45),
+    color-mix(in srgb,var(--warn) 32%,var(--track)) calc(13px + (100% - 26px)*0.68),
+    color-mix(in srgb,var(--bad) 48%,var(--track)) calc(13px + (100% - 26px)*0.818),
+    var(--line) calc(13px + (100% - 26px)*0.818),var(--line) 100%)}
 .pres input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;border-radius:50%;
   margin-top:-1px;background:var(--text);border:3px solid var(--card);box-shadow:0 0 0 1px var(--line)}
 .pres input[type=range]::-moz-range-thumb{width:26px;height:26px;border-radius:50%;
@@ -388,6 +401,8 @@ body[data-view="box"] #v-box{display:block}
 .presax{position:relative;height:13px;font-family:var(--mono);font-size:10px;color:var(--mute);
   margin:3px 76px 0 0}
 .presax span{position:absolute;transform:translateX(-50%)}
+/* 9 は「ここまでしか抽出できない」という意味を持つので、他の目盛りと見た目を変える */
+.presax span.lim{color:var(--bad);font-weight:700;font-size:10.5px}
 .field{margin:0 0 20px}
 .field>label{display:block;font-size:11.5px;font-weight:700;color:var(--mute);margin-bottom:8px;letter-spacing:.08em}
 .seg{display:flex;gap:6px}
@@ -2042,33 +2057,45 @@ const atFinest=v=>G().finer==='down'?v<=espLo()+1e-9:v>=espHi()-1e-9;
 const atCoarsest=v=>G().finer==='down'?v>=espHi()-1e-9:v<=espLo()+1e-9;
 
 /* ===== 圧力計（EM450J は 0〜11 の目盛りが付いている） =====
-   マックス（11）に近いほど粉の抵抗が強く、濃くて苦いエスプレッソになる。
+   **目盛りは 11 まであるが、抽出できるのは 9 まで。**
+   9 を超えると圧力がかかりすぎて抽出そのものが止まってしまうので、
+   飲める一杯の記録は基本的に 9 以下に収まる（tatsu が 2026-09-08 に教えてくれた）。
+   したがって「マックス＝11」ではなく「上限＝9」を基準に判断する。
+   9 に近いほど粉の抵抗が強く、濃くて苦いエスプレッソになる。
    低いところで止まっているなら抵抗が足りず、薄く酸っぱくなる。
    圧力を見ないまま味だけで判断すると「酸っぱい＝もっと細かく」と言ってしまい、
-   すでにマックス近くまで来ているのにさらに細かくして苦くする、というズレが起きる。
-   境目の数字は実機に合わせて直せるよう、ここにまとめてある。 */
-const PRES={max:11,step:.5,hi:9,vhi:10.5,lo:6};
+   すでに上限近くまで来ているのにさらに細かくして苦くする、というズレが起きる。
+
+   max  … 目盛りの端。バーの右端はここ（針が振り切れた回も記録できるように残してある）
+   top  … 抽出できる上限。赤い線と「◯／9」の表示はこれを使う
+   vhi  … 上限にへばりついている。これ以上細かくしてはいけない
+   hi   … 高め
+   lo   … 低め。抵抗が足りていない
+   **境目の数字は実測ではなく置いた値なので、使ってみてズレていたらこの1行だけ直す。** */
+const PRES={max:11,top:9,step:.5,hi:7.5,vhi:8.5,lo:5};
 /* 「記録なし」（null）と 0 を取り違えないこと。0 は「針がまったく動かなかった」という記録である。 */
 const hasPres=sh=>!!sh&&sh.presMax!==null&&sh.presMax!==undefined&&sh.presMax!=='';
 const presLv=sh=>!hasPres(sh)?'none':
   (+sh.presMax>=PRES.vhi?'vhi':+sh.presMax>=PRES.hi?'hi':+sh.presMax<PRES.lo?'lo':'mid');
 const presHigh=sh=>presLv(sh)==='hi'||presLv(sh)==='vhi';
-const PRESW={vhi:'ほぼマックス',hi:'高め',mid:'ふつう',lo:'低め'};
+const PRESW={vhi:'ほぼ上限',hi:'高め',mid:'ふつう',lo:'低め'};
+/* 分母は目盛りの端（11）ではなく、抽出できる上限（9）を出す。
+   「10.0／11」より「9.0／9」のほうが、もう上げられないことが伝わる。 */
 const presWord=sh=>!hasPres(sh)?'記録なし':
-  (+sh.presMax).toFixed(1)+'／'+PRES.max+'（'+PRESW[presLv(sh)]+'）';
+  (+sh.presMax).toFixed(1)+'／'+PRES.top+'（'+PRESW[presLv(sh)]+'）';
 
 /* 挽き目を動かしたいが、使える範囲の端まで来ていることがある。
    そこで「もっと細かく」と言い続けても実行できないので、粉の量に切り替える。
    粉を増やせば抵抗が増えて時間が伸び、減らせば縮む。挽き目と同じ効果が得られる。 */
 function grindOr(sh,fine,n,why,prep){
   const u=G().unit, R=(k,d,t,nx)=>({k,why,doIt:d,tip:t,next:nx||null});
-  /* 圧力がマックス近くまで上がっているのに「もっと細かく」は実行してはいけない。
+  /* 圧力が上限（9）近くまで上がっているのに「もっと細かく」は実行してはいけない。
      抵抗はもう足りているので、細かくしても苦味が増えるだけである。
      出方が足りないのは粉の粗さではなく、湯の通り道ができているためと考える。 */
   if(fine&&presHigh(sh))
     return {k:'粉の準備',why:why+'／ただし圧力計は '+presWord(sh)+'。抵抗はもう足りています',
       doIt:'挽き目は変えず、粉のほぐし方を直す',
-      tip:'圧力がここまで上がっているのに出方が足りないのは、粉が粗いからではなく、'+
+      tip:'圧力が上限ちかくまで上がっているのに出方が足りないのは、粉が粗いからではなく、'+
         '一部だけを湯が通り抜けているためです。ここで細かくすると苦味だけが増えます。'+prep,next:null};
   /* 逆に、圧力が低いままなのに「粗く」も実行してはいけない。抵抗が足りていないので、
      粗くすれば薄いだけの一杯になる。低い圧力で苦い・遅いのも湯の通り道のサインである。 */
@@ -2143,7 +2170,7 @@ function advise(sh){
     return grindOr(sh,true,1,'酸っぱい＝まだ成分が出きっていません',PREP);
   }
   if(sh.bal>=1){
-    /* 圧力がマックス近くまで上がっているときの苦味は「出しすぎ」ではなく「詰まりすぎ」である。
+    /* 圧力が上限（9）近くまで上がっているときの苦味は「出しすぎ」ではなく「詰まりすぎ」である。
        抽出量を削っても圧力は下がらないので、まず挽き目の数字を1つ増やして（粗くして）圧力を落とす。 */
     if(presHigh(sh))
       return grindOr(sh,false,1,'苦い＋圧力計が '+presWord(sh)+'＝粉が詰まりすぎています',PREP);
@@ -2398,25 +2425,33 @@ function shotSheet(pre){
    見た目を1つにしておきたいので、id の頭と押されたときの目印だけを差し替える形にしてある。
    目盛りの数字は left:calc(13px + (100% - 26px)*割合) で置く。flex の等間隔だと
    9→11 の間隔だけ狭いことを表現できず、数字と針が最大 0.75 ぶんズレるため。26px はつまみの直径。 */
+/* 目盛りの数字も赤い線も、つまみの中心と同じ式で置く。26px はつまみの直径。 */
+const presAt=x=>'calc(13px + (100% - 26px)*'+(x/PRES.max).toFixed(3)+')';
 function presBar(pfx,act,v){
   const on=hasPres({presMax:v});
   return '<div class="pres'+(on?'':' off')+'" id="'+pfx+'wrap">'+
-    '<input type="range" id="'+pfx+'" min="0" max="'+PRES.max+'" step="'+PRES.step+'" '+
-    'value="'+(on?+v:7)+'" aria-label="圧力計の最大値">'+
+    '<div class="presbar">'+
+      '<input type="range" id="'+pfx+'" min="0" max="'+PRES.max+'" step="'+PRES.step+'" '+
+      'value="'+(on?+v:7)+'" aria-label="圧力計の最大値">'+
+      /* 抽出できる上限（9）の赤い線。ここから右は圧力がかかりすぎて抽出が止まる。 */
+      '<span class="mk" aria-hidden="true"></span></div>'+
     '<span class="pv" id="'+pfx+'val">'+(on?(+v).toFixed(1):'記録なし')+'</span></div>'+
-    '<div class="presax">'+[0,3,6,9,PRES.max].map(x=>'<span style="left:calc(13px + (100% - 26px)*'+
-      (x/PRES.max).toFixed(3)+')">'+x+'</span>').join('')+'</div>'+
-    /* チップは1行に収める。増やすと2行に落ちて、そのぶん画面に入る情報が減る。 */
+    '<div class="presax">'+[0,3,6,PRES.top,PRES.max].map(x=>'<span'+
+      (x===PRES.top?' class="lim"':'')+' style="left:'+presAt(x)+'">'+x+'</span>').join('')+'</div>'+
+    /* チップは1行に収める。増やすと2行に落ちて、そのぶん画面に入る情報が減る。
+       9 より上は飲める一杯にならないので、チップには出さない（バーでは入れられる）。 */
     '<div class="chips tight" style="margin-top:8px">'+
       '<button class="chip" data-act="'+act+'" data-v="">記録なし</button>'+
-      [6,8,9,10,11].map(x=>'<button class="chip" data-act="'+act+'" data-v="'+x+'">'+x+
+      [5,6,7,8,PRES.top].map(x=>'<button class="chip" data-act="'+act+'" data-v="'+x+'">'+x+
         '</button>').join('')+'</div>';
 }
 function presField(){
   return '<div class="field"><label>圧力計のいちばん高かったところ</label>'+
     presBar('f-pres','setpres',form.presMax)+
     '<p class="tiny" style="margin-top:6px">抽出中にいちばん針が上がったところを入れてください。'+
-    'マックス（'+PRES.max+'）に近いほど、濃くて苦いエスプレッソになります。'+
+    '<b style="color:var(--bad)">赤い線（'+PRES.top+'）が抽出できる上限です。</b>'+
+    'これを超えると圧力がかかりすぎて抽出が止まるので、飲めた一杯なら'+PRES.top+'以下に収まります。'+
+    PRES.top+'に近いほど、濃くて苦いエスプレッソになります。'+
     '見ていなければ「記録なし」のままで構いません。</p></div>';
 }
 /* バーとチップのどちらから変えても、同じ見た目に描き直す */
@@ -2441,8 +2476,9 @@ function calc(){
   const r=form.doseG>0?form.yieldG/form.doseG:0, fill=form.doseG/M().capacityG;
   let h='レシオ <b>1:'+(r>0?r.toFixed(1):'—')+'</b>', warn='';
   if(hasPres(form)){
-    h+='　／　圧力 <b>'+(+form.presMax).toFixed(1)+'</b>／'+PRES.max+'（'+PRESW[presLv(form)]+'）';
-    if(presHigh(form))warn+='<br>⚠ 圧力がマックスに近いので、これ以上細かく挽くと苦くなります';
+    h+='　／　圧力 <b>'+(+form.presMax).toFixed(1)+'</b>／'+PRES.top+'（'+PRESW[presLv(form)]+'）';
+    if(+form.presMax>PRES.top)warn+='<br>⚠ '+PRES.top+'を超えています。EM450Jでは抽出が止まる圧力です';
+    else if(presHigh(form))warn+='<br>⚠ 圧力が上限（'+PRES.top+'）に近いので、これ以上細かく挽くと苦くなります';
     else if(presLv(form)==='lo')warn+='<br>⚠ 圧力が上がりきっていません（挽き目が粗いか、粉が少なめです）';
   }
   if(!(form.doseG>0))warn+='<br>⚠ 粉の量を入れてください';
