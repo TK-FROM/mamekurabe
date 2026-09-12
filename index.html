@@ -1027,6 +1027,14 @@ body[data-view="box"] .cupzone{display:none}
         <path d="M15 4.5 8 12l7 7.5"/></svg></button><h2 id="full-title"></h2>
   </div><div class="body" id="full-body"></div></div>
 
+<!-- クラウド同期用（美容ノートと同じ Firebase プロジェクト biyounote）。
+     この3行は、この下にある本体のスクリプトより必ず前に置くこと。test.js は
+     最初のスクリプト開始タグから最後の終了タグまでを貪欲に取り出すので、
+     本体より後ろにタグを足すと351件のテストがまとめて壊れる。
+     同じ理由で、この注釈にタグの文字そのものを書いてはいけない。 -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script>
 /* =========================================================================
    豆データ  ―  特定の商品ではなく「産地・精製・焙煎度の代表例」です。
@@ -1195,7 +1203,12 @@ function migrate(d){
 }
 let S;
 try{S=migrate(JSON.parse(localStorage.getItem(LS)||'{}'))}catch(e){S=DEF()}
-const save=()=>{try{localStorage.setItem(LS,JSON.stringify(S));return true}catch(e){return false}};
+/* 保存は「端末の控え」と「クラウド」の両方へ。クラウドが正で、localStorage は
+   電波が無いときのための控えである。cloudPush は差分だけを書くので毎回呼んでよい。 */
+const save=()=>{let ok=true;
+  try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){ok=false}
+  try{cloudPush()}catch(e){}
+  return ok};
 
 const $=s=>document.querySelector(s);
 /* 記録の id は作った時刻から作る。ただし時刻だけだと、同じミリ秒のうちに2つ作ったときに
@@ -3538,6 +3551,7 @@ document.addEventListener('click',e=>{
   else if(a==='backup'){backupSheet()}
   else if(a==='copytext'){copyBackup(t)}
   else if(a==='pastetext'){pasteBackup()}
+  else if(a==='cloudout'){cloudLogout()}
   else if(a==='mydot'){if(!myForm)return;
     const i=+t.dataset.i,v=+t.dataset.v,row=t.closest('.dots');
     myForm.t[i]=v;
@@ -3585,6 +3599,7 @@ function backupSheet(){
     'letter-spacing:.06em">保管しておいた文字から戻す</label>'+
     '<textarea id="bk-in" placeholder="ここに貼り付けてください" style="min-height:100px;font-size:11.5px"></textarea>'+
     '<button class="btn ghost wide" style="margin-top:10px" data-act="pastetext">貼り付けた内容で戻す</button>'+
+    cloudBackupNote()+
     '</div>';
   openSheet('記録の控え',body);
 }
@@ -4368,6 +4383,244 @@ async function open(){
 }
 return {open:open,render:render,count:()=>items.length};
 })();
+
+/* =========================================================================
+   クラウド同期（Firebase）  ―  2026-09-12 追加
+   ------------------------------------------------------------------------
+   なぜ入れたか。記録を端末の中（localStorage）だけに置いていたため、
+   2026-09-12 に奥さんの iPhone で記録・在庫・履歴・登録した豆・写真が
+   一度に全部失われた。このページには apple-mobile-web-app-capable が無く、
+   ホーム画面のアイコンは「Safariのタブ」として開く。つまり保存先は Safari の
+   領域で、iOSのデータ削除や7日ルールで丸ごと捨てられる場所だった。
+   端末の外に正本を置かないかぎり同じ事故が必ず起きるので、クラウドへ移した。
+
+   設計は美容ノートからの移植で、Firebase プロジェクトも同じ biyounote
+   （Sparkプラン＝無料・カード未登録）。ただし**ログインアカウントは別**にしてある。
+   まめ比べの合言葉が漏れたときに美容ノートの記録まで読まれないようにするため。
+
+   置き場所（users/{uid} の下。Firestoreのルールで本人しか読み書きできない）
+     mk_stock    いま家にある豆        … 1件1ドキュメント
+     mk_history  飲み終わった豆        … 1件1ドキュメント
+     mk_shots    抽出（ダイヤルイン）  … 1件1ドキュメント
+     mk_beans    自分で登録した豆      … 1件1ドキュメント
+     mk_log      豆ごとの◎○×と一言   … 豆のidをドキュメント名にする
+     mk_photos   豆の写真              … 豆のidをドキュメント名にする
+     mk_settings/me  挽き機・マシン・絞り込み・好み・配色
+
+   写真を1枚ずつ別のドキュメントにしているのは、Firestore の1ドキュメントが
+   1MiB までのため。まとめて入れると数枚で上限に当たる。
+   「保存」タブ（ためばこ）の画像は同期しない。容量が大きく無料枠を食うので、
+   あれは今までどおり端末の中（IndexedDB）だけに置く。
+   ========================================================================= */
+const FB_CONFIG={apiKey:"AIzaSyDV9BV06958NpDZFoWqOFotROfissPy4lI",
+  authDomain:"biyounote.firebaseapp.com",projectId:"biyounote",
+  storageBucket:"biyounote.firebasestorage.app",messagingSenderId:"391927125840",
+  appId:"1:391927125840:web:568ed2c24841400c20be55"};
+/* 前にこの端末で使っていた人。別の人がログインしたときに、前の人の記録を
+   そのままクラウドへ持ち込んでしまう事故を防ぐために覚えておく。 */
+const FB_LASTUID='mamekurabe.lastUid';
+/* 配列で持っているもの。各要素の id をドキュメント名にする。 */
+const CL_ARR=[['mk_stock','stock'],['mk_history','history'],['mk_shots','shots'],['mk_beans','myBeans']];
+/* 連想配列で持っているもの。鍵（豆のid）をドキュメント名にする。 */
+const CL_MAP=[['mk_log','log'],['mk_photos','photos']];
+/* 1つのドキュメントにまとめて入れる設定類。 */
+const CL_SET=['grinder','machine','filter','pref','fav','sort','theme','lastExport'];
+let fbAuth=null,fbDb=null,fbUser=null;
+/* クラウドに今入っている内容の写し。差分だけを書くために持つ。 */
+let cloudSeen={};
+/* 購読を始めてよい状態かどうか。false のあいだは、クラウドから来た内容で
+   手元の記録を上書きしない。空のクラウドで手元を消してしまうのを防ぐため。 */
+let cloudOn=false;
+
+const cloudReady=()=>!!(fbUser&&fbDb);
+const cloudBase=()=>fbDb.collection('users').doc(fbUser.uid);
+const CL_ALL=()=>CL_ARR.concat(CL_MAP);
+
+/* S から「クラウドに置く形」を作る。ドキュメント名 → 中身 の連想配列で返す。 */
+function cloudRows(col){
+  const arr=CL_ARR.find(x=>x[0]===col),map=CL_MAP.find(x=>x[0]===col),out={};
+  if(arr){(S[arr[1]]||[]).forEach(v=>{if(v&&v.id)out[String(v.id)]=Object.assign({},v)})}
+  else if(map){
+    const src=S[map[1]]||{};
+    Object.keys(src).forEach(k=>{
+      const v=src[k];
+      /* 写真は文字列なので、そのままでは保存できない。d という項目に入れる。 */
+      out[String(k)]=(col==='mk_photos')?{id:String(k),d:String(v||'')}
+        :Object.assign({id:String(k)},(v&&typeof v==='object')?v:{});
+    });
+  }
+  return out;
+}
+/* クラウドから来た内容を S に戻す。cloudRows の逆。 */
+function cloudApply(col,docs){
+  const arr=CL_ARR.find(x=>x[0]===col),map=CL_MAP.find(x=>x[0]===col);
+  if(arr){S[arr[1]]=Object.keys(docs).map(k=>docs[k])}
+  else if(map){
+    const o={};
+    Object.keys(docs).forEach(k=>{
+      const v=docs[k]||{};
+      if(col==='mk_photos'){if(v.d)o[k]=v.d}
+      else{const c=Object.assign({},v);delete c.id;o[k]=c}
+    });
+    S[map[1]]=o;
+  }
+}
+function cloudSettings(){
+  const o={};
+  CL_SET.forEach(k=>{if(S[k]!==undefined&&S[k]!==null)o[k]=JSON.parse(JSON.stringify(S[k]))});
+  return o;
+}
+
+/* 差分だけをクラウドへ書く。save() から毎回呼ばれる。 */
+function cloudPush(){
+  if(!cloudReady()||!cloudOn)return;
+  const base=cloudBase();
+  CL_ALL().forEach(pair=>{
+    const col=pair[0],rows=cloudRows(col),seen=cloudSeen[col]||(cloudSeen[col]={});
+    Object.keys(rows).forEach(id=>{
+      const s=JSON.stringify(rows[id]);
+      if(seen[id]!==s){base.collection(col).doc(id).set(rows[id]);seen[id]=s}
+    });
+    /* 手元で消したものは、クラウドからも消す。 */
+    Object.keys(seen).forEach(id=>{
+      if(!(id in rows)){base.collection(col).doc(id).delete();delete seen[id]}
+    });
+  });
+  const st=JSON.stringify(cloudSettings());
+  if(cloudSeen.__set!==st){base.collection('mk_settings').doc('me').set(cloudSettings());cloudSeen.__set=st}
+}
+
+/* クラウドの変化を受け取り続ける。他の端末で足した記録もここで入ってくる。 */
+function cloudSubscribe(){
+  const base=cloudBase();
+  CL_ALL().forEach(pair=>{
+    const col=pair[0];
+    base.collection(col).onSnapshot(snap=>{
+      const docs={},seen={};
+      snap.forEach(d=>{const v=d.data();if(!v)return;docs[d.id]=v;seen[d.id]=JSON.stringify(v)});
+      cloudApply(col,docs);cloudSeen[col]=seen;
+      try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}
+      renderAll();
+    },()=>{});
+  });
+  base.collection('mk_settings').doc('me').onSnapshot(d=>{
+    const v=d.exists?d.data():null;if(!v)return;
+    CL_SET.forEach(k=>{if(v[k]!==undefined)S[k]=v[k]});
+    /* 足りない項目は既定値で補う。古い端末から来た設定でも壊れないようにする。 */
+    S.grinder=Object.assign(DEF().grinder,S.grinder||{});
+    S.machine=Object.assign(DEF().machine,S.machine||{});
+    S.filter=Object.assign(DEF().filter,S.filter||{});
+    cloudSeen.__set=JSON.stringify(cloudSettings());
+    if(S.theme)document.documentElement.setAttribute('data-theme',S.theme);
+    else document.documentElement.removeAttribute('data-theme');
+    try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}
+    renderAll();
+  },()=>{});
+}
+
+/* ログインした直後の一度きりの処理。
+   クラウドが空で手元に記録があるときだけ、手元の記録を引っ越しさせる。
+   逆（クラウドに記録がある）ときはクラウドを正とする。 */
+function cloudStart(){
+  const base=cloudBase();
+  Promise.all(CL_ALL().map(p=>base.collection(p[0]).limit(1).get())).then(snaps=>{
+    const empty=snaps.every(s=>s.empty);
+    const local=(S.stock||[]).length+(S.history||[]).length+(S.shots||[]).length
+      +(S.myBeans||[]).length+Object.keys(S.log||{}).length;
+    cloudOn=true;
+    if(empty&&local){cloudPush()}
+    cloudSubscribe();
+    cloudNote('クラウドにつながりました');
+  }).catch(()=>{
+    /* 電波が無いときはここに来る。購読はしないが、記録は端末の控えで今までどおり
+       使える。次に開いたときに、もう一度つなぎに行く。 */
+    cloudNote('いまクラウドにつながっていません（記録はこの端末に残ります）');
+  });
+}
+
+/* ---- ログインの画面 ------------------------------------------------------
+   パスワードをこのページに埋め込むことはできない。誰でも開けるページなので、
+   埋めた時点で誰でもログインできてしまう。そのため手で入れてもらう作りにする。 */
+function cloudGate(show,msg){
+  let g=document.getElementById('cloud-gate');
+  if(!g){
+    g=document.createElement('div');g.id='cloud-gate';
+    g.style.cssText='position:fixed;inset:0;z-index:9999;background:var(--bg);'
+      +'display:none;align-items:center;justify-content:center;padding:22px';
+    g.innerHTML='<div style="width:100%;max-width:360px">'
+      +'<div style="font-size:22px;font-weight:800;letter-spacing:.04em;margin-bottom:6px">まめ比べ</div>'
+      +'<div style="font-size:12.5px;color:var(--sub);line-height:1.7;margin-bottom:16px">'
+      +'記録はクラウドに保存します。端末の中だけに置くと、ブラウザのデータ削除や'
+      +'iPhoneの都合で<b>全部消えることがある</b>ためです。'
+      +'一度ログインすれば、次からは自動で開きます。</div>'
+      +'<input id="cg-mail" type="email" inputmode="email" autocomplete="username" '
+      +'placeholder="メールアドレス" style="width:100%;margin-bottom:8px">'
+      +'<input id="cg-pw" type="password" autocomplete="current-password" '
+      +'placeholder="パスワード" style="width:100%;margin-bottom:12px">'
+      +'<button class="btn wide" id="cg-go">ログインする</button>'
+      +'<div id="cg-err" style="font-size:12px;color:var(--accent);margin-top:10px;min-height:18px"></div>'
+      +'</div>';
+    document.body.appendChild(g);
+    const go=()=>{
+      const m=(document.getElementById('cg-mail').value||'').trim();
+      const p=document.getElementById('cg-pw').value||'';
+      const e=document.getElementById('cg-err');
+      if(!m||!p){e.textContent='メールアドレスとパスワードを入れてください';return}
+      e.textContent='つないでいます…';
+      fbAuth.signInWithEmailAndPassword(m,p)
+        .catch(()=>{e.textContent='ログインできませんでした。メールアドレスかパスワードが違います'});
+    };
+    document.getElementById('cg-go').addEventListener('click',go);
+    document.getElementById('cg-pw').addEventListener('keydown',ev=>{if(ev.key==='Enter')go()});
+  }
+  g.style.display=show?'flex':'none';
+  if(msg)document.getElementById('cg-err').textContent=msg;
+}
+function cloudNote(msg){
+  /* 画面の下に短く出すだけ。既にある toast があればそれを使う。 */
+  try{if(typeof toast==='function'){toast(msg);return}}catch(e){}
+}
+/* 控えの画面に出す、いまの状態とログアウト。 */
+function cloudBackupNote(){
+  if(typeof firebase==='undefined')
+    return '<div class="note" style="margin-top:16px">クラウドにつながっていません。'
+      +'この端末の中だけに記録があります。</div>';
+  if(!fbUser)return '<div class="note" style="margin-top:16px">ログインしていません。</div>';
+  return '<div class="hr" style="margin:22px 0"></div>'
+    +'<div class="note">クラウドに保存中：<b>'+esc(fbUser.email||'')+'</b><br>'
+    +'この端末のデータが消えても、次に開いたときに戻ります。</div>'
+    +'<button class="btn ghost wide" style="margin-top:10px" data-act="cloudout">ログアウトする</button>';
+}
+function cloudLogout(){
+  if(!fbAuth||!confirm('ログアウトしますか？（記録はクラウドに残ります）'))return;
+  cloudOn=false;cloudSeen={};
+  S=DEF();try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}
+  try{localStorage.removeItem(FB_LASTUID)}catch(e){}
+  fbAuth.signOut();closeSheet();renderAll();
+}
+
+function cloudInit(){
+  /* SDKを読めなかったとき（電波が無い・CDNが塞がれている）は、
+     今までどおり端末の中だけで動かす。ログインの画面も出さない。 */
+  if(typeof firebase==='undefined')return;
+  try{
+    firebase.initializeApp(FB_CONFIG);
+    fbAuth=firebase.auth();fbDb=firebase.firestore();
+    try{fbDb.enablePersistence({synchronizeTabs:true}).catch(()=>{})}catch(e){}
+  }catch(e){return}
+  fbAuth.onAuthStateChanged(user=>{
+    if(user){
+      /* 前に別の人が使っていた端末なら、その人の記録を持ち込まないように空にする。 */
+      let last=null;try{last=localStorage.getItem(FB_LASTUID)}catch(e){}
+      if(last&&last!==user.uid){S=DEF();try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
+      try{localStorage.setItem(FB_LASTUID,user.uid)}catch(e){}
+      fbUser=user;cloudGate(false);cloudStart();
+    }else{
+      fbUser=null;cloudOn=false;cloudSeen={};cloudGate(true);
+    }
+  });
+}
+cloudInit();
 
 </script>
 </body>
