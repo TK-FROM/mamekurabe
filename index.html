@@ -1203,10 +1203,139 @@ function migrate(d){
 }
 let S;
 try{S=migrate(JSON.parse(localStorage.getItem(LS)||'{}'))}catch(e){S=DEF()}
+
+/* =========================================================================
+   豆の写真は IndexedDB に置く（2026-09-12）
+
+   なぜ移したか。写真は前まで他の記録と一緒に localStorage に入れていた。
+   localStorage は5MBほどで頭打ちになるうえ、**保存領域はドメイン単位**なので、
+   同じ tk-from.github.io にある美容ノートと1つの箱を奪い合っていた。
+   2026-09-12 にその上限へ達し、奥さんの iPhone で箱ごと捨てられて、
+   在庫・履歴・抽出記録・登録した豆・写真が一度に全部消えた。
+   IndexedDB は桁違いに大きく、写真を貯めても他の記録を巻き添えにしない。
+
+   正本はクラウド（mk_photos）で、こちらはオフラインで見るための端末の控えである。
+   S.photos は今までどおりメモリの中で id → 写真（JPEGのdataURL）の連想配列なので、
+   **画面を描く側のコードは何も変わらない。**
+   ========================================================================= */
+const PDB='mamekurabe',PST='photos',PVER=1;
+let _pdb=null,pdbNG=false;
+function pdbOpen(){
+  if(_pdb)return Promise.resolve(_pdb);
+  if(pdbNG)return Promise.reject(new Error('IndexedDBが使えません'));
+  return new Promise((res,rej)=>{
+    let r;
+    try{r=indexedDB.open(PDB,PVER)}catch(e){pdbNG=true;return rej(e)}
+    r.onupgradeneeded=e=>{const d=e.target.result;
+      if(!d.objectStoreNames.contains(PST))d.createObjectStore(PST,{keyPath:'id'})};
+    r.onsuccess=()=>{_pdb=r.result;res(_pdb)};
+    r.onerror=()=>{pdbNG=true;rej(r.error)};
+  });
+}
+const pdbStore=mode=>pdbOpen().then(d=>d.transaction(PST,mode).objectStore(PST));
+/* 書き込みは「入れ終わったか」を待てるようにしておく。入ったことにして先へ進むと、
+   次に開いたときになって初めて写真が無いと分かることになる。 */
+function pdbPut(id,d){return pdbStore('readwrite').then(st=>new Promise((res,rej)=>{
+  const r=st.put({id:String(id),d:String(d||'')});
+  r.onsuccess=()=>res();r.onerror=()=>rej(r.error)}))}
+function pdbDel(id){return pdbStore('readwrite').then(st=>new Promise((res,rej)=>{
+  const r=st.delete(String(id));r.onsuccess=()=>res();r.onerror=()=>rej(r.error)}))}
+function pdbAll(){return pdbStore('readonly').then(st=>new Promise((res,rej)=>{
+  const r=st.getAll();
+  r.onsuccess=()=>{const o={};(r.result||[]).forEach(v=>{if(v&&v.id&&v.d)o[v.id]=v.d});res(o)};
+  r.onerror=()=>rej(r.error)}))}
+/* 端末の写真を、渡された内容にそっくり入れ替える（読み込み・人の切り替えのとき） */
+function pdbReplace(map){
+  return pdbStore('readwrite').then(st=>new Promise((res,rej)=>{
+    const r=st.clear();r.onerror=()=>rej(r.error);
+    r.onsuccess=()=>{
+      const ks=Object.keys(map||{});
+      if(!ks.length)return res();
+      let left=ks.length,bad=null;
+      ks.forEach(k=>{
+        const q=st.put({id:String(k),d:String(map[k]||'')});
+        q.onerror=()=>{bad=q.error;if(!--left)bad?rej(bad):res()};
+        q.onsuccess=()=>{if(!--left)bad?rej(bad):res()};
+      });
+    };
+  }));
+}
+
+/* localStorage には写真を入れない。ここが今回の肝で、
+   **この関数以外から localStorage へ S を書かないこと。** */
+function lsBody(){
+  const o={};for(const k in S){if(k!=='photos')o[k]=S[k]}
+  return JSON.stringify(o);
+}
+function lsSave(){try{localStorage.setItem(LS,lsBody());return true}catch(e){return false}}
+
+/* 起動した直後は、まだ fbUser を作る前に画面を描くことがある。そのまま参照すると
+   ReferenceError で画面が真っ白になるので、安全に確かめる小さな関数を通す。 */
+function cloudUserOn(){try{return !!fbUser}catch(e){return false}}
+
+/* 起動したら写真を読み込む。localStorage に古い写真が残っていれば、この一度きりで
+   IndexedDB へ引っ越して、localStorage 側からは消す。
+
+   **読み終わるまで、クラウドの写真に手を触れてはいけない。** cloudPush は「前に上げたのに
+   いま手元に無いもの」をクラウドからも消す作りなので、写真がまだ入っていないうちに
+   走らせると、クラウドに預けてある写真まで消してしまう。守りは2枚重ねてある。
+     ・ログインの処理を、読み込みが終わるまで待たせる（cloudInit）
+     ・cloudPush 自体が、photosReady でないあいだ写真には触らない
+   前者だけだと、読み込みが終わらない端末（下記）で守りが効かない。 */
+let photosReady=false,photoMoveNG=0;
+function loadPhotos(old){
+  return pdbOpen().then(()=>pdbAll()).then(saved=>{
+    /* **手元の分を上に重ねる。単なる代入にしてはいけない。**
+       読み込みには実機でも0.4秒ほどかかり、そのあいだに撮った写真が
+       代入で消える。保管庫には一度書けているのに、あとから消えるので
+       原因にたどり着けない種類の事故になる。 */
+    S.photos=Object.assign(saved,S.photos);
+    const move=Object.keys(old).filter(k=>!saved[k]);
+    if(!move.length)return null;
+    /* 引っ越しの失敗を握りつぶさない。数えておいて、1枚でも入らなかったら
+       localStorage の写真を消さずに残す（次に開いたときにもう一度試す）。
+       消したうえで保管庫にも無い、が最悪で、それは端末の容量が苦しいとき＝
+       2026-09-12 の事故とまったく同じ条件で起きる。 */
+    return Promise.all(move.map(k=>pdbPut(k,old[k]).then(
+      ()=>{S.photos[k]=old[k]},
+      ()=>{S.photos[k]=old[k];photoMoveNG++})));
+  }).catch(()=>{
+    /* IndexedDB が使えない端末では、写真の控えを端末に置けない。クラウドから来る分で
+       画面には出せるので、いま手元にある分はそのまま残す。
+       localStorage へ戻すと、また箱が溢れて記録ごと消えるので戻さない。 */
+    S.photos=Object.assign({},old,S.photos);
+    photoMoveNG=0;
+  }).then(()=>{
+    photosReady=true;
+    if(!photoMoveNG)lsSave();    /* 写真抜きで書き直す＝古い写真はここで消える */
+    else try{cloudBanner('写真'+photoMoveNG+'枚をこの端末に残せませんでした。空き容量を確かめてください')}catch(e){}
+    try{if(typeof renderAll==='function')renderAll()}catch(e){}
+    /* 遅れて読めたときのために、ここで同期を追いつかせる */
+    try{cloudPush()}catch(e){}
+  });
+}
+const photosLoaded=(function(){
+  const old=S.photos||{};        /* localStorage から来た分＝引っ越しの対象 */
+  S.photos={};
+  const job=loadPhotos(old);
+  /* **IndexedDB の open が返ってこない端末がある**（iOS Safari で知られている症状）。
+     待ち続けると、写真以外の記録まで永久にクラウドへ上がらず、しかも画面には
+     何も出ないので、本人は正常に動いているとしか見えない。数秒で先へ進む。
+     そのとき photosReady は立てないので、写真のクラウド側には触らないままになる。 */
+  return new Promise(res=>{
+    let done=false;
+    const fin=()=>{if(!done){done=true;res(null)}};
+    job.then(fin,fin);
+    try{setTimeout(()=>{
+      if(!photosReady)try{cloudBanner('この端末から写真を読み出せませんでした。写真以外の記録はいつもどおり同期します')}catch(e){}
+      fin();
+    },6000)}catch(e){}
+  });
+})();
+
 /* 保存は「端末の控え」と「クラウド」の両方へ。クラウドが正で、localStorage は
    電波が無いときのための控えである。cloudPush は差分だけを書くので毎回呼んでよい。 */
-const save=()=>{let ok=true;
-  try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){ok=false}
+const save=()=>{const ok=lsSave();
   try{cloudPush()}catch(e){}
   return ok};
 
@@ -2637,9 +2766,11 @@ function readGear(){
 }
 
 /* =========================================================================
-   写真 ―― 撮った写真は縮めてから端末の中だけに保存する。外へは一切送らない。
-   localStorage は数MBで頭打ちなので、長辺520px・JPEG品質0.72まで落としている
-   （1枚おおよそ30〜60KB）。保存に失敗したら元に戻して、理由を伝える。
+   写真 ―― 撮った写真は縮めてから保存する。置き場所は2つで、端末の中（IndexedDB）と
+   クラウド（Firestore の mk_photos）。クラウドが正本で、端末のほうは電波が無いときに
+   見るための控えである。**「どこにも送らない」ではないので、画面の説明もそう書くこと。**
+   長辺520px・JPEG品質0.72まで落としてある（1枚おおよそ30〜60KB）。
+   保存に失敗したら元に戻して、理由を伝える。
    ========================================================================= */
 let shootTarget=null;
 function compressImage(file,maxW,q){
@@ -2663,16 +2794,22 @@ function compressImage(file,maxW,q){
   });
 }
 function photoBytes(){let n=0;const P=S.photos||{};for(const k in P)n+=P[k].length;return Math.round(n*0.75)}
+/* 写真の保存は IndexedDB への書き込みを待つので、答えは Promise で返る。
+   呼ぶ側は .then(ok=>…) で受けること。 */
 function setPhoto(id,data){
   const old=(S.photos||{})[id];
   S.photos[id]=data;
-  if(save())return true;
-  if(old)S.photos[id]=old;else delete S.photos[id];save();
-  alert('写真を保存できませんでした。端末の保存容量がいっぱいのようです。\n'+
-        '「記録」タブでデータを書き出してから、いらない写真を消してください。');
-  return false;
+  return pdbPut(id,data).then(()=>{save();return true},()=>{
+    /* IndexedDB そのものが使えない端末では、写真はクラウドにだけ残る。
+       画面には出せるので、ここで消してしまわない。 */
+    if(pdbNG){save();return true}
+    if(old)S.photos[id]=old;else delete S.photos[id];save();
+    alert('写真を保存できませんでした。端末の保存容量がいっぱいのようです。\n'+
+          'いらない写真を消してから、もう一度お試しください。');
+    return false;
+  });
 }
-function delPhoto(id){delete S.photos[id];save()}
+function delPhoto(id){delete S.photos[id];pdbDel(id).catch(()=>{});save()}
 
 /* =========================================================================
    自分で豆を登録する（お店の一覧に載っていない豆のためのテンプレ）
@@ -2721,7 +2858,9 @@ function renderMyForm(){
   const body='<div class="pad">'+
     '<div class="row" style="gap:16px;margin-bottom:22px;align-items:flex-start">'+pkgView(f,true)+
       '<div><p class="muted" style="margin:0 0 6px">左をタップして<b>袋の写真</b>を撮ると、一覧にも詳細にも写真が出ます。</p>'+
-      '<p class="tiny" style="margin:0">写真は自動で小さくしてから、この端末の中だけに保存されます。どこにも送信されません。</p></div></div>'+
+      '<p class="tiny" style="margin:0">写真は自動で小さくしてから、この端末と'+
+      '<b>自分のクラウド</b>に保存されます。端末が変わっても、ログインすれば戻ります。'+
+      '他の人からは見えません。</p></div></div>'+
     '<div class="field"><label>豆の名前（これだけは必須）</label>'+
       '<input type="text" id="my-name" value="'+esc(f.name)+'" placeholder="例：スペシャルブレンド"></div>'+
     '<div class="field"><label>お店</label><input type="text" id="my-shop" list="shoplist" value="'+esc(f.shop)+
@@ -2784,7 +2923,7 @@ function saveMyBean(){
 function deleteMyBean(id){
   if(!confirm('この豆を消します。写真と感想も一緒に消えます。よろしいですか？'))return;
   S.myBeans=(S.myBeans||[]).filter(x=>x.id!==id);
-  delete S.photos[id];delete S.log[id];
+  delete S.photos[id];pdbDel(id).catch(()=>{});delete S.log[id];
   S.fav=S.fav.filter(x=>x!==id);S.cmp=S.cmp.filter(x=>x!==id);
   S.filter.shop=[];myForm=null;save();closeSheet();closeFull();renderAll();
 }
@@ -3290,15 +3429,19 @@ function renderMy(){
 
   const days=S.lastExport?Math.floor((Date.now()-S.lastExport)/86400000):null;
   $('#my-data').innerHTML='<div class="card">'+
-    '<p class="muted" style="margin:0 0 10px">記録はこの端末のブラウザの中だけに保存されています。'+
-    '<b>ブラウザのデータを消すと、記録も消えます。</b>ときどき書き出して保管してください。</p>'+
+    '<p class="muted" style="margin:0 0 10px">'+(cloudUserOn()?
+      '記録は<b>自分のクラウド</b>に保存されています。この端末のデータが消えても、'+
+      'ログインし直せば戻ります。':
+      '記録は<b>この端末の中だけ</b>に保存されています。'+
+      '<b>ブラウザのデータを消すと、記録も消えます。</b>下のログインをおすすめします。')+
+    '</p>'+
     (days===null?'<div class="note" style="margin-bottom:10px">まだ一度も書き出していません。</div>':
       days>=7?'<div class="note" style="margin-bottom:10px;color:var(--warn)">最後の書き出しから'+days+'日たっています。</div>':
       '<div class="note" style="margin-bottom:10px">最後の書き出しから'+days+'日。</div>')+
     '<div class="note" style="margin-bottom:10px">自分で登録した豆 '+(S.myBeans||[]).length+'件／'+
       '写真 '+Object.keys(S.photos||{}).length+'枚（約'+Math.round(photoBytes()/1024)+'KB）'+
-      (photoBytes()>3.2*1024*1024?'<br><b>写真がかなり多くなっています。</b>これ以上増やせないかもしれません。'+
-        '書き出してから、いらない写真を消してください。':'')+'</div>'+
+      (photoBytes()>60*1024*1024?'<br><b>写真がかなり多くなっています。</b>'+
+        'いらない写真を消すことをおすすめします。':'')+'</div>'+
     '<button class="btn wide" data-act="backup">記録の控えをとる（文字でコピー）</button>'+
     /* ウェブに公開したページからはファイルを保存できない。押しても何も起きない
        ボタンを見せないよう、保存できる場面でだけ出す。 */
@@ -3629,6 +3772,9 @@ function pasteBackup(){
   S=migrate(d);
   /* 控えに写真は入っていないので、いま端末にある写真はそのまま残す */
   Object.keys(keepPhotos).forEach(k=>{if(!S.photos[k])S.photos[k]=keepPhotos[k]});
+  /* 貼り付けた文字に写真が入っていた場合、そのぶんを端末の控えにも書いておく。
+     書かないと、ログインしていない端末では開き直した時点で消える。 */
+  if(photosReady)pdbReplace(S.photos||{}).catch(()=>{});
   save();closeSheet();renderAll();alert('記録を戻しました。');
 }
 function exportJSON(){
@@ -3646,7 +3792,7 @@ document.addEventListener('change',e=>{
     const f=e.target.files&&e.target.files[0];e.target.value='';
     const id=shootTarget;shootTarget=null;
     if(!f||!id)return;
-    compressImage(f,520,0.72).then(d=>{if(setPhoto(id,d))refreshAfterPhoto(id)})
+    compressImage(f,520,0.72).then(d=>setPhoto(id,d)).then(ok=>{if(ok)refreshAfterPhoto(id)})
       .catch(err=>alert('写真を取り込めませんでした：'+err.message));
     return;
   }
@@ -3657,7 +3803,16 @@ document.addEventListener('change',e=>{
     const d=JSON.parse(r.result);
     if(!d||typeof d!=='object')throw new Error('形式が違います');
     if(!confirm('読み込むと、いまの記録は上書きされます。よろしいですか？'))return;
-    S=migrate(d);save();renderAll();alert('読み込みました。');
+    /* 写真が入っているファイルかどうかで扱いを変える。「控えの文字」を .json として
+       保存したものには写真が入っていない。それで端末の写真を消すと、クラウド経由で
+       **他の端末からも消える**ので、写真が無いファイルではいまの写真を残す。 */
+    const hasPhotos=!!(d.photos&&typeof d.photos==='object'&&Object.keys(d.photos).length);
+    const keep=S.photos||{};
+    S=migrate(d);
+    if(hasPhotos)pdbReplace(S.photos||{}).catch(()=>{});
+    else S.photos=keep;
+    save();renderAll();
+    alert('読み込みました。'+(hasPhotos?'':'\n（このファイルに写真は入っていないので、いまの写真はそのまま残しました）'));
   }catch(err){alert('読み込めませんでした：'+err.message)}};
   r.readAsText(f);e.target.value='';
 });
@@ -4469,6 +4624,9 @@ function cloudApply(col,docs){
       else{const c=Object.assign({},v);delete c.id;o[k]=c}
     });
     S[map[1]]=o;
+    /* クラウドから来た写真は、端末の控え（IndexedDB）にも書いておく。
+       電波が無いときに写真だけ出ない、という状態を避けるため。 */
+    if(col==='mk_photos'&&photosReady)pdbReplace(o).catch(()=>{});
   }
 }
 function cloudSettings(){
@@ -4485,7 +4643,13 @@ function cloudPush(){
      まとめて回していたときは、途中で転ぶと写真が永久に同期されなかった。 */
   CL_ALL().forEach(pair=>{
     try{
-      const col=pair[0],rows=cloudRows(col),seen=cloudSeen[col]||(cloudSeen[col]={});
+      const col=pair[0];
+      /* **写真がまだ読めていないあいだは、クラウドの写真に触らない。**
+         手元が空なだけなのに「消された」と判断して、預けてある写真を消してしまう。
+         ログインを待たせる守りと二重にしてあるのは、読み込みが終わらない端末では
+         待たせる側が効かないためである。 */
+      if(col==='mk_photos'&&!photosReady)return;
+      const rows=cloudRows(col),seen=cloudSeen[col]||(cloudSeen[col]={});
       Object.keys(rows).forEach(id=>{
         const s=JSON.stringify(rows[id]);
         if(seen[id]!==s){base.collection(col).doc(id).set(rows[id]);seen[id]=s}
@@ -4501,7 +4665,12 @@ function cloudPush(){
 }
 
 /* クラウドの変化を受け取り続ける。他の端末で足した記録もここで入ってくる。 */
+let cloudSubOn=false;
 function cloudSubscribe(){
+  /* 圏外から復帰したときに2回呼ばれると、購読が二重になって読み取りが倍かかる。
+     Firestore の無料枠を無駄に食うので、一度だけにする。 */
+  if(cloudSubOn)return;
+  cloudSubOn=true;
   const base=cloudBase();
   CL_ALL().forEach(pair=>{
     const col=pair[0];
@@ -4509,7 +4678,7 @@ function cloudSubscribe(){
       const docs={},seen={};
       snap.forEach(d=>{const v=d.data();if(!v)return;docs[d.id]=v;seen[d.id]=JSON.stringify(v)});
       cloudApply(col,docs);cloudSeen[col]=seen;
-      try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}
+      lsSave();
       renderAll();
     },()=>{cloudBanner('クラウドとの接続が切れました。開き直してください')});
   });
@@ -4523,7 +4692,7 @@ function cloudSubscribe(){
     cloudSeen.__set=JSON.stringify(cloudSettings());
     if(S.theme)document.documentElement.setAttribute('data-theme',S.theme);
     else document.documentElement.removeAttribute('data-theme');
-    try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}
+    lsSave();
     renderAll();
   },()=>{});
 }
@@ -4560,7 +4729,7 @@ function cloudStart(){
       else document.documentElement.removeAttribute('data-theme');
     }
     cloudOn=true;
-    try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}
+    lsSave();
     cloudPush();           /* 手元にしか無かった分を、ここで上げる */
     cloudSubscribe();
     renderAll();
@@ -4648,7 +4817,9 @@ function cloudBackupNote(){
 function cloudLogout(){
   if(!fbAuth||!confirm('ログアウトしますか？（記録はクラウドに残ります）'))return;
   cloudOn=false;cloudSeen={};
-  S=DEF();try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}
+  S=DEF();lsSave();
+  /* 端末に残した写真も消す。次に別の人がログインしたときに見えてしまわないように。 */
+  pdbReplace({}).catch(()=>{});
   try{localStorage.removeItem(FB_LASTUID)}catch(e){}
   fbAuth.signOut();closeSheet();renderAll();
 }
@@ -4672,9 +4843,19 @@ function cloudInit(){
     if(user){
       /* 前に別の人が使っていた端末なら、その人の記録を持ち込まないように空にする。 */
       let last=null;try{last=localStorage.getItem(FB_LASTUID)}catch(e){}
-      if(last&&last!==user.uid){S=DEF();try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
+      let job=photosLoaded;
+      if(last&&last!==user.uid){
+        S=DEF();lsSave();
+        /* 写真を消すのは読み込みが終わってから。先に消すと、そのあと読み込みが
+           終わった時点で前の人の写真が戻ってきてしまう。 */
+        job=job.then(()=>{S.photos={};return pdbReplace({})}).catch(()=>{});
+      }
       try{localStorage.setItem(FB_LASTUID,user.uid)}catch(e){}
-      fbUser=user;cloudGate(false);cloudStart();
+      fbUser=user;cloudGate(false);
+      /* **写真を読み終わるまでクラウドを始めない。** まだ手元に写真が入っていない
+         うちに cloudPush が走ると、「手元に無い＝消された」と判断して、
+         クラウドに預けてある写真まで消してしまう。 */
+      job.then(cloudStart,cloudStart);
     }else{
       fbUser=null;cloudOn=false;cloudSeen={};cloudGate(true);
     }
