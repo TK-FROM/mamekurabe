@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>まめ比べ 記録の診断</title>
+<style>
+/* まめ比べ本体の配色に合わせてある。読むだけのページなので作りは最小限。 */
+:root{--bg:#fbf7f4;--card:#fff;--text:#1c2320;--sub:#5a5e5b;--line:#e6ded8;--accent:#b02a4c;--ok:#2f7a4f}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#14100f;--card:#1e1817;--text:#f3ece8;--sub:#bcb4af;--line:#332a27;--accent:#ef7288;--ok:#6cc08d}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
+  line-height:1.7;padding:18px 16px 60px}
+h1{font-size:19px;margin:0 0 4px;letter-spacing:.04em}
+.lead{font-size:12.5px;color:var(--sub);margin:0 0 18px}
+.verdict{border-radius:14px;padding:16px;margin-bottom:18px;font-size:15px;font-weight:700;
+  background:var(--card);border:2px solid var(--line)}
+.verdict.good{border-color:var(--ok);color:var(--ok)}
+.verdict.warn{border-color:var(--accent);color:var(--accent)}
+.verdict small{display:block;font-size:12.5px;font-weight:400;color:var(--sub);margin-top:6px;line-height:1.6}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+h2{font-size:13px;margin:0 0 10px;letter-spacing:.08em;color:var(--sub)}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+td{padding:5px 0;border-bottom:1px solid var(--line);vertical-align:top;word-break:break-all}
+td:last-child{text-align:right;white-space:nowrap;padding-left:10px;color:var(--sub)}
+tr:last-child td{border-bottom:none}
+button{width:100%;padding:14px;border:none;border-radius:11px;background:var(--accent);color:#fff;
+  font-size:15px;font-weight:700;font-family:inherit;margin-top:10px}
+button.ghost{background:transparent;color:var(--sub);border:1px solid var(--line)}
+textarea{width:100%;min-height:120px;font-size:11px;font-family:ui-monospace,Menlo,monospace;
+  background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:9px;padding:10px;margin-top:10px}
+.tiny{font-size:11.5px;color:var(--sub)}
+</style>
+</head>
+<body>
+<h1>まめ比べ 記録の診断</h1>
+<p class="lead">この端末に保存されている中身を、そのまま表示します。<b>読むだけで、書き換えも削除もしません。</b></p>
+<div id="verdict" class="verdict">調べています…</div>
+<div class="card"><h2>まめ比べの記録</h2><div id="mk"></div></div>
+<div class="card"><h2>この箱に入っているものすべて</h2><table id="keys"></table>
+  <p class="tiny" style="margin:10px 0 0">まめ比べと美容ノートは同じドメインなので、ここには両方のデータが並びます。</p></div>
+<div class="card"><h2>画像の保管庫（IndexedDB）</h2><div id="idb" class="tiny">調べています…</div></div>
+<div class="card"><h2>端末</h2><div id="env" class="tiny"></div></div>
+<div class="card">
+  <h2>取り出す</h2>
+  <p class="tiny" style="margin:0">記録が残っていれば、下の文字をすべてコピーして送ってください。これがあれば戻せます。</p>
+  <textarea id="raw" readonly></textarea>
+  <button id="copy">この文字をコピーする</button>
+  <button class="ghost" id="copyall">すべての項目をまとめてコピーする</button>
+</div>
+<script>
+(function(){
+  "use strict";
+  var LS = "mamekurabe.v1";
+  var el = function(id){ return document.getElementById(id); };
+  var esc = function(s){ return String(s == null ? "" : s)
+    .replace(/[&<>"]/g, function(c){ return ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"})[c]; }); };
+  var fmt = function(n){ return n >= 1024 ? (n/1024).toFixed(1) + " KB" : n + " 字"; };
+
+  /* ---- localStorage の全キー。読むだけ。 ---- */
+  var keys = [], total = 0, err = null, raw = null;
+  try{
+    for(var i = 0; i < localStorage.length; i++){
+      var k = localStorage.key(i), v = "";
+      try{ v = localStorage.getItem(k) || ""; }catch(e){ v = ""; }
+      keys.push({ k: k, n: v.length });
+      total += v.length;
+    }
+    raw = localStorage.getItem(LS);
+  }catch(e){ err = e && e.message ? e.message : String(e); }
+
+  var rows = keys.sort(function(a,b){ return b.n - a.n; }).map(function(x){
+    return "<tr><td>" + esc(x.k) + "</td><td>" + fmt(x.n) + "</td></tr>";
+  }).join("");
+  el("keys").innerHTML = rows ||
+    "<tr><td colspan=\"2\">何も入っていません</td></tr>";
+
+  /* ---- まめ比べの記録を判定する ---- */
+  var v = el("verdict"), mk = el("mk");
+  if(err){
+    v.className = "verdict warn";
+    v.innerHTML = "保存領域を読めませんでした<small>" + esc(err) +
+      "<br>プライベートブラウズで開いていませんか。ふつうのタブで開き直してください。</small>";
+    mk.innerHTML = "<span class=\"tiny\">判定できません</span>";
+  }else if(raw == null){
+    v.className = "verdict warn";
+    v.innerHTML = "まめ比べの記録は残っていません" +
+      "<small>この端末の中に、まめ比べの保存データ（" + LS + "）そのものがありません。" +
+      "消去されたか、別の箱に入っています。</small>";
+    mk.innerHTML = "<span class=\"tiny\">保存データなし</span>";
+  }else{
+    var parsed = null, perr = null;
+    try{ parsed = JSON.parse(raw); }catch(e){ perr = e && e.message ? e.message : String(e); }
+    if(parsed && typeof parsed === "object"){
+      var cnt = function(x){ return Array.isArray(x) ? x.length : (x && typeof x === "object" ? Object.keys(x).length : 0); };
+      var n = { "いま家にある豆": cnt(parsed.stock), "飲み終わった豆": cnt(parsed.history),
+        "抽出の記録": cnt(parsed.shots), "自分で登録した豆": cnt(parsed.myBeans),
+        "◎○×と一言": cnt(parsed.log), "豆の写真": cnt(parsed.photos), "お気に入り": cnt(parsed.fav) };
+      var sum = 0, html = "<table>";
+      Object.keys(n).forEach(function(k){ sum += n[k]; html += "<tr><td>" + k + "</td><td>" + n[k] + " 件</td></tr>"; });
+      html += "<tr><td>データの形式</td><td>v" + esc(parsed.schemaVersion) + "</td></tr></table>";
+      mk.innerHTML = html;
+      if(sum > 0){
+        v.className = "verdict good";
+        v.innerHTML = "記録は残っています（合計 " + sum + " 件）" +
+          "<small>下の「取り出す」の文字をコピーして送ってください。そのまま戻せます。</small>";
+      }else{
+        v.className = "verdict warn";
+        v.innerHTML = "保存データはありますが、中身が空です" +
+          "<small>初期化された状態が上書き保存されています。この端末からは戻せません。</small>";
+      }
+    }else{
+      v.className = "verdict good";
+      v.innerHTML = "保存データが壊れた形で残っています" +
+        "<small>読めないだけで中身は残っている可能性があります（" + esc(perr) + "）。" +
+        "下の文字をすべてコピーして送ってください。こちらで直せることがあります。</small>";
+      mk.innerHTML = "<span class=\"tiny\">長さ " + fmt(raw.length) +
+        "／先頭: " + esc(raw.slice(0, 120)) + "…</span>";
+    }
+    el("raw").value = raw;
+  }
+  if(raw == null) el("raw").value = "（まめ比べの保存データはありません）";
+
+  /* ---- IndexedDB（ためばこの画像と、美容ノートのFirebaseの控え） ---- */
+  if(window.indexedDB && indexedDB.databases){
+    indexedDB.databases().then(function(list){
+      el("idb").innerHTML = (list && list.length)
+        ? list.map(function(d){ return esc(d.name) + "（v" + esc(d.version) + "）"; }).join("<br>")
+        : "保管庫はありません";
+    }).catch(function(){ el("idb").textContent = "調べられませんでした"; });
+  }else{
+    el("idb").textContent = "このブラウザでは一覧を出せません";
+  }
+
+  /* ---- 端末の情報 ---- */
+  var standalone = (window.navigator.standalone === true) ||
+    (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+  el("env").innerHTML =
+    "開き方: " + (standalone ? "ホーム画面のアプリとして" : "ブラウザのタブとして") + "<br>" +
+    "アドレス: " + esc(location.origin) + "<br>" +
+    "保存の合計: " + fmt(total) + "（" + keys.length + " 項目）<br>" +
+    esc(navigator.userAgent);
+
+  /* ---- コピー ---- */
+  var copyText = function(text, btn, label){
+    var done = function(){ var o = btn.textContent; btn.textContent = "コピーしました";
+      setTimeout(function(){ btn.textContent = o; }, 1600); };
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(done).catch(function(){ manual(); });
+    }else{ manual(); }
+    function manual(){
+      var t = el("raw"); t.value = text; t.focus(); t.select();
+      try{ if(document.execCommand && document.execCommand("copy")) return done(); }catch(e){}
+      alert("自動でコピーできませんでした。枠を長押しして、すべて選んでコピーしてください。");
+    }
+  };
+  el("copy").addEventListener("click", function(){ copyText(el("raw").value, this); });
+  el("copyall").addEventListener("click", function(){
+    var all = {};
+    keys.forEach(function(x){ try{ all[x.k] = localStorage.getItem(x.k); }catch(e){} });
+    copyText(JSON.stringify(all), this);
+  });
+})();
+</script>
+</body>
+</html>
