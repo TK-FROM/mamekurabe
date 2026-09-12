@@ -44,6 +44,7 @@ textarea{width:100%;min-height:120px;font-size:11px;font-family:ui-monospace,Men
 <div class="card"><h2>この箱に入っているものすべて</h2><table id="keys"></table>
   <p class="tiny" style="margin:10px 0 0">まめ比べと美容ノートは同じドメインなので、ここには両方のデータが並びます。</p></div>
 <div class="card"><h2>画像の保管庫（IndexedDB）</h2><div id="idb" class="tiny">調べています…</div></div>
+<div class="card"><h2>まめ比べ本体の状態</h2><div id="app" class="tiny">調べています…</div></div>
 <div class="card"><h2>端末</h2><div id="env" class="tiny"></div></div>
 <div class="card">
   <h2>取り出す</h2>
@@ -152,6 +153,39 @@ textarea{width:100%;min-height:120px;font-size:11px;font-family:ui-monospace,Men
   }else{
     el("idb").textContent = "このブラウザでは一覧を出せません";
   }
+
+  /* ---- まめ比べ本体は、どの版が届いているか ----
+     Safari がログイン画面を出さない原因は2つある。(a) 古いHTMLをキャッシュから
+     出している (b) Firebase の読み込みに失敗して、つながらないとき用の経路に落ちている。
+     サーバーの版とこの端末が使う版を別々に取り、SDKも実際に読み込んで切り分ける。 */
+  var appBox = el("app"), lines = [];
+  var show = function(){ appBox.innerHTML = lines.join("<br>"); };
+  var look = function(label, opt, done){
+    fetch("./index.html", opt).then(function(r){
+      var lm = r.headers.get("last-modified") || "?";
+      return r.text().then(function(t){
+        var sync = t.indexOf("cloudInit();") >= 0;
+        lines.push(label + "： " + (sync ? "<b>同期あり（新しい）</b>" : "<b>同期なし（古い）</b>") +
+          "／" + Math.round(t.length/1024) + "KB／" + lm);
+        show(); done && done();
+      });
+    }).catch(function(e){ lines.push(label + "： 取れませんでした"); show(); done && done(); });
+  };
+  if(window.fetch){
+    look("サーバーにある版", { cache: "no-store" }, function(){
+      look("この端末が使う版", {});
+    });
+  }else{
+    lines.push("このブラウザでは調べられません"); show();
+  }
+  /* SDKを実際に読み込んでみる。ここで失敗するならログイン画面は出ない。 */
+  var sc = document.createElement("script");
+  sc.src = "https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js";
+  sc.onload = function(){ lines.push("Firebaseの読み込み： <b>できた</b>（" +
+    (typeof firebase !== "undefined" ? "使える状態" : "読めたが使えない") + "）"); show(); };
+  sc.onerror = function(){ lines.push("Firebaseの読み込み： <b>できなかった</b>" +
+    "（通信が塞がれているか、広告ブロックが効いています）"); show(); };
+  document.head.appendChild(sc);
 
   /* ---- 端末の情報 ---- */
   var standalone = (window.navigator.standalone === true) ||
