@@ -79,9 +79,25 @@ textarea{width:100%;min-height:120px;font-size:11px;font-family:ui-monospace,Men
   el("keys").innerHTML = rows ||
     "<tr><td colspan=\"2\">何も入っていません</td></tr>";
 
+  /* ---- どのブラウザで開いているか ----
+     LINEやXの中のブラウザは、Safari本体とは別の保存領域を持つ。そこで開くと
+     記録が無いように見えるので、判定より先にここで止める。iOSのSafariは
+     UAに Version/ を含むが、アプリ内ブラウザ(WKWebView)は含まない。 */
+  var ua = navigator.userAgent || "";
+  var inApp = !/Version\/[\d.]+.*Safari/.test(ua);
+  var appName = (/Line\//i.test(ua) ? "LINE" : /FBAN|FBAV/i.test(ua) ? "Facebook"
+    : /Instagram/i.test(ua) ? "Instagram" : /Twitter/i.test(ua) ? "X" : "他のアプリ");
+
   /* ---- まめ比べの記録を判定する ---- */
   var v = el("verdict"), mk = el("mk");
-  if(err){
+  if(inApp){
+    v.className = "verdict warn";
+    v.innerHTML = "これは" + appName + "の中のブラウザです" +
+      "<small>ここはSafariとは<b>別の保存領域</b>なので、記録が無いように見えます。" +
+      "この画面の共有ボタンから<b>「Safariで開く」</b>を押して、開き直してください。" +
+      "下に出ている中身も、この" + appName + "の中だけのものです。</small>";
+    mk.innerHTML = "<span class=\"tiny\">Safariで開き直してから見てください</span>";
+  }else if(err){
     v.className = "verdict warn";
     v.innerHTML = "保存領域を読めませんでした<small>" + esc(err) +
       "<br>プライベートブラウズで開いていませんか。ふつうのタブで開き直してください。</small>";
@@ -123,7 +139,8 @@ textarea{width:100%;min-height:120px;font-size:11px;font-family:ui-monospace,Men
     }
     el("raw").value = raw;
   }
-  if(raw == null) el("raw").value = "（まめ比べの保存データはありません）";
+  /* どの分岐に入っても、生の中身は必ず取り出せるようにしておく。 */
+  el("raw").value = (raw == null) ? "（まめ比べの保存データはありません）" : raw;
 
   /* ---- IndexedDB（ためばこの画像と、美容ノートのFirebaseの控え） ---- */
   if(window.indexedDB && indexedDB.databases){
