@@ -4418,6 +4418,12 @@ const FB_CONFIG={apiKey:"AIzaSyDV9BV06958NpDZFoWqOFotROfissPy4lI",
   appId:"1:391927125840:web:568ed2c24841400c20be55"};
 /* 前にこの端末で使っていた人。別の人がログインしたときに、前の人の記録を
    そのままクラウドへ持ち込んでしまう事故を防ぐために覚えておく。 */
+/* このアプリの名前。**既定の名前のままにしてはいけない。**
+   Firebase はログイン状態を firebase:authUser:{apiKey}:{アプリ名} という1つの鍵で
+   覚える。同じドメインにある美容ノートと名前が同じだと記憶を共有してしまい、
+   美容ノートにログインしている人のところへ、まめ比べの記録が書き込まれる。
+   2026-09-12 に実際に起きた（奥さんの記録が美容ノートのアカウント配下に入った）。 */
+const FB_APP='mamekurabe';
 const FB_LASTUID='mamekurabe.lastUid';
 /* 配列で持っているもの。各要素の id をドキュメント名にする。 */
 const CL_ARR=[['mk_stock','stock'],['mk_history','history'],['mk_shots','shots'],['mk_beans','myBeans']];
@@ -4475,16 +4481,20 @@ function cloudSettings(){
 function cloudPush(){
   if(!cloudReady()||!cloudOn)return;
   const base=cloudBase();
+  /* 1種類で例外が出ても、後ろの種類まで巻き添えにしない。
+     まとめて回していたときは、途中で転ぶと写真が永久に同期されなかった。 */
   CL_ALL().forEach(pair=>{
-    const col=pair[0],rows=cloudRows(col),seen=cloudSeen[col]||(cloudSeen[col]={});
-    Object.keys(rows).forEach(id=>{
-      const s=JSON.stringify(rows[id]);
-      if(seen[id]!==s){base.collection(col).doc(id).set(rows[id]);seen[id]=s}
-    });
-    /* 手元で消したものは、クラウドからも消す。 */
-    Object.keys(seen).forEach(id=>{
-      if(!(id in rows)){base.collection(col).doc(id).delete();delete seen[id]}
-    });
+    try{
+      const col=pair[0],rows=cloudRows(col),seen=cloudSeen[col]||(cloudSeen[col]={});
+      Object.keys(rows).forEach(id=>{
+        const s=JSON.stringify(rows[id]);
+        if(seen[id]!==s){base.collection(col).doc(id).set(rows[id]);seen[id]=s}
+      });
+      /* 手元で消したものは、クラウドからも消す。 */
+      Object.keys(seen).forEach(id=>{
+        if(!(id in rows)){base.collection(col).doc(id).delete();delete seen[id]}
+      });
+    }catch(e){}
   });
   const st=JSON.stringify(cloudSettings());
   if(cloudSeen.__set!==st){base.collection('mk_settings').doc('me').set(cloudSettings());cloudSeen.__set=st}
@@ -4501,7 +4511,7 @@ function cloudSubscribe(){
       cloudApply(col,docs);cloudSeen[col]=seen;
       try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}
       renderAll();
-    },()=>{});
+    },()=>{cloudBanner('クラウドとの接続が切れました。開き直してください')});
   });
   base.collection('mk_settings').doc('me').onSnapshot(d=>{
     const v=d.exists?d.data():null;if(!v)return;
@@ -4523,19 +4533,54 @@ function cloudSubscribe(){
    逆（クラウドに記録がある）ときはクラウドを正とする。 */
 function cloudStart(){
   const base=cloudBase();
-  Promise.all(CL_ALL().map(p=>base.collection(p[0]).limit(1).get())).then(snaps=>{
-    const empty=snaps.every(s=>s.empty);
-    const local=(S.stock||[]).length+(S.history||[]).length+(S.shots||[]).length
-      +(S.myBeans||[]).length+Object.keys(S.log||{}).length;
+  /* 始めるときに、クラウドの中身を全部取ってきて、手元にしか無い記録を**足す**。
+     以前は「クラウドが空のときだけ引っ越す」作りだったので、クラウドに1件でもあると
+     手元の記録が黙って捨てられていた。電波の無い場所で付けた記録も、次の起動で
+     消えていた。消えるくらいなら二重に残るほうがましなので、合流させる。 */
+  const jobs=CL_ALL().map(p=>base.collection(p[0]).get());
+  jobs.push(base.collection('mk_settings').doc('me').get());
+  Promise.all(jobs).then(res=>{
+    CL_ALL().forEach((p,i)=>{
+      const col=p[0],docs={},seen={};
+      res[i].forEach(d=>{const v=d.data();if(!v)return;docs[d.id]=v;seen[d.id]=JSON.stringify(v)});
+      /* クラウドに無いものだけ、手元の分を残す */
+      const mine=cloudRows(col);
+      Object.keys(mine).forEach(id=>{if(!(id in docs))docs[id]=mine[id]});
+      cloudApply(col,docs);cloudSeen[col]=seen;
+    });
+    const sd=res[res.length-1];
+    if(sd&&sd.exists){
+      const v=sd.data()||{};
+      CL_SET.forEach(k=>{if(v[k]!==undefined)S[k]=v[k]});
+      S.grinder=Object.assign(DEF().grinder,S.grinder||{});
+      S.machine=Object.assign(DEF().machine,S.machine||{});
+      S.filter=Object.assign(DEF().filter,S.filter||{});
+      cloudSeen.__set=JSON.stringify(cloudSettings());
+      if(S.theme)document.documentElement.setAttribute('data-theme',S.theme);
+      else document.documentElement.removeAttribute('data-theme');
+    }
     cloudOn=true;
-    if(empty&&local){cloudPush()}
+    try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}
+    cloudPush();           /* 手元にしか無かった分を、ここで上げる */
     cloudSubscribe();
-    cloudNote('クラウドにつながりました');
+    renderAll();
+    cloudBanner('');
   }).catch(()=>{
-    /* 電波が無いときはここに来る。購読はしないが、記録は端末の控えで今までどおり
-       使える。次に開いたときに、もう一度つなぎに行く。 */
-    cloudNote('いまクラウドにつながっていません（記録はこの端末に残ります）');
+    /* 電波が無いときはここに来る。記録は端末の控えで今までどおり使えるが、
+       同期されていないことを必ず見せる。黙って動くのがいちばん危ない。 */
+    cloudOn=false;
+    cloudBanner('クラウドにつながっていません。記録はこの端末にだけ残ります');
+    cloudRetry();
   });
+}
+
+/* つながらなかったときに、あとでもう一度試す。リロードを待たない。 */
+let cloudRetryOn=false;
+function cloudRetry(){
+  if(cloudRetryOn)return;cloudRetryOn=true;
+  const again=()=>{if(!cloudOn&&cloudReady())cloudStart()};
+  window.addEventListener('online',again);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)again()});
 }
 
 /* ---- ログインの画面 ------------------------------------------------------
@@ -4576,9 +4621,18 @@ function cloudGate(show,msg){
   g.style.display=show?'flex':'none';
   if(msg)document.getElementById('cg-err').textContent=msg;
 }
-function cloudNote(msg){
-  /* 画面の下に短く出すだけ。既にある toast があればそれを使う。 */
-  try{if(typeof toast==='function'){toast(msg);return}}catch(e){}
+/* 画面の上に出しっぱなしにする帯。空文字を渡すと消える。
+   toast は「保存」タブの中だけにある関数で外からは呼べないので、自前で出す。 */
+function cloudBanner(msg){
+  let b=document.getElementById('cloud-bar');
+  if(!msg){if(b&&b.parentNode)b.parentNode.removeChild(b);return}
+  if(!b){
+    b=document.createElement('div');b.id='cloud-bar';
+    b.style.cssText='position:fixed;left:0;right:0;top:0;z-index:9998;background:var(--accent);'
+      +'color:#fff;font-size:12px;font-weight:700;text-align:center;padding:7px 12px;line-height:1.5';
+    document.body.appendChild(b);
+  }
+  b.textContent=msg;
 }
 /* 控えの画面に出す、いまの状態とログアウト。 */
 function cloudBackupNote(){
@@ -4602,12 +4656,18 @@ function cloudLogout(){
 function cloudInit(){
   /* SDKを読めなかったとき（電波が無い・CDNが塞がれている）は、
      今までどおり端末の中だけで動かす。ログインの画面も出さない。 */
-  if(typeof firebase==='undefined')return;
+  if(typeof firebase==='undefined'){
+    try{cloudBanner('クラウドにつながっていません。記録はこの端末にだけ残ります')}catch(e){}
+    return}
+  let app=null;
   try{
-    firebase.initializeApp(FB_CONFIG);
-    fbAuth=firebase.auth();fbDb=firebase.firestore();
+    /* 名前付きで初期化する。既に作ってあればそれを使う。 */
+    try{app=firebase.app(FB_APP)}catch(e){app=firebase.initializeApp(FB_CONFIG,FB_APP)}
+    fbAuth=app.auth();fbDb=app.firestore();
     try{fbDb.enablePersistence({synchronizeTabs:true}).catch(()=>{})}catch(e){}
-  }catch(e){return}
+  }catch(e){
+    try{cloudBanner('クラウドを準備できませんでした。記録はこの端末にだけ残ります')}catch(e2){}
+    return}
   fbAuth.onAuthStateChanged(user=>{
     if(user){
       /* 前に別の人が使っていた端末なら、その人の記録を持ち込まないように空にする。 */
