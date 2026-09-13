@@ -189,6 +189,9 @@ body[data-view="box"] #v-box{display:block}
 .btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line);box-shadow:none}
 .btn.wide{width:100%}
 .btn:disabled{opacity:.38;box-shadow:none}
+/* ボタンの中のアイコンに大きさを与える。これが無いと SVG がボタンいっぱいに膨らみ、
+   「写真を消す」のごみ箱が巨大に出ていた（2026-09-13 に画面を見て気づいた）。 */
+.btn svg{width:18px;height:18px;flex:none}
 .searchbar{padding:2px 16px 10px}
 .searchbar input{width:100%;background:var(--card);border:1px solid var(--line);border-radius:var(--r-m);
   padding:13px 15px;min-height:48px}
@@ -249,6 +252,50 @@ body[data-view="box"] #v-box{display:block}
   display:grid;place-items:center;color:var(--sub)}
 .iconbtn svg{width:18px;height:18px}
 .iconbtn[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+
+/* ===== 買い物リスト =====
+   店頭で片手で使う画面なので、1件あたりの高さを詰めて、押すところだけ大きくしてある。 */
+.appbar .ico{position:relative}
+.cartbadge{position:absolute;top:1px;right:1px;min-width:17px;height:17px;padding:0 4px;
+  border-radius:9px;background:var(--accent);color:#fff;font-family:var(--mono);font-size:10.5px;
+  font-weight:700;line-height:17px;text-align:center;letter-spacing:-.03em}
+.ctsum{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:15px}
+.ctsum .ctyen{margin-left:auto;font-family:var(--mono);font-weight:700;letter-spacing:-.02em}
+.ctsum .muted{font-size:12.5px}
+/* 書いて足す欄。入力欄は1行使い、お店の選択と「足す」を次の行に置く。
+   横に3つ並べると幅360pxで商品名がほとんど打てなくなるため。
+   文字は16pxのまま。これより小さいと iOS が焦点を当てたときに勝手に拡大する。 */
+.ctadd{display:flex;gap:6px;flex-wrap:wrap}
+.ctadd input{flex:1 1 100%;min-height:42px;padding:9px 11px}
+/* select は共通の指定で width:100% が効くため、そのままだと1行を丸ごと占めて
+   「足す」が次の行へ落ちる。ここだけ auto に戻して、選択と足すを同じ行に収める。 */
+.ctadd select{flex:1 1 auto;width:auto;min-width:0;min-height:42px;padding:9px 10px}
+.ctadd .btn{flex:none;min-height:42px;padding:0 16px;font-size:14px}
+.cthead{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:6px}
+.cthead .muted{font-size:11.5px;white-space:nowrap}
+.ctrow{display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--line)}
+.ctrow:first-of-type{border-top:0;padding-top:0}
+.ctchk{width:32px;height:32px;flex:none;border-radius:50%;border:1.6px solid var(--line);
+  background:transparent;color:transparent;display:grid;place-items:center}
+.ctchk svg{width:17px;height:17px}
+.ctchk[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.ctmain{flex:1;min-width:0}
+.ctname{font-size:13.5px;font-weight:600;line-height:1.4;overflow-wrap:anywhere}
+.ctsub{font-size:11.5px;color:var(--sub);font-family:var(--mono);letter-spacing:-.02em;margin-top:1px}
+.ctmul{color:var(--text);font-weight:700}
+.ctlink{background:none;border:0;padding:3px 0 0;font-size:11.5px;color:var(--accent);
+  text-decoration:underline;display:block}
+.ctside{display:flex;align-items:center;gap:2px;flex:none}
+.ctqty{display:flex;align-items:center;border:1px solid var(--line);border-radius:var(--r-s);
+  overflow:hidden;background:var(--card)}
+.ctqty button{width:26px;height:30px;background:transparent;border:0;color:var(--sub);
+  font-size:15px;line-height:1;display:grid;place-items:center}
+.ctqty b{min-width:19px;text-align:center;font-family:var(--mono);font-size:13px}
+.ctdel{width:28px;height:30px;background:transparent;border:0;color:var(--mute);
+  display:grid;place-items:center}
+.ctdel svg{width:16px;height:16px}
+.ctrow.done .ctname{text-decoration:line-through;color:var(--mute)}
+.ctrow.done .ctsub,.ctrow.done .ctlink{opacity:.5}
 
 /* ===== トレイ ===== */
 #tray{position:fixed;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom));z-index:35;
@@ -452,6 +499,11 @@ body[data-view="box"] #v-box{display:block}
 .cardacts .chip{padding:7px 9px;font-size:12px;min-height:34px;letter-spacing:-.01em}
 .cardacts .iconbtn{width:34px;height:34px;margin-left:auto;flex:none}
 .cardacts .iconbtn svg{width:16px;height:16px}
+/* 飲み終わった豆は数が増える一方なので、このカードのボタンだけ一段小さくする。
+   指で押せる下限（30px）は割らない。1画面に3件までしか入らなかったのを4件にするため。 */
+.card.hist .cardacts{margin-top:7px}
+.card.hist .cardacts .chip{padding:5px 9px;min-height:30px}
+.card.hist .cardacts .iconbtn{width:30px;height:30px}
 /* 見出しは「お店の名前」を上の行に小さく、豆の名前を下の行に置く。
    1行にまとめると、名前が長いときに右の札を押し潰してしまう。 */
 .cardhead{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
@@ -853,6 +905,12 @@ body[data-view="box"] .cupzone{display:none}
   <button class="ico" id="btn-filter" aria-label="しぼりこむ">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
       <path d="M3 7h13M18.5 7H21M3 17h5M10.5 17H21"/><circle cx="17" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></svg></button>
+  <!-- 買い物リスト。しぼりこみと違ってどのタブでも使うので、いちばん右（親指が届く側）に置く。
+       件数は「まだ買っていない分」だけを出す。買った分まで数えると減らないので用をなさない。 -->
+  <button class="ico" id="btn-cart" data-act="opencart" aria-label="買い物リストを開く">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3.2 4h2.3l2.4 10.6h9.3l2.1-7.4H6.6"/><circle cx="10" cy="19" r="1.5"/><circle cx="17.4" cy="19" r="1.5"/></svg>
+    <span class="cartbadge" id="cartcount" hidden>0</span></button>
 </div>
 
 <main>
@@ -1160,7 +1218,16 @@ const PRODUCTS=[
    schemaVersion は後から項目を増やしたときの変換のために最初から入れておく。
    ========================================================================= */
 const LS='mamekurabe.v1';
-const DEF=()=>({schemaVersion:4,fav:[],log:{},pref:null,shots:[],
+const DEF=()=>({schemaVersion:6,fav:[],log:{},pref:null,shots:[],
+  /* hidden は「一覧から消した豆」。最初から入っている豆（BEANS・PRODUCTS）は
+     コードの中の定数なので本当には消せない。id をここに覚えておき、
+     さがす・味の地図から外す。記録・履歴・買い物リストは id で引くのでそのまま残る。 */
+  hidden:[],
+  /* cart は買い物リスト。店頭で「このお店で買うもの」を見るためだけの一時的な控えで、
+     買い終わったら消える。豆の資産（stock/history）とは性質が違うので混ぜない。
+     名前・お店・値段は入れた時点の値を写し取って持つ。history と同じ考えで、
+     あとで自分で登録した豆を消しても、リストが読めなくならないようにするため。 */
+  cart:[],
   /* stock は「いま家にある豆」。ひとつの豆につき1件だけ持つ。
      残量は抽出を記録するたびに自動で減らすので、手で数える必要がない。 */
   stock:[],
@@ -1182,6 +1249,11 @@ const DEF=()=>({schemaVersion:4,fav:[],log:{},pref:null,shots:[],
   /* 知りたい順序が「①どのお店で買えるか ②どの豆か」なので、お店から入る */
   cmp:[],mode:'shop',filter:{mood:[],roast:[],area:[],shop:[],pmax:8000},
   sort:'reco',theme:null,lastExport:null});
+/* uid が使う「最後に出した値」。**宣言はここ（migrate より前）に置くこと。**
+   migrate は cartNorm 経由で uid() を呼びうるが、let は宣言より前に触ると例外になる。
+   起動時の読み込みは try/catch で囲まれているので、その例外は握り潰され、
+   **記録が丸ごと初期値に置き換わる**（2026-09-12 の「全部消えた」と同じ見え方になる）。 */
+let lastUid=0;
 /* 古い保存データを読んでも壊れないように、足りない項目を補ってから使う */
 function migrate(d){
   d=Object.assign(DEF(),d||{});
@@ -1198,7 +1270,14 @@ function migrate(d){
     if(typeof x.bestBy!=='string')x.bestBy=''});
   if(!Array.isArray(d.history))d.history=[];
   d.history=d.history.filter(x=>x&&x.id);
-  d.schemaVersion=4;
+  /* v5 で買い物リストを足した。古い控えには無いので空で補う。
+     中身は cartNorm で形をそろえる（数量が壊れた控えを読んでも動くようにするため）。 */
+  if(!Array.isArray(d.cart))d.cart=[];
+  d.cart=d.cart.filter(x=>x&&x.id&&(x.name||x.pid)).map(cartNorm);
+  /* v6 で「一覧から消した豆」を足した。文字列の id 以外が混じっても落ちないようにする。 */
+  if(!Array.isArray(d.hidden))d.hidden=[];
+  d.hidden=d.hidden.filter(x=>typeof x==='string'&&x);
+  d.schemaVersion=6;
   return d;
 }
 let S;
@@ -1344,7 +1423,7 @@ const $=s=>document.querySelector(s);
    まったく同じ id になってしまう。保存のときに「同じ id は上書き」と判断しているので、
    ぶつかると片方が黙って消える。最後に出した値を覚えておき、必ず1つずつ進めることで防ぐ。
    進めても時刻としてはミリ秒しか違わないので、id から日付を取り出す処理には影響しない。 */
-let lastUid=0;
+/* lastUid の宣言は、DEF の手前へ移した（2026-09-13）。理由はそちらのコメントに書いてある。 */
 function uid(prefix){
   const t=Date.now();
   lastUid=t>lastUid?t:lastUid+1;
@@ -1371,6 +1450,8 @@ const PROC_SAY={
   monsooned:'インドで季節風に晒す方法。酸味がほとんど消えて、まろやかになります。'};
 /* 8段階を3つに丸める。ライト〜ミディアム=浅、ハイ〜シティ=中、フルシティ以降=深。 */
 const ICON={
+  cart:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.2 4h2.3l2.4 10.6h9.3l2.1-7.4H6.6"/><circle cx="10" cy="19" r="1.5"/><circle cx="17.4" cy="19" r="1.5"/></svg>',
+  cartOn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3.2 4h2.3l2.4 10.6h9.3l2.1-7.4H6.6"/><circle cx="10" cy="19" r="1.6" fill="currentColor"/><circle cx="17.4" cy="19" r="1.6" fill="currentColor"/><path d="m10.3 9.4 1.8 1.8 3.3-3.5"/></svg>',
   heart:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20.3S4.8 15.7 4.8 10.5A3.9 3.9 0 0 1 12 7.4a3.9 3.9 0 0 1 7.2 3.1c0 5.2-7.2 9.8-7.2 9.8Z"/></svg>',
   heartOn:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 20.3S4.8 15.7 4.8 10.5A3.9 3.9 0 0 1 12 7.4a3.9 3.9 0 0 1 7.2 3.1c0 5.2-7.2 9.8-7.2 9.8Z"/></svg>',
   plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></svg>',
@@ -1432,7 +1513,7 @@ function sortList(a){
   return a.sort((x,y)=>prefScore(x)-prefScore(y)||y.beg-x.beg);
 }
 const query=()=>($('#q')&&$('#q').value||'').trim();
-function filtered(){return sortList(BEANS.filter(b=>matchAll(b,query())))}
+function filtered(){return sortList(BEANS.filter(b=>!isHidden(b.id)&&matchAll(b,query())))}
 
 /* 0件のときに「どれを外せば見つかるか」を返す。行き止まりを作らないため。 */
 function relaxSuggest(){
@@ -1532,6 +1613,26 @@ function pkgSvg(p,size){
 }
 /* お店の商品と、自分で登録した豆をひとつなぎに扱う */
 const allProducts=()=>PRODUCTS.concat(S.myBeans||[]);
+/* 一覧から消した豆かどうか。allProducts はそのままにして、一覧に出す側だけを
+   listProducts で絞る。消した豆でも anyById では引けるようにしておかないと、
+   買い物リストや家にある豆に残っている行が「（消えた豆）」になってしまう。 */
+const isHidden=id=>(S.hidden||[]).indexOf(id)>=0;
+const listProducts=()=>allProducts().filter(p=>!isHidden(p.id));
+/* 一覧から消す。お気に入りとくらべるからも外す（買わないと決めた豆なので）。
+   記録・履歴・買い物リスト・家にある豆には手を触れない。 */
+function hideBean(id){
+  if(!id||isHidden(id))return false;
+  S.hidden=(S.hidden||[]).concat([id]);
+  S.fav=(S.fav||[]).filter(x=>x!==id);
+  S.cmp=(S.cmp||[]).filter(x=>x!==id);
+  save();return true;
+}
+function unhideBean(id){
+  const before=(S.hidden||[]).length;
+  S.hidden=(S.hidden||[]).filter(x=>x!==id);
+  if(S.hidden.length===before)return false;
+  save();return true;
+}
 const byPid=id=>allProducts().find(p=>p.id===id);
 /* 名前から決まった色を作る。同じ名前なら毎回同じ色になる。 */
 function nameColor(n){
@@ -1556,7 +1657,7 @@ function pkgView(p,big){
     '<span class="cam">'+ICON.cam+(big?'<i>写真</i>':'')+'</span></span>';
 }
 function prodCard(p){
-  const fav=S.fav.includes(p.id);
+  const fav=S.fav.includes(p.id), inCart=!!cartOfProd(p.id);
   /* rcls で焙煎の深さのクラスが付く。カードの地の色はこれで決まる */
   return '<article class="prod '+rcls(p.roast)+'" data-act="pdetail" data-id="'+p.id+'">'+pkgView(p)+
     '<div><div class="shopname">'+esc(p.shop||'（お店なし）')+(p.mine?' <span class="mybadge">自分で登録</span>':'')+
@@ -1566,13 +1667,18 @@ function prodCard(p){
     '<div class="foot"><span class="price">'+yen(p.price)+' <small>/'+p.sizeG+'g</small>'+
       '<span class="per">100gあたり '+yen(p.per100)+(p.confidence==='B'?'（参考）':'')+'</span></span>'+
       '<span class="acts"><button class="iconbtn" data-act="fav" data-id="'+p.id+'" aria-pressed="'+fav+
-      '" aria-label="お気に入り">'+(fav?ICON.heartOn:ICON.heart)+'</button></span></div></div></article>';
+      '" aria-label="お気に入り">'+(fav?ICON.heartOn:ICON.heart)+'</button>'+
+      /* 買い物リストは商品（お店と値段がある側）だけに付ける。
+         産地の豆（BEANS）はどのお店で買うかが決まらないので入れられない。 */
+      '<button class="iconbtn" data-act="cart" data-id="'+p.id+'" aria-pressed="'+inCart+
+      '" aria-label="買い物リストに入れる">'+(inCart?ICON.cartOn:ICON.cart)+'</button>'+
+      '</span></div></div></article>';
 }
 const favCard=id=>{const b=byId(id);if(b)return beanCard(b);const p=byPid(id);return p?prodCard(p):''};
 
 function prodFiltered(){
   const q=query(),f=S.filter;
-  const a=allProducts().filter(p=>{
+  const a=listProducts().filter(p=>{
     if(f.shop.length&&!f.shop.includes(p.shop||'（お店なし）'))return false;
     if(f.roast.length&&!f.roast.includes(grp(p.roast)))return false;
     if(p.per100>f.pmax)return false;
@@ -1589,7 +1695,7 @@ function prodFiltered(){
   return a.sort((x,y)=>x.shop.localeCompare(y.shop,'ja')||x.per100-y.per100);
 }
 function shopCounts(){
-  const c={};allProducts().forEach(p=>{const k=p.shop||'（お店なし）';c[k]=(c[k]||0)+1});
+  const c={};listProducts().forEach(p=>{const k=p.shop||'（お店なし）';c[k]=(c[k]||0)+1});
   /* 自分で登録したお店を上に出す。自分のデータのほうが用があるため。 */
   const mine=new Set((S.myBeans||[]).map(p=>p.shop||'（お店なし）'));
   return Object.entries(c).sort((a,b)=>(mine.has(b[0])?1:0)-(mine.has(a[0])?1:0)||b[1]-a[1]);
@@ -1644,6 +1750,9 @@ function countSub(){
   if(f.mood.length)n.push('気分'+f.mood.length+'件');
   if(f.area.length)n.push(f.area.join('・'));
   if(f.pmax<8000)n.push(yen(f.pmax)+'以下');
+  /* 一覧から消した豆があることは、件数の横で必ず伝える。黙って減らすと
+     「載っていたはずの豆が無い」と探しに行くことになる。 */
+  if((S.hidden||[]).length)n.push('消した豆'+S.hidden.length+'件をのぞく');
   return n.length?'／ '+n.join('・'):'';
 }
 function renderList(){
@@ -1652,7 +1761,7 @@ function renderList(){
   const cs=$('#countsub');if(cs)cs.textContent=countSub();
 
   if(S.mode==='shop'){
-    const sc=shopCounts(), total=allProducts().length;
+    const sc=shopCounts(), total=listProducts().length;
     /* 店を選ぶ前は、お店の一覧を見せる。ここが「リストから店を選ぶ」入口。 */
     if(!S.filter.shop.length&&!query()){
       $('#count').textContent=sc.length+'店 ／ '+total+'種';
@@ -1764,7 +1873,11 @@ function openDetail(id){
 
   h+='<div class="pad" style="display:flex;gap:10px">'+
      '<button class="btn ghost" style="flex:1" data-act="fav" data-id="'+b.id+'">'+(fav?'♥ お気に入り解除':'♡ お気に入り')+'</button>'+
-     '<button class="btn ghost" style="flex:1" data-act="cmp" data-id="'+b.id+'">'+(S.cmp.includes(b.id)?'✓ くらべる中':'＋ くらべる')+'</button></div>';
+     '<button class="btn ghost" style="flex:1" data-act="cmp" data-id="'+b.id+'">'+(S.cmp.includes(b.id)?'✓ くらべる中':'＋ くらべる')+'</button></div>'+
+     '<div class="pad" style="padding-top:0">'+
+     '<button class="btn ghost wide" data-act="hide" data-id="'+esc(b.id)+
+     '" style="color:var(--bad)">この豆を一覧から消す</button>'+
+     '<p class="tiny" style="margin:6px 0 0">しぼりこむ の「一覧から消した豆」からいつでも戻せます。</p></div>';
 
   openFull(b.name,h,{t:'bean',id:b.id});
 }
@@ -1774,7 +1887,7 @@ function lum(hex){const n=parseInt(hex.slice(1),16);
   return (0.2126*(n>>16)+0.7152*((n>>8)&255)+0.0722*(n&255))/255}
 function openProd(id){
   const p=byPid(id);if(!p)return;
-  const log=S.log[p.id], fav=S.fav.includes(p.id);
+  const log=S.log[p.id], fav=S.fav.includes(p.id), inCart=!!cartOfProd(p.id);
   const a=(p.pkg&&p.pkg[0])||'#8a6a55', light=lum(a)>0.62;
   const R=espRecipe({roast:p.roast});
 
@@ -1842,10 +1955,20 @@ function openProd(id){
   h+='<div class="pad" style="display:flex;gap:10px;flex-wrap:wrap">'+
      (p.mine?'<button class="btn ghost" style="flex:1;min-width:44%;gap:8px" data-act="myedit" data-id="'+p.id+
        '">'+ICON.edit+'編集する</button>':'')+
+     /* 幅いっぱいに置く。半分の幅だと「買い物リストに入れる」が2行に折り返して読みにくい。 */
+     '<button class="btn ghost" style="flex:1 1 100%;gap:8px" data-act="cart" data-id="'+p.id+'">'+
+     (inCart?ICON.cartOn+'買い物リストから外す':ICON.cart+'買い物リストに入れる')+'</button>'+
      '<button class="btn ghost" style="flex:1;min-width:44%" data-act="fav" data-id="'+p.id+'">'+
      (fav?'♥ お気に入りから外す':'♡ お気に入りに入れる')+'</button></div>'+
      (photoOf(p.id)?'<div class="pad" style="padding-top:0"><button class="btn ghost wide" data-act="delphoto" '+
-       'data-id="'+p.id+'" style="color:var(--bad);gap:8px">'+ICON.trash+'写真を消す</button></div>':'');
+       'data-id="'+p.id+'" style="color:var(--bad);gap:8px">'+ICON.trash+'写真を消す</button></div>':'')+
+     /* 自分で登録した豆には「この豆を消す」（編集画面）があるので、こちらは出さない。
+        最初から入っている商品は定数なので消せない。一覧から外すだけにして、戻せるようにする。 */
+     (p.mine?'':'<div class="pad" style="padding-top:0">'+
+       '<button class="btn ghost wide" data-act="hide" data-id="'+esc(p.id)+
+       '" style="color:var(--bad)">この豆を一覧から消す</button>'+
+       '<p class="tiny" style="margin:6px 0 0">買わないと決めた豆を、さがすと味の地図から外します。'+
+       'しぼりこむ の「一覧から消した豆」からいつでも戻せます。</p></div>');
   openFull(p.name,h,{t:'prod',id:p.id});
 }
 
@@ -3129,49 +3252,70 @@ function renderStock(){
 function toHistory(st){
   const b=anyById(st.beanId)||{};
   const shots=S.shots.filter(x=>x.beanId===st.beanId&&x.status==='done');
+  /* **空欄は空欄のまま残す。** 以前は買った日が空だと id の時刻から補っていたが、
+     アプリを始める前に飲んだ豆をあとから記録したいときに、登録した日が
+     「買った日」として並んでしまう（2026-09-13 に指摘された）。
+     日付を1つも入れずに登録した豆は「昔の豆の記録」とみなし、
+     飲み終えた日も入れない。あとから「日付をなおす」で足せる。 */
+  const noDate=!st.buyDate&&!st.openDate&&!st.roastDate&&!st.bestBy;
   return {id:uid('h'),beanId:st.beanId,
     name:b.name||'（消えた豆）',shop:b.shop||'',roast:b.roast||0,
-    buyDate:st.buyDate||dateOf(st.id),roastDate:st.roastDate||'',
+    buyDate:st.buyDate||'',roastDate:st.roastDate||'',
     openDate:st.openDate||'',bestBy:st.bestBy||'',
     startG:st.startG||0,leftG:st.leftG||0,
-    doneAt:today(),cups:shots.length,
+    doneAt:noDate?'':today(),cups:shots.length,
     rating:shots.reduce((m,x)=>Math.max(m,x.rating||0),0)};
 }
 /* 感想が入っているか。古いデータや壊れた値でも落ちないように、形まで確かめる。 */
 function hasReview(h){
   return !!(h&&h.review&&Array.isArray(h.review.t)&&h.review.t.length===3);
 }
-function historyCard(h){
+/* 日付を1行にまとめる。空欄の項目は出さない。
+   以前は「買った日・開封日・飲み終えた日・焙煎日・賞味期限」を縦に並べていて、
+   空欄でも「—」で1行を使っていた。飲み終わった豆は増える一方なのに、
+   iPhone の1画面に1件半しか入らなかった（2026-09-13 に指摘された）。 */
+function histLine(h){
   const span=(h.buyDate&&h.doneAt)?dayDiff(h.buyDate,h.doneAt):null;
+  const out=[];
+  if(h.buyDate&&h.doneAt)out.push(dateJP(h.buyDate)+' → '+dateJP(h.doneAt)+
+    (span!==null&&span>=0?'（'+span+'日間）':''));
+  else if(h.doneAt)out.push(dateJP(h.doneAt)+' に飲み終えた');
+  else if(h.buyDate)out.push(dateJP(h.buyDate)+' に買った');
+  else out.push('日付なし');
+  if(h.cups>0)out.push(h.cups+'杯');
+  return out.join('　');
+}
+/* 感想も1行に畳む。3本のバーは、飲み終えた豆を見返すときには細かすぎるので
+   数字だけにした。中身は押して開く「感想」の画面に全部ある。 */
+function histReview(h){
   const rv=hasReview(h)?h.review:null;
+  if(!rv)return '';
+  const T=['酸','苦','コク'];
+  return '<p class="tiny" style="margin:5px 0 0;color:var(--mute);overflow:hidden;'+
+    'text-overflow:ellipsis;white-space:nowrap">'+
+    (rv.repeat?esc(rv.repeat)+'　':'')+
+    T.map((n,i)=>esc(n)+(+rv.t[i]||0)).join('・')+
+    (rv.memo?'　'+esc(String(rv.memo).replace(/\s+/g,' ')):'')+'</p>';
+}
+function historyCard(h){
+  const rv=hasReview(h)?h.review:null;
+  const eid=esc(h.id);
   /* カードごと押すと感想の入力が開く。「飲み終わった豆から豆を押して感想を書く」という
      使い方がいちばん自然なので、ボタンを探させない。中のボタンはそちらが先に拾われる。 */
-  return '<div class="card" data-act="review" data-id="'+h.id+'">'+
+  return '<div class="card hist" data-act="review" data-id="'+eid+'" style="padding:11px 15px 9px">'+
     '<div class="cardhead"><span class="nm">'+
       (h.shop?'<span class="sh">'+esc(h.shop)+'</span>':'')+
       '<b>'+esc(h.name)+'</b></span>'+
       (h.rating>0?'<span style="color:var(--gold);white-space:nowrap;flex:none">'+
         '★'.repeat(h.rating)+'</span>':'')+'</div>'+
-    '<dl class="kv" style="margin-top:9px;font-size:13.5px">'+
-      '<dt>買った日</dt><dd>'+esc(dateJP(h.buyDate))+'</dd>'+
-      '<dt>開封日</dt><dd>'+esc(dateJP(h.openDate))+'</dd>'+
-      '<dt>飲み終えた日</dt><dd>'+esc(dateJP(h.doneAt))+
-        (span!==null&&span>=0?'<span class="tiny">（'+span+'日間）</span>':'')+'</dd>'+
-      (h.roastDate?'<dt>焙煎日</dt><dd>'+esc(dateJP(h.roastDate))+'</dd>':'')+
-      (h.bestBy?'<dt>賞味期限</dt><dd>'+esc(dateJP(h.bestBy))+'</dd>':'')+'</dl>'+
-    (rv?'<div style="margin-top:11px;padding-top:10px;border-top:1px solid var(--line)">'+
-      '<div class="between" style="margin-bottom:7px">'+
-        '<strong style="font-size:13px">飲んだ感想</strong>'+
-        (rv.repeat?'<span class="badge">リピート '+esc(rv.repeat)+'</span>':'')+'</div>'+
-      [0,1,2].map(i=>tbar(i,rv.t[i],'var(--s3)')).join('')+
-      (rv.memo?'<p class="muted" style="margin:8px 0 0;white-space:pre-wrap">'+
-        esc(rv.memo)+'</p>':'')+'</div>':'')+
+    '<p class="tiny" style="margin:6px 0 0">'+esc(histLine(h))+'</p>'+
+    histReview(h)+
     '<div class="cardacts">'+
-      '<button class="chip" data-act="review" data-id="'+h.id+'">'+
-        (rv?'感想をなおす':'感想を書く')+'</button>'+
-      '<button class="chip" data-act="rebuy" data-id="'+h.id+'">また買った</button>'+
-      '<button class="chip" data-act="edithist" data-id="'+h.id+'">日付をなおす</button>'+
-      '<button class="iconbtn" data-act="delhist" data-id="'+h.id+
+      '<button class="chip" data-act="review" data-id="'+eid+'">'+
+        (rv?'感想':'感想を書く')+'</button>'+
+      '<button class="chip" data-act="rebuy" data-id="'+eid+'">また買った</button>'+
+      '<button class="chip" data-act="edithist" data-id="'+eid+'">日付</button>'+
+      '<button class="iconbtn" data-act="delhist" data-id="'+eid+
         '" aria-label="この履歴を消す" style="margin-left:auto;color:var(--mute)">'+
         ICON.trash+'</button></div></div>';
 }
@@ -3241,7 +3385,7 @@ function renderHistoryForm(){
     '<p class="muted" style="margin:0 0 18px">'+esc((f.shop?f.shop+' ':'')+f.name)+'</p>'+
     day('buy','買った日',[[0,'今日'],[7,'1週間前'],[-1,'消す']])+
     day('open','開封日',[[0,'今日'],[7,'1週間前'],[-1,'消す']])+
-    day('done','飲み終えた日',[[0,'今日'],[1,'昨日'],[2,'おととい'],[7,'1週間前']])+
+    day('done','飲み終えた日',[[0,'今日'],[1,'昨日'],[2,'おととい'],[7,'1週間前'],[-1,'消す']])+
     '<p class="tiny">飲み切ったその日にボタンを押せないことがあるので、あとから直せます。'+
     '2つの日付から「何日で飲み終えたか」を出しています。</p></div>';
   openSheet('日付をなおす',body,
@@ -3510,13 +3654,33 @@ function refreshAfterPhoto(id){
   if(fullCtx&&fullCtx.id===id){if(fullCtx.t==='prod')openProd(id);else openDetail(id)}
 }
 
+/* 一覧から消した豆を戻す入口。消したあとに探す場所が無いと「もう戻せない」と
+   思われてしまうので、絞り込みの中に必ず出す（1件も無ければ出さない）。 */
+function hiddenBlock(){
+  const n=(S.hidden||[]).length;
+  if(!n)return '';
+  return '<div class="field"><label>一覧から消した豆</label>'+
+    '<button class="btn ghost wide" data-act="hidlist">'+n+'件を見る・戻す</button></div>';
+}
+function hiddenSheet(){
+  const rows=(S.hidden||[]).map(id=>{const b=anyById(id);
+    return '<div class="between" style="padding:10px 0;border-bottom:1px solid var(--line)">'+
+      '<span>'+esc(b?((b.shop?b.shop+' ':'')+b.name):'（もう無い豆）')+'</span>'+
+      '<button class="chip" data-act="unhide" data-id="'+esc(id)+'">戻す</button></div>'}).join('');
+  openSheet('一覧から消した豆',
+    '<div class="pad">'+(rows||'<p class="muted" style="margin:0">ありません。</p>')+
+    '<p class="tiny" style="margin-top:14px">ここにある豆は「さがす」と「味の地図」に出ません。'+
+    '飲んだ記録・買い物リスト・家にある豆はそのまま残っています。</p></div>',
+    '<button class="btn wide" data-close>閉じる</button>');
+}
 function filterSheet(){
   const f=S.filter;
   const grpChips=(k,arr,lab)=>'<div class="field"><label>'+lab+'</label><div class="chips">'+
     arr.map(v=>{const on=f[k].includes(v);
       const bk=JSON.parse(JSON.stringify(f));
       bk[k]=on?bk[k].filter(x=>x!==v):bk[k].concat(v);
-      const save0=S.filter;S.filter=bk;const n=BEANS.filter(b=>matchAll(b,query())).length;S.filter=save0;
+      const save0=S.filter;S.filter=bk;
+      const n=BEANS.filter(b=>!isHidden(b.id)&&matchAll(b,query())).length;S.filter=save0;
       return '<button class="chip" data-act="f" data-k="'+k+'" data-v="'+esc(v)+'" aria-pressed="'+on+'"'+
         (n===0&&!on?' disabled':'')+'>'+esc(k==='roast'?v+'煎り':v)+'</button>'}).join('')+'</div></div>';
   const body='<div class="pad">'+
@@ -3529,6 +3693,7 @@ function filterSheet(){
     '<div class="field"><label>値段の上限（100gあたり）：<b id="pv">'+yen(f.pmax)+'</b></label>'+
       '<input type="range" class="range" id="prange" min="300" max="8000" step="100" value="'+f.pmax+'"></div>'+
     '<div class="note">値段は必ず100gあたりに揃えて比べています。袋の内容量がバラバラのまま並べると、比較そのものが意味を失うためです。</div>'+
+    hiddenBlock()+
     '</div>';
   openSheet('しぼりこむ',body,
     '<button class="btn ghost" data-act="clearall" style="flex:1">条件をクリア</button>'+
@@ -3578,6 +3743,18 @@ document.addEventListener('click',e=>{
     else S.cmp.push(id);
     save();renderList();if($('#full').classList.contains('on')&&$('#full-title').textContent.startsWith('くらべる'))
       (S.cmp.length>=2?openCompare():closeFull());else if($('#full').classList.contains('on'))openDetail(id)}
+  else if(a==='opencart'){openCart()}
+  else if(a==='cart'){e.stopPropagation();
+    cartToggleProd(id);renderCartBadge();renderList();renderMy();
+    /* くわしい画面から押したときは、その画面のボタンの文字も入れ替える。 */
+    if(fullCtx&&fullCtx.t==='prod'&&fullCtx.id===id)openProd(id);
+    else if(cartOpen())openCart()}
+  else if(a==='ctdone'){cartDone(id);cartRefresh()}
+  else if(a==='ctqty'){cartQty(id,+t.dataset.d);cartRefresh()}
+  else if(a==='ctdel'){cartDel(id);cartRefresh()}
+  else if(a==='ctadd'){cartAddFromForm()}
+  else if(a==='ctclear'){const k=cartClearDone();if(k)cartRefresh()}
+  else if(a==='ctstock'){closeFull();setView('my');stockSheet(null,id)}
   else if(a==='mood'||a==='f'){const k=a==='mood'?'mood':t.dataset.k,v=a==='mood'?id:t.dataset.v;
     S.filter[k]=S.filter[k].includes(v)?S.filter[k].filter(x=>x!==v):S.filter[k].concat(v);
     save();renderList();renderMap();refreshSheetCounts()}
@@ -3623,6 +3800,13 @@ document.addEventListener('click',e=>{
       '「いま家にある豆」からは消えますが、「飲み終わった豆」に記録として残ります。'))return;
     S.history.unshift(toHistory(st));
     S.stock=(S.stock||[]).filter(x=>x.id!==id);stForm=null;save();closeSheet();renderAll()}
+  else if(a==='hide'){const b=anyById(id);
+    if(!confirm('「'+((b&&b.name)||'この豆')+'」を一覧から消します。'+String.fromCharCode(10)+
+      '「さがす」と「味の地図」に出なくなります。お気に入りとくらべるからも外れます。'+String.fromCharCode(10)+
+      'しぼりこむ の「一覧から消した豆」からいつでも戻せます。'))return;
+    hideBean(id);closeSheet();closeFull();renderAll()}
+  else if(a==='hidlist'){hiddenSheet()}
+  else if(a==='unhide'){unhideBean(id);renderAll();hiddenSheet()}
   else if(a==='delhist'){
     if(!confirm('この履歴を消しますか？　抽出の記録そのものは残ります。'))return;
     S.history=(S.history||[]).filter(x=>x.id!==id);save();renderHistory()}
@@ -3817,6 +4001,218 @@ document.addEventListener('change',e=>{
   r.readAsText(f);e.target.value='';
 });
 
+/* =========================================================================
+   買い物リスト（2026-09-13）
+
+   店頭で開いて「このお店で買うもの」を一覧で見るための画面。
+   買い物中に片手で使う画面なので、丸を押すだけで済むようにしてある。
+
+   入れられるのは PRODUCTS と自分で登録した豆だけ。BEANS（産地の代表例）は
+   お店も値段も持たないので入れられない。豆以外（フィルター・牛乳など）は
+   「書いて足す」から入れる。こちらはお店を選ばなければ最後にまとめて出る。
+
+   値段は入れた時点の写しで、合計はあくまで概算である。
+   商品データの価格は調べた月のものなので、レジで合わないことがある。
+   ========================================================================= */
+const CT_NOSHOP='お店を決めていない';
+/* 1件の形をここで揃える。控えを読み込んだときも必ずこれを通すので、
+   数量が文字列や0や1000になっている壊れたデータでも画面が壊れない。 */
+function cartNorm(x){
+  x=x||{};
+  const q=Math.round(+x.qty||1);
+  /* 一覧側の「お店なし」の呼び名（shopCounts が返す（お店なし））が入ってきたときは、
+     空として扱う。そのまま持つと「（お店なし）」と「お店を決めていない」の
+     同じ意味の山が2つ並んでしまう。 */
+  const sh=String(x.shop||'');
+  return {id:String(x.id||uid('ct')),pid:String(x.pid||''),shop:sh==='（お店なし）'?'':sh,
+    name:String(x.name||''),sizeG:Math.max(0,Math.round(+x.sizeG||0)),
+    price:Math.max(0,Math.round(+x.price||0)),qty:Math.max(1,Math.min(99,q||1)),
+    done:!!x.done,at:+x.at||Date.now()};
+}
+const cartList=()=>S.cart||(S.cart=[]);
+/* 同じ商品は二重に入れない。すでに入っていたら数量を増やす。 */
+const cartOfProd=pid=>cartList().find(x=>x.pid&&x.pid===pid)||null;
+const cartById=id=>cartList().find(x=>x.id===id)||null;
+function cartAddProd(pid){
+  const p=byPid(pid);if(!p)return null;
+  const ex=cartOfProd(pid);
+  /* 買った印が付いたままの分をもう一度押したときは、印を外して数量を増やす。
+     「また買う」つもりで押しているので、済みのままにすると意図と食い違う。 */
+  if(ex){ex.qty=Math.min(99,ex.qty+1);ex.done=false;save();return ex}
+  const it=cartNorm({id:uid('ct'),pid:p.id,shop:p.shop||'',name:p.name,sizeG:p.sizeG,price:p.price});
+  cartList().push(it);save();return it;
+}
+function cartAddFree(name,shop){
+  const nm=String(name==null?'':name).trim();if(!nm)return null;
+  const it=cartNorm({id:uid('ct'),shop:String(shop||''),name:nm});
+  cartList().push(it);save();return it;
+}
+function cartDel(id){
+  const before=cartList().length;
+  S.cart=cartList().filter(x=>x.id!==id);
+  const removed=before!==S.cart.length;
+  if(removed)save();
+  return removed;
+}
+function cartToggleProd(pid){
+  const ex=cartOfProd(pid);
+  if(ex){cartDel(ex.id);return false}
+  return !!cartAddProd(pid);
+}
+/* 数量は1〜99。0にして消す作りにすると、押し間違いで黙って消えるので下限は1にして、
+   消すのはごみ箱だけに任せる。 */
+function cartQty(id,d){const it=cartById(id);if(!it)return null;
+  it.qty=Math.max(1,Math.min(99,it.qty+(+d||0)));save();return it}
+function cartDone(id){const it=cartById(id);if(!it)return null;it.done=!it.done;save();return it}
+function cartClearDone(){
+  const before=cartList().length;
+  S.cart=cartList().filter(x=>!x.done);
+  const removed=before-S.cart.length;
+  if(removed)save();
+  return removed;
+}
+/* お店ごとにまとめる。買ったものは各お店の中で下に回す。
+   お店を決めていないものは最後。店頭ではそのお店の分だけを見たいため。 */
+function cartGroups(){
+  const m=new Map();
+  cartList().forEach(x=>{const k=x.shop||CT_NOSHOP;if(!m.has(k))m.set(k,[]);m.get(k).push(x)});
+  const keys=Array.from(m.keys()).sort((a,b)=>
+    (a===CT_NOSHOP?1:0)-(b===CT_NOSHOP?1:0)||a.localeCompare(b,'ja'));
+  return keys.map(k=>({shop:k,items:m.get(k).slice().sort((a,b)=>
+    (a.done?1:0)-(b.done?1:0)||a.at-b.at)}));
+}
+/* 合計は概算。値段を持たない品（書いて足したもの）は金額に入れず、件数だけ数える。 */
+function cartSum(items){
+  const a=items||cartList();
+  let yen=0,qty=0,left=0,done=0,noprice=0;
+  a.forEach(x=>{
+    qty+=x.qty;
+    if(x.price>0)yen+=x.price*x.qty;else noprice++;
+    if(x.done)done++;else left++;
+  });
+  return {n:a.length,qty:qty,yen:yen,left:left,done:done,noprice:noprice};
+}
+function renderCartBadge(){
+  const b=$('#cartcount');if(!b)return;
+  const n=cartSum().left;
+  b.textContent=n>99?'99+':String(n);
+  if(n)b.removeAttribute('hidden');else b.setAttribute('hidden','');
+}
+function cartRow(x){
+  /* 「家にある豆に足す」は、買った印を付けたものにだけ出す。
+     買う前に出しても押す場面がなく、1件あたり1行ぶん場所を取るだけだった。
+     元の商品が消えている（自分で登録した豆を消したなど）ときは出せない。 */
+  const has=!!(x.done&&x.pid&&byPid(x.pid));
+  /* 幅360pxで2行に折り返さないよう、区切りと空白は詰める。
+     1件が3行になると、店頭で一度に見える品数がそのぶん減る。 */
+  const sub=[x.sizeG?x.sizeG+'g':'',x.price>0?yen(x.price):''].filter(Boolean).join(' ');
+  const tot=(x.price>0&&x.qty>1)?'<span class="ctmul">×'+x.qty+'＝'+yen(x.price*x.qty)+'</span>':'';
+  /* id は自分で作った値だが、読み込んだ控えから来ることもあるので esc を通す。 */
+  const eid=esc(x.id);
+  return '<div class="ctrow'+(x.done?' done':'')+'">'+
+    '<button class="ctchk" data-act="ctdone" data-id="'+eid+'" aria-pressed="'+x.done+
+      '" aria-label="買ったかどうか">'+ICON.check+'</button>'+
+    '<div class="ctmain"><div class="ctname">'+esc(x.name)+'</div>'+
+    ((sub||tot)?'<div class="ctsub">'+sub+(tot?' '+tot:'')+'</div>':'')+
+    (has?'<button class="ctlink" data-act="ctstock" data-id="'+esc(x.pid)+'">家にある豆に足す</button>':'')+
+    '</div>'+
+    '<div class="ctside"><span class="ctqty">'+
+      '<button data-act="ctqty" data-id="'+eid+'" data-d="-1" aria-label="1つ減らす">−</button>'+
+      '<b>'+x.qty+'</b>'+
+      '<button data-act="ctqty" data-id="'+eid+'" data-d="1" aria-label="1つ増やす">＋</button></span>'+
+    '<button class="ctdel" data-act="ctdel" data-id="'+eid+'" aria-label="消す">'+ICON.trash+'</button>'+
+    '</div></div>';
+}
+/* 入力欄の「いま書いてある文字」と「選んでいるお店」を覚えておく。
+   描き直しで中身を丸ごと入れ替えるため、渡さないと打ちかけの文字が消える。 */
+function cartDraft(){
+  const el=$('#ctfree'),sel=$('#ctfreeshop');
+  const t=el?el.value:'',sh=sel?sel.value:'';
+  return {text:typeof t==='string'?t:'',shop:typeof sh==='string'?sh:''};
+}
+function cartHtml(draft){
+  const d=draft||{text:'',shop:''};
+  const g=cartGroups(),all=cartSum();
+  let h='';
+  /* いちばん上に「のこり何点か」。店頭でまず見るのはここ。 */
+  h+='<div class="pad"><div class="ctsum">'+
+    (all.n?'<b>のこり '+all.left+'点</b>'+
+      (all.done?'<span class="muted">買った '+all.done+'点</span>':'')+
+      (all.yen?'<span class="ctyen">概算 '+yen(all.yen)+'</span>':'')
+      :'<b>まだ何も入っていません</b>')+'</div>'+
+    (all.yen?'<p class="tiny" style="margin:6px 0 0">値段は調べた時点のものです。'+
+      (all.noprice?'値段のない品（'+all.noprice+'点）は合計に入っていません。':'')+
+      'レジの金額と合わないことがあります。</p>':'')+'</div>';
+  /* 書いて足す欄は下に置く。店頭でまず見たいのは一覧そのもので、
+     入力欄を上に置くと一覧が1画面ぶん下へ押し出される。 */
+  const addForm=(function(){
+    /* （お店なし）は「お店を決めない」と同じ意味なので、選択肢からは外す。 */
+    const shops=shopCounts().map(x=>x[0]).filter(x=>x!=='（お店なし）');
+    return '<div class="pad"><div class="ctadd">'+
+      '<input type="text" id="ctfree" placeholder="書いて足す（例：ペーパーフィルター）" enterkeyhint="done" '+
+        'value="'+esc(d.text)+'">'+
+      '<select id="ctfreeshop" aria-label="どのお店で買うか"><option value=""'+(d.shop?'':' selected')+
+        '>お店を決めない</option>'+
+        shops.map(x=>'<option value="'+esc(x)+'"'+(d.shop===x?' selected':'')+'>'+esc(x)+'</option>').join('')+'</select>'+
+      '<button class="btn" data-act="ctadd">足す</button></div>'+
+      '<p class="tiny" style="margin:6px 0 0">豆以外（フィルター・牛乳など）もここから足せます。</p></div>';
+  })();
+  if(!all.n){
+    h+='<div class="pad"><p class="muted" style="margin:0">商品の一覧やくわしい画面にある'+
+      'カゴの印を押すと、ここに入ります。お店ごとに分かれて並ぶので、'+
+      'お店に着いたらその見出しのところだけを見れば済みます。</p></div>'+addForm;
+    return h;
+  }
+  g.forEach(gr=>{
+    const s=cartSum(gr.items);
+    h+='<div class="card"><div class="cthead"><h3 class="sect" style="margin:0">'+esc(gr.shop)+'</h3>'+
+      '<span class="muted">のこり '+s.left+'点'+(s.yen?'・概算 '+yen(s.yen):'')+'</span></div>'+
+      gr.items.map(cartRow).join('')+'</div>';
+  });
+  /* 買ったものは押した時点では消さない。間違って押したときに戻せるようにして、
+     まとめて片づけるのは明示的に押させる。 */
+  if(all.done)h+='<div class="pad"><button class="btn ghost wide" data-act="ctclear">'+
+    '買ったもの（'+all.done+'点）を片づける</button></div>';
+  h+=addForm;
+  return h;
+}
+const cartOpen=()=>!!(fullCtx&&fullCtx.t==='cart');
+function openCart(){
+  const d=cartDraft();
+  /* すでに開いているときは openFull を通さず、中身だけ入れ替える。
+     openFull は「戻る」の履歴を1つ積むので、印を押すたびに呼ぶと履歴が積み上がり、
+     **端から右へなぞって戻る操作が何度押しても効かなくなる**（20件さばけば20回分たまる）。
+     あわせて、いま見ていた場所も保つ。店頭では上から順に印を付けるため。 */
+  const body=$('#full-body');
+  if(cartOpen()&&body){
+    const keep=body.scrollTop||0;
+    body.innerHTML=cartHtml(d);
+    if(keep)body.scrollTop=keep;
+    return;
+  }
+  openFull('買い物リスト',cartHtml(d),{t:'cart'});
+}
+/* どこを描き直すかを1か所にまとめる。カゴの数字は常に合わせる。 */
+/* 商品のカードは「さがす」だけでなく「記録」タブ（自分で登録した豆・お気に入り）にも出る。
+   renderMy を呼ばないと、そちらのカゴの印が古いまま残り、押しても何も起きなかったように見える。 */
+function cartRefresh(){renderCartBadge();renderList();renderMy();if(cartOpen())openCart()}
+function cartAddFromForm(){
+  const el=$('#ctfree');if(!el)return null;
+  const sel=$('#ctfreeshop');
+  const it=cartAddFree(el.value,sel?sel.value:'');
+  if(!it){if(el.focus)el.focus();return null}
+  cartRefresh();
+  /* 続けて書けるように、描き直したあとの入力欄へ焦点を戻す。 */
+  const el2=$('#ctfree');if(el2&&el2.focus)el2.focus();
+  return it;
+}
+/* 入力欄で完了（Enter）を押したときも足せるようにする。
+   「足す」を押さずに閉じてしまう取りこぼしを防ぐため。 */
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Enter'||!e.target||e.target.id!=='ctfree')return;
+  e.preventDefault();cartAddFromForm();
+});
+
 /* ===== ビュー切替 ===== */
 /* =========================================================================
    左端から右へなぞって、ひとつ前に戻る
@@ -3926,7 +4322,11 @@ $('#glossary').innerHTML=[
   '<p class="tiny" style="margin-top:3px">'+g[1]+'</p></div>').join('');
 
 /* ===== 起動 ===== */
-function renderAll(){renderList();renderMap();renderEsp();renderMy();renderStock();renderHistory()}
+function renderAll(){renderList();renderMap();renderEsp();renderMy();renderStock();renderHistory();
+  renderCartBadge();
+  /* 他の端末で足した分を、開きっぱなしの買い物リストにも映す。
+     開いているときの openCart は中身を入れ替えるだけなので、履歴は積まれない。 */
+  if(cartOpen())openCart()}
 if(S.theme)document.documentElement.setAttribute('data-theme',S.theme);
 renderAll();setView('search');
 if(!S.pref&&!Object.keys(S.log).length&&!S.shots.length)setTimeout(diagSheet,400);
@@ -4581,11 +4981,12 @@ const FB_CONFIG={apiKey:"AIzaSyDV9BV06958NpDZFoWqOFotROfissPy4lI",
 const FB_APP='mamekurabe';
 const FB_LASTUID='mamekurabe.lastUid';
 /* 配列で持っているもの。各要素の id をドキュメント名にする。 */
-const CL_ARR=[['mk_stock','stock'],['mk_history','history'],['mk_shots','shots'],['mk_beans','myBeans']];
+const CL_ARR=[['mk_stock','stock'],['mk_history','history'],['mk_shots','shots'],['mk_beans','myBeans'],
+  ['mk_cart','cart']];
 /* 連想配列で持っているもの。鍵（豆のid）をドキュメント名にする。 */
 const CL_MAP=[['mk_log','log'],['mk_photos','photos']];
 /* 1つのドキュメントにまとめて入れる設定類。 */
-const CL_SET=['grinder','machine','filter','pref','fav','sort','theme','lastExport'];
+const CL_SET=['grinder','machine','filter','pref','fav','sort','theme','lastExport','hidden'];
 let fbAuth=null,fbDb=null,fbUser=null;
 /* クラウドに今入っている内容の写し。差分だけを書くために持つ。 */
 let cloudSeen={};
@@ -4615,7 +5016,10 @@ function cloudRows(col){
 /* クラウドから来た内容を S に戻す。cloudRows の逆。 */
 function cloudApply(col,docs){
   const arr=CL_ARR.find(x=>x[0]===col),map=CL_MAP.find(x=>x[0]===col);
-  if(arr){S[arr[1]]=Object.keys(docs).map(k=>docs[k])}
+  if(arr){S[arr[1]]=Object.keys(docs).map(k=>docs[k]);
+    /* 買い物リストだけは形を揃え直す。数量が文字列や欠けたままだと、
+       ＋を押したときに 71 や NaN になる。控えを読むときと同じ守りをここにも置く。 */
+    if(col==='mk_cart')S.cart=(S.cart||[]).filter(x=>x&&x.id&&(x.name||x.pid)).map(cartNorm);}
   else if(map){
     const o={};
     Object.keys(docs).forEach(k=>{
