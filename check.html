@@ -164,8 +164,19 @@ textarea{width:100%;min-height:120px;font-size:11px;font-family:ui-monospace,Men
     fetch("./index.html", opt).then(function(r){
       var lm = r.headers.get("last-modified") || "?";
       return r.text().then(function(t){
-        var sync = t.indexOf("cloudInit();") >= 0;
-        lines.push(label + "： " + (sync ? "<b>同期あり（新しい）</b>" : "<b>同期なし（古い）</b>") +
+        /* 版の見分け方（2026-09-13 に直した）。
+           前は「cloudInit();」があるかだけで見ていたが、この文字は 2026-09-12 朝の
+           版から入っているため、写真を IndexedDB へ移した版と区別できなかった。
+           保管庫の目印（function pdbOpen）と、クラウドの写真を守る2枚
+           （cloudStart を待つ／photosReady が立つまで触らない）まで見る。 */
+        var sync  = t.indexOf("cloudInit();") >= 0;
+        var idb   = t.indexOf("function pdbOpen") >= 0;
+        var guard = (t.indexOf("job.then(cloudStart,cloudStart)") >= 0 ? 1 : 0) +
+                    (t.indexOf("col==='mk_photos'&&!photosReady") >= 0 ? 1 : 0);
+        var name  = idb  ? "<b>写真も保管庫（いちばん新しい）</b>"
+                  : sync ? "<b>同期あり・写真は端末の中（2026-09-12 朝の版）</b>"
+                  :        "<b>同期なし（古い）</b>";
+        lines.push(label + "： " + name + "／写真の守り " + guard + "/2" +
           "／" + Math.round(t.length/1024) + "KB／" + lm);
         show(); done && done();
       });
