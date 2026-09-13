@@ -1524,7 +1524,9 @@ function relaxSuggest(){
   if(f.area.length)tries.push(['産地の条件を外す',()=>{S.filter.area=[]}]);
   for(const[label,apply]of tries){
     const bk=JSON.parse(JSON.stringify(S.filter));apply();
-    const n=BEANS.filter(b=>matchAll(b,q)).length;const ok=n>0;
+    /* ここも一覧から消した豆を外して数える。外し忘れると「（8件）」と書いてあるボタンを
+       押しても0件のまま、という空振りになる（2026-09-13 の検証で見つかった）。 */
+    const n=BEANS.filter(b=>!isHidden(b.id)&&matchAll(b,q)).length;const ok=n>0;
     S.filter=bk;
     if(ok)return{label,apply,n};
   }
@@ -1616,20 +1618,37 @@ const allProducts=()=>PRODUCTS.concat(S.myBeans||[]);
 /* 一覧から消した豆かどうか。allProducts はそのままにして、一覧に出す側だけを
    listProducts で絞る。消した豆でも anyById では引けるようにしておかないと、
    買い物リストや家にある豆に残っている行が「（消えた豆）」になってしまう。 */
-const isHidden=id=>(S.hidden||[]).indexOf(id)>=0;
+/* **読む側でも形を確かめる。** クラウドから配列でない値が来たときに、
+   起動直後に必ず通るここで例外になると、画面が真っ白のまま止まる。 */
+const hidList=()=>Array.isArray(S.hidden)?S.hidden:[];
+const isHidden=id=>hidList().indexOf(id)>=0;
 const listProducts=()=>allProducts().filter(p=>!isHidden(p.id));
 /* 一覧から消す。お気に入りとくらべるからも外す（買わないと決めた豆なので）。
    記録・履歴・買い物リスト・家にある豆には手を触れない。 */
+/* 詳細画面のボタン。**すでに消した豆には「戻す」を出す。**
+   「消す」のままだと、押しても何も起きない（もう消えている）画面になる。
+   消した豆でも、記録タブのひとことや味の地図から開けるので必ず通る道である。 */
+function hideBlock(id){
+  if(isHidden(id))
+    return '<button class="btn ghost wide" data-act="unhide" data-id="'+esc(id)+
+      '">この豆を一覧に戻す</button>'+
+      '<p class="tiny" style="margin:6px 0 0">いまは「さがす」と「味の地図」に出ていません。</p>';
+  return '<button class="btn ghost wide" data-act="hide" data-id="'+esc(id)+
+    '" style="color:var(--bad)">この豆を一覧から消す</button>'+
+    '<p class="tiny" style="margin:6px 0 0">買わないと決めた豆を、さがすと味の地図から外します。'+
+    'しぼりこむ の「一覧から消した豆」からいつでも戻せます'+
+    '（<b>お気に入りは戻りません</b>。付け直してください）。</p>';
+}
 function hideBean(id){
   if(!id||isHidden(id))return false;
-  S.hidden=(S.hidden||[]).concat([id]);
+  S.hidden=hidList().concat([id]);
   S.fav=(S.fav||[]).filter(x=>x!==id);
   S.cmp=(S.cmp||[]).filter(x=>x!==id);
   save();return true;
 }
 function unhideBean(id){
-  const before=(S.hidden||[]).length;
-  S.hidden=(S.hidden||[]).filter(x=>x!==id);
+  const before=hidList().length;
+  S.hidden=hidList().filter(x=>x!==id);
   if(S.hidden.length===before)return false;
   save();return true;
 }
@@ -1694,6 +1713,11 @@ function prodFiltered(){
   if(S.pref)return a.sort((x,y)=>prefScore(asBean(x))-prefScore(asBean(y)));
   return a.sort((x,y)=>x.shop.localeCompare(y.shop,'ja')||x.per100-y.per100);
 }
+/* 買い物リスト用。一覧から消した豆を数に入れたままの、お店の名前だけの一覧。 */
+function allShopNames(){
+  const c={};allProducts().forEach(p=>{const k=p.shop||'（お店なし）';c[k]=(c[k]||0)+1});
+  return Object.keys(c).sort((a,b)=>c[b]-c[a]||a.localeCompare(b,'ja'));
+}
 function shopCounts(){
   const c={};listProducts().forEach(p=>{const k=p.shop||'（お店なし）';c[k]=(c[k]||0)+1});
   /* 自分で登録したお店を上に出す。自分のデータのほうが用があるため。 */
@@ -1751,8 +1775,11 @@ function countSub(){
   if(f.area.length)n.push(f.area.join('・'));
   if(f.pmax<8000)n.push(yen(f.pmax)+'以下');
   /* 一覧から消した豆があることは、件数の横で必ず伝える。黙って減らすと
-     「載っていたはずの豆が無い」と探しに行くことになる。 */
-  if((S.hidden||[]).length)n.push('消した豆'+S.hidden.length+'件をのぞく');
+     「載っていたはずの豆が無い」と探しに行くことになる。
+     **いま見ている一覧で実際に減っている数だけを数える。** 産地の豆と商品は別の一覧なので、
+     商品を消したのに産地の一覧で「1件のぞく」と出すと、減っていないのに探させてしまう。 */
+  const hid=hidList().filter(id=>S.mode==='shop'?!!byPid(id):!!byId(id)).length;
+  if(hid)n.push('消した豆'+hid+'件をのぞく');
   return n.length?'／ '+n.join('・'):'';
 }
 function renderList(){
@@ -1874,10 +1901,7 @@ function openDetail(id){
   h+='<div class="pad" style="display:flex;gap:10px">'+
      '<button class="btn ghost" style="flex:1" data-act="fav" data-id="'+b.id+'">'+(fav?'♥ お気に入り解除':'♡ お気に入り')+'</button>'+
      '<button class="btn ghost" style="flex:1" data-act="cmp" data-id="'+b.id+'">'+(S.cmp.includes(b.id)?'✓ くらべる中':'＋ くらべる')+'</button></div>'+
-     '<div class="pad" style="padding-top:0">'+
-     '<button class="btn ghost wide" data-act="hide" data-id="'+esc(b.id)+
-     '" style="color:var(--bad)">この豆を一覧から消す</button>'+
-     '<p class="tiny" style="margin:6px 0 0">しぼりこむ の「一覧から消した豆」からいつでも戻せます。</p></div>';
+     '<div class="pad" style="padding-top:0">'+hideBlock(b.id)+'</div>';
 
   openFull(b.name,h,{t:'bean',id:b.id});
 }
@@ -1964,11 +1988,7 @@ function openProd(id){
        'data-id="'+p.id+'" style="color:var(--bad);gap:8px">'+ICON.trash+'写真を消す</button></div>':'')+
      /* 自分で登録した豆には「この豆を消す」（編集画面）があるので、こちらは出さない。
         最初から入っている商品は定数なので消せない。一覧から外すだけにして、戻せるようにする。 */
-     (p.mine?'':'<div class="pad" style="padding-top:0">'+
-       '<button class="btn ghost wide" data-act="hide" data-id="'+esc(p.id)+
-       '" style="color:var(--bad)">この豆を一覧から消す</button>'+
-       '<p class="tiny" style="margin:6px 0 0">買わないと決めた豆を、さがすと味の地図から外します。'+
-       'しぼりこむ の「一覧から消した豆」からいつでも戻せます。</p></div>');
+     (p.mine?'':'<div class="pad" style="padding-top:0">'+hideBlock(p.id)+'</div>');
   openFull(p.name,h,{t:'prod',id:p.id});
 }
 
@@ -3409,11 +3429,14 @@ function saveHistory(){
   if(!save()){alert('保存できませんでした。端末の容量がいっぱいのようです。');return}
   hForm=null;closeSheet();renderHistory();
 }
-/* 飲み終えた日が新しいものを上に出す。日付を直したら並びも入れ替わる。 */
+/* 飲み終えた日が新しいものを上に出す。日付を直したら並びも入れ替わる。
+   日付を入れずに記録した豆は、id に入っている「記録した時刻」を並びの手がかりにする
+   （画面には出さない）。空のまま並べると、いま「使い切った」を押した豆が最下段へ沈み、
+   押しても何も起きていないように見える（2026-09-13 の検証で見つかった）。 */
+function histOrder(h){return String((h&&h.doneAt)||dateOf(h&&h.id)||'')}
 function renderHistory(){
   const el=$('#my-history');if(!el)return;
-  const h=(S.history||[]).slice().sort((a,b)=>
-    String(b.doneAt||'').localeCompare(String(a.doneAt||'')));
+  const h=(S.history||[]).slice().sort((a,b)=>histOrder(b).localeCompare(histOrder(a)));
   el.innerHTML=h.length?h.map(historyCard).join(''):
     '<div class="empty" style="padding:20px"><span class="g">📦</span>'+
     '飲み切った豆は、消えずにここへ移ります。<br>'+
@@ -3657,21 +3680,30 @@ function refreshAfterPhoto(id){
 /* 一覧から消した豆を戻す入口。消したあとに探す場所が無いと「もう戻せない」と
    思われてしまうので、絞り込みの中に必ず出す（1件も無ければ出さない）。 */
 function hiddenBlock(){
-  const n=(S.hidden||[]).length;
+  const n=hidList().length;
   if(!n)return '';
   return '<div class="field"><label>一覧から消した豆</label>'+
     '<button class="btn ghost wide" data-act="hidlist">'+n+'件を見る・戻す</button></div>';
 }
-function hiddenSheet(){
-  const rows=(S.hidden||[]).map(id=>{const b=anyById(id);
+const HID_TITLE='一覧から消した豆';
+function hiddenBody(){
+  const rows=hidList().map(id=>{const b=anyById(id);
     return '<div class="between" style="padding:10px 0;border-bottom:1px solid var(--line)">'+
       '<span>'+esc(b?((b.shop?b.shop+' ':'')+b.name):'（もう無い豆）')+'</span>'+
       '<button class="chip" data-act="unhide" data-id="'+esc(id)+'">戻す</button></div>'}).join('');
-  openSheet('一覧から消した豆',
-    '<div class="pad">'+(rows||'<p class="muted" style="margin:0">ありません。</p>')+
+  return '<div class="pad">'+(rows||'<p class="muted" style="margin:0">ありません。</p>')+
     '<p class="tiny" style="margin-top:14px">ここにある豆は「さがす」と「味の地図」に出ません。'+
-    '飲んだ記録・買い物リスト・家にある豆はそのまま残っています。</p></div>',
-    '<button class="btn wide" data-close>閉じる</button>');
+    '飲んだ記録・買い物リスト・家にある豆はそのまま残っています。'+
+    '<b>お気に入りは戻らない</b>ので、必要なら付け直してください。</p></div>';
+}
+const hiddenOpen=()=>$('#sheet').classList.contains('on')&&$('#sheet-title').textContent===HID_TITLE;
+function hiddenSheet(){
+  /* **開いたままのときは中身だけ入れ替える。** 毎回 openSheet を通すと
+     「戻る」の履歴が1件戻すごとに積み上がり、端から右へなぞって戻れなくなる
+     （買い物リストで踏んだのと同じ罠。2026-09-13 の検証で見つかった）。 */
+  const body=$('#sheet-body');
+  if(hiddenOpen()&&body){body.innerHTML=hiddenBody();return}
+  openSheet(HID_TITLE,hiddenBody(),'<button class="btn wide" data-close>閉じる</button>');
 }
 function filterSheet(){
   const f=S.filter;
@@ -3803,10 +3835,14 @@ document.addEventListener('click',e=>{
   else if(a==='hide'){const b=anyById(id);
     if(!confirm('「'+((b&&b.name)||'この豆')+'」を一覧から消します。'+String.fromCharCode(10)+
       '「さがす」と「味の地図」に出なくなります。お気に入りとくらべるからも外れます。'+String.fromCharCode(10)+
-      'しぼりこむ の「一覧から消した豆」からいつでも戻せます。'))return;
+      'しぼりこむ の「一覧から消した豆」から戻せます（お気に入りは戻りません）。'))return;
     hideBean(id);closeSheet();closeFull();renderAll()}
   else if(a==='hidlist'){hiddenSheet()}
-  else if(a==='unhide'){unhideBean(id);renderAll();hiddenSheet()}
+  else if(a==='unhide'){unhideBean(id);renderAll();
+    /* 「一覧から消した豆」から押したときはその場で描き直す。
+       詳細画面から押したときは、その詳細を開き直してボタンの文字を入れ替える。 */
+    if(hiddenOpen())hiddenSheet();
+    else if($('#full').classList.contains('on')){if(byId(id))openDetail(id);else openProd(id)}}
   else if(a==='delhist'){
     if(!confirm('この履歴を消しますか？　抽出の記録そのものは残ります。'))return;
     S.history=(S.history||[]).filter(x=>x.id!==id);save();renderHistory()}
@@ -4146,8 +4182,10 @@ function cartHtml(draft){
   /* 書いて足す欄は下に置く。店頭でまず見たいのは一覧そのもので、
      入力欄を上に置くと一覧が1画面ぶん下へ押し出される。 */
   const addForm=(function(){
-    /* （お店なし）は「お店を決めない」と同じ意味なので、選択肢からは外す。 */
-    const shops=shopCounts().map(x=>x[0]).filter(x=>x!=='（お店なし）');
+    /* （お店なし）は「お店を決めない」と同じ意味なので、選択肢からは外す。
+       **一覧から消した豆のことはここでは考えない**（shopCounts ではなく allShopNames）。
+       豆を買わないと決めた店でも、牛乳やフィルターはそこで買う。 */
+    const shops=allShopNames().filter(x=>x!=='（お店なし）');
     return '<div class="pad"><div class="ctadd">'+
       '<input type="text" id="ctfree" placeholder="書いて足す（例：ペーパーフィルター）" enterkeyhint="done" '+
         'value="'+esc(d.text)+'">'+
@@ -5033,6 +5071,13 @@ function cloudApply(col,docs){
     if(col==='mk_photos'&&photosReady)pdbReplace(o).catch(()=>{});
   }
 }
+/* **クラウドから来た設定は migrate を通らない。** 配列のはずの項目が数値や文字列だと、
+   起動直後に必ず通る renderList の中で例外になり、画面が真っ白のまま止まる。
+   壊れた値は既定値に戻す（2026-09-13 の検証で見つかった）。 */
+function cloudSetFix(){
+  if(!Array.isArray(S.hidden))S.hidden=[];
+  if(!Array.isArray(S.fav))S.fav=[];
+}
 function cloudSettings(){
   const o={};
   CL_SET.forEach(k=>{if(S[k]!==undefined&&S[k]!==null)o[k]=JSON.parse(JSON.stringify(S[k]))});
@@ -5089,6 +5134,7 @@ function cloudSubscribe(){
   base.collection('mk_settings').doc('me').onSnapshot(d=>{
     const v=d.exists?d.data():null;if(!v)return;
     CL_SET.forEach(k=>{if(v[k]!==undefined)S[k]=v[k]});
+    cloudSetFix();
     /* 足りない項目は既定値で補う。古い端末から来た設定でも壊れないようにする。 */
     S.grinder=Object.assign(DEF().grinder,S.grinder||{});
     S.machine=Object.assign(DEF().machine,S.machine||{});
@@ -5125,6 +5171,7 @@ function cloudStart(){
     if(sd&&sd.exists){
       const v=sd.data()||{};
       CL_SET.forEach(k=>{if(v[k]!==undefined)S[k]=v[k]});
+      cloudSetFix();
       S.grinder=Object.assign(DEF().grinder,S.grinder||{});
       S.machine=Object.assign(DEF().machine,S.machine||{});
       S.filter=Object.assign(DEF().filter,S.filter||{});
