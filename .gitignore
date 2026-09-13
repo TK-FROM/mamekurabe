@@ -20,14 +20,7 @@
 !index.html
 !check.html
 
-# 画像（1枚ずつ名指しする。まとめて *.jpg と書くと、
+# 画像（使うときは1枚ずつ名指しする。まとめて *.jpg と書くと、
 # うっかり置いた写真まで公開されてしまうため）
-!09fa5624-d042-4d29-bc6d-36719915b7a3.jfif
-!4e1d9999-ae99-4523-af16-5bffd89774d4.jfif
-!5076f70c-b8a5-4470-9172-1b99d5604524.jfif
-!52198434-1e6d-4f6f-b311-a8774b1f4e29.jfif
-!a2a89c49-7c94-4679-a5a2-93528ac51720.jpg
-!a8c50b9a-aa9d-43d1-b1ed-3eaa5afe7037.jfif
-!flat_vector_illustration_cute_chibi_tabby_cat_mascot_charact (4).jpg
-!header_R3_一言だけ.png
-!wide_banner_illustration_calm_water_surface_with_gentle_ripp (3).jpg
+# 2026-09-13: まめ比べと無関係なXアカウント用の画像9枚を公開から外した。
+# 移動先は1つ上の「公開から外した画像_20260913」フォルダ。いまは公開中の画像は無い。
