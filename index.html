@@ -2372,6 +2372,8 @@ const presWord=sh=>!hasPres(sh)?'記録なし':
 /* 挽き目を動かしたいが、使える範囲の端まで来ていることがある。
    そこで「もっと細かく」と言い続けても実行できないので、粉の量に切り替える。
    粉を増やせば抵抗が増えて時間が伸び、減らせば縮む。挽き目と同じ効果が得られる。 */
+/* 粉を増やす提案の上限。容量の105%を0.5g刻みで切り下げる（14gのバスケットなら14.5g）。 */
+const doseMax=()=>Math.floor(M().capacityG*1.05*2)/2;
 function grindOr(sh,fine,n,why,prep){
   const u=G().unit, R=(k,d,t,nx)=>({k,why,doIt:d,tip:t,next:nx||null});
   /* 圧力が上限（9）近くまで上がっているのに「もっと細かく」は実行してはいけない。
@@ -2412,7 +2414,50 @@ function grindOr(sh,fine,n,why,prep){
 function advise(sh){
   const r=adviseMain(sh);
   r.read=tasteRead(sh);
+  r.alts=adviseAlts(sh,r);
   return r;
+}
+/* 別の手（2026-09-24）。提案が1つだけだと、それが合わないと感じたときに次の手が無く、
+   「挽き目か途中で止めるかの2択しか出ない」と tatsu に言われた。
+   第1案と同じ種類の手は出さず、粉の量・挽き目・抽出量のうち、今回の結果から向きが決まるものだけを並べる。
+   向きが割れているもの（例：苦いのに濃い＝抽出量は伸ばすとも縮めるとも言えない）は出さない。
+   完成・粉の準備（湯の通り道）・豆の見直しのときは、量や挽き目を動かしても直らないので出さない。 */
+function adviseAlts(sh,main){
+  if(main.k==='完成'||main.k==='粉の準備'||main.k==='豆')return [];
+  const b=anyById(sh.beanId), T=TARGET[grp(b?b.roast:5)], m=M(), u=G().unit;
+  const ratio=sh.yieldG/sh.doseG, Z=zLv(sh), full=sh.stop==='full';
+  const slow=sh.timeSec>0&&sh.timeSec>T.tmax, fast=sh.timeSec>0&&sh.timeSec<T.tmin;
+  const out=[], add=(k,doIt,tip,next)=>out.push({k,doIt,tip,next});
+  /* 粉の量：濃さと時間で向きを決める。苦い・酸っぱいは量より挽き目と抽出量の仕事なので見ない。 */
+  const dDown=dFeel(sh)===1||sh.str>=1||slow, dUp=dFeel(sh)===-1||sh.str<=-1||fast;
+  if(main.k!=='粉の量'&&dDown!==dUp){
+    const nd=dDown?+(sh.doseG-1).toFixed(1):Math.min(+(sh.doseG+1).toFixed(1),doseMax());
+    if(nd!==sh.doseG&&nd>=m.capacityG*0.65&&nd<=doseMax())
+      add('粉の量','粉を '+nd+'g に'+(dDown?'減らす':'増やす'),
+        dDown?'濃さを抑え、湯の通りを少し速くします。粉が多いと感じた回にも効きます。':
+          '濃さを足し、湯の通りを少し遅くします。',{doseG:nd});
+  }
+  /* 挽き目：酸っぱい・速いなら細かく、苦い・遅い・濃いなら粗く。圧力の歯止めは本案と同じ。 */
+  const gFine=sh.bal<=-1||fast, gCoarse=sh.bal>=1||slow||sh.str>=1;
+  if(main.k!=='挽き目'&&gFine!==gCoarse){
+    if(gFine&&!atFinest(sh.grindValue)&&!presHigh(sh))
+      add('挽き目','挽き目を '+G().step+u+' ぶん細かく（'+sh.grindValue+' → '+finer(sh.grindValue,1)+'）',
+        '湯の通りを遅くして、成分を多く引き出します。',{grindValue:finer(sh.grindValue,1)});
+    if(gCoarse&&!atCoarsest(sh.grindValue)&&presLv(sh)!=='lo')
+      add('挽き目','挽き目を '+G().step+u+' ぶん粗く（'+sh.grindValue+' → '+coarser(sh.grindValue,1)+'）',
+        '湯の通りを速くして、出しすぎを抑えます。',{grindValue:coarser(sh.grindValue,1)});
+  }
+  /* 抽出量：苦い・雑味・薄いなら短く、酸っぱい・濃いなら長く。焙煎度ごとの比率の範囲からは出さない。 */
+  const yCut=sh.bal>=1||Z>=1||sh.str<=-1, yLong=sh.bal<=-1||sh.str>=1;
+  if(main.k!=='抽出量'&&yCut!==yLong){
+    if(yCut&&ratio-0.2>=T.rmin){const y=+(sh.doseG*(ratio-0.2)).toFixed(1);
+      add('抽出量',full?'次は途中で止めて、'+Math.round(y)+'g で切る':'抽出量を '+Math.round(y)+'g で止める',
+        '最後のほうに出る苦味や雑味を入れずに、濃さを上げます。',{yieldG:y})}
+    if(yLong&&!full&&ratio+0.2<=T.rmax){const y=+(sh.doseG*(ratio+0.2)).toFixed(1);
+      add('抽出量','抽出量を '+Math.round(y)+'g まで伸ばす',
+        '同じ粉からもう少し引き出して、酸味をやわらげ、濃さを下げます。',{yieldG:y})}
+  }
+  return out.slice(0,2);
 }
 /* 雑味。null/undefined は「記録なし」（2026-09-17 より前の記録）。0 なし、1 少し、2 強い。 */
 const ZATW={'0':'なし','1':'少し','2':'強い'};
@@ -2432,7 +2477,25 @@ function tasteRead(sh){
     '　濃さ：'+(STRW[String(sh.str||0)]||'—')+
     '　雑味：'+(hasZ(sh)?ZATW[String(sh.zatsu)]:'記録なし')+
     '　総合：'+(sh.rating>0?'★'+sh.rating:'未入力')+
-    '　出し方：'+(STOPW[sh.stop]||'記録なし');
+    '　出し方：'+(STOPW[sh.stop]||'記録なし')+
+    (dFeel(sh)?'　粉の量：'+DFEELW[dFeel(sh)]:'');
+}
+/* 粉の量の手応え。null/undefined は「ちょうど、または記録なし」。1 多かった、-1 少なかった。 */
+const DFEELW={'1':'多かった','-1':'少なかった'};
+/* 手応えは必ずここを通して読む。クラウドから来た値は migrate を通らず、"1" のような文字で届くことがある。
+   表示（DFEELW）は文字でも引けてしまうので、判断だけが素通りして「表示は多かったなのに提案は完成」になっていた。 */
+const dFeel=sh=>{const v=sh?+sh.doseFeel:0;return v===1||v===-1?v:0};
+/* 本案の下に並べる「別の手」。btn が真なら、そのまま記録フォームを開くボタンも付ける。 */
+function altsHtml(a,btn){
+  const xs=(a&&a.alts)||[];
+  return xs.length?'<div style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px">'+
+    '<div class="tiny" style="margin-bottom:4px"><b>合わないと感じたら、別の手</b>（一度に試すのは1つだけ）</div>'+
+    xs.map((x,i)=>'<div style="margin:8px 0">'+
+      '<div style="font-size:14px"><b>'+esc(x.k)+'</b>：'+esc(x.doIt)+'</div>'+
+      '<p class="tiny" style="margin:2px 0 0">'+esc(x.tip)+'</p>'+
+      (btn&&x.next?'<button class="btn ghost" style="margin-top:6px;padding:6px 12px;font-size:13px" '+
+        'data-act="applyalt" data-i="'+i+'">こちらで設定して記録する</button>':'')+
+    '</div>').join('')+'</div>':'';
 }
 function adviseMain(sh){
   const b=anyById(sh.beanId), g=grp(b?b.roast:5), T=TARGET[g], m=M();
@@ -2445,12 +2508,27 @@ function adviseMain(sh){
     (m.bottomless?'ボトムレスなので、抽出中に横へ飛び散らないかを見れば、うまくいったか一目で分かります。':'')+
     '一定圧のタンパーを使っているなら、押す力ではなく「ほぐし」と「水平」が原因です。';
 
-  /* レイヤー0：物理的な異常。味を聞く前に止める */
-  if(fill>1.15)return R('粉の量','バスケット（'+m.basketMm+'mm・約'+m.capacityG+'g）に対して粉が多すぎます',
+  /* レイヤー0：物理的な異常。味を聞く前に止める。
+     容量の判定は 115% では甘く、明らかに多い回でも挽き目の提案になっていたので 105% にした（2026-09-24）。 */
+  if(fill>1.05)return R('粉の量','バスケット（'+m.basketMm+'mm・約'+m.capacityG+'g）に対して粉が多すぎます',
     '粉を '+(sh.doseG-1).toFixed(1)+'g に減らす',
     '粉が多すぎると、乾いた粉が上の部品に触れて、必ず湯の通り道ができます。',{doseG:+(sh.doseG-1).toFixed(1)});
   if(fill<0.65)return R('粉の量','バスケットに対して粉が少なすぎます',
     '粉を '+m.capacityG.toFixed(1)+'g まで増やす','粉が少ないと湯が素通りして、薄く水っぽくなります。',{doseG:+m.capacityG});
+  /* 粉の量の手応え（2026-09-24）。数字の上では容量に収まっていても、
+     詰めた本人が「多かった」と感じたなら、それがいちばん確かな情報なので、挽き目より先に直す。
+     「明らかに豆が多かったのに、挽き目の提案しか出ない」と tatsu に言われたため。 */
+  if(dFeel(sh)===1&&sh.doseG-1>=m.capacityG*0.65)
+    return R('粉の量','粉が多かったと感じた（'+sh.doseG+'g）','粉を '+(sh.doseG-1).toFixed(1)+'g に減らす',
+      '挽き目と抽出量はそのままにして、粉だけを1g減らします。粉が減ると湯が通りやすくなり、時間が少し縮みます。'+
+      '速くなりすぎたら、次は挽き目を細かくして合わせてください。',{doseG:+(sh.doseG-1).toFixed(1)});
+  /* 増やすのは容量の105%まで（14gなら14.5g）。容量ちょうどで「少ない」と言われたときも提案できるように、
+     1g足すと超える場合は上限まで足す。 */
+  const upTo=Math.min(sh.doseG+1,doseMax());
+  if(dFeel(sh)===-1&&upTo>sh.doseG)
+    return R('粉の量','粉が少なかったと感じた（'+sh.doseG+'g）','粉を '+upTo.toFixed(1)+'g に増やす',
+      '挽き目と抽出量はそのままにして、粉だけを増やします。粉が増えると湯が通りにくくなり、時間が少し伸びます。'+
+      '遅くなりすぎたら、次は挽き目を粗くして合わせてください。',{doseG:upTo});
   if(sh.spray)return R('粉の準備','抽出中に横へ飛び散った＝湯の通り道ができています',
     '挽き目は変えず、粉のほぐし方を直す',PREP+'ここで挽き目をいじると、かえって悪くなります。');
   /* レイヤー1：抽出時間を目標帯に入れる。時間を測っていなければ丸ごと飛ばす。 */
@@ -2612,6 +2690,7 @@ function renderEsp(){
       (stuck()?'<div class="note" style="margin-top:10px">挽き目を3回続けて調整しても良くなっていません。挽き目ではなく、抽出量か粉の量を変えてみてください。豆が焙煎直後で若すぎる可能性もあります。</div>':'')+
       (a.next?'<button class="btn wide" style="margin-top:12px" data-act="applyadv">この通りに設定して記録する</button>':
         '<button class="btn ghost wide" style="margin-top:12px" data-act="newshot">同じ設定でもう一杯</button>')+
+      altsHtml(a,true)+
       '</div>';
   }else $('#esp-advice').innerHTML='';
 
@@ -2675,7 +2754,7 @@ function shotDetailSheet(id){
       kv('淹れた日',esc(dateJP(ymd(dt))+' '+dt.getHours()+':'+
         String(dt.getMinutes()).padStart(2,'0')))+
       kv('豆',esc(b?((b.shop?b.shop+' ':'')+b.name):'（いまは無い豆）'))+
-      kv('粉の量','<b>'+s.doseG+'</b> g')+
+      kv('粉の量','<b>'+s.doseG+'</b> g'+(dFeel(s)?'　<span class="tiny">'+DFEELW[dFeel(s)]+'と感じた</span>':''))+
       kv('出来上がり','<b>'+s.yieldG+'</b> g　<span class="tiny">レシオ 1:'+
         (s.yieldG/s.doseG).toFixed(1)+'</span>'+(STOPW[s.stop]?'<br>'+STOPW[s.stop]:''))+
       kv('抽出時間',s.timeSec>0?'<b>'+s.timeSec+'</b> 秒　<span class="tiny">流量 '+
@@ -2688,6 +2767,11 @@ function shotDetailSheet(id){
       kv('雑味',hasZ(s)?esc(ZATW[String(s.zatsu)]):'記録なし')+
       kv('総合',s.rating>0?'<span style="color:var(--gold)">'+'★'.repeat(s.rating)+'</span>':'—')+
     '</dl>'+
+    /* 入れ間違えた数字や感想を、あとから直せるようにしてある（2026-09-20）。
+       直すと、この記録の「つぎの一手」も出し直す。 */
+    '<div class="row" style="gap:8px;margin-top:12px">'+
+      '<button class="btn ghost" style="flex:1" data-act="editshot" data-id="'+esc(s.id)+'">✏ 抽出を直す</button>'+
+      '<button class="btn ghost" style="flex:1" data-act="edittaste" data-id="'+esc(s.id)+'">✏ 感想を直す</button></div>'+
     /* 圧力だけは、あとから入れ直せるようにしてある。
        圧力の記録は 2026-09-05 に足したので、それより前の記録には入っていない。
        あとで思い出したぶんを入れれば、そのときの提案も出し直せる。 */
@@ -2715,7 +2799,7 @@ function advBlock(s){
     (s.adv.read?'<p class="tiny" style="margin:0 0 6px">'+esc(s.adv.read)+'</p>':'')+
     (s.adv.why?'<div class="muted" style="font-size:13px">'+esc(s.adv.why)+'</div>':'')+
     '<div class="do">'+esc(s.adv.doIt)+'</div>'+
-    (s.adv.tip?'<p class="tiny">'+esc(s.adv.tip)+'</p>':'')+'</div>'
+    (s.adv.tip?'<p class="tiny">'+esc(s.adv.tip)+'</p>':'')+altsHtml(s.adv,false)+'</div>'
    :'<div class="note" style="margin-top:16px">この記録には、つぎの一手が残っていません。'+
     '（「記録して、次の一手を見る」を押す前に閉じた記録です）</div>';
 }
@@ -2742,7 +2826,10 @@ function atFrom(d){
 }
 /* 記録フォーム */
 let form={};
-function shotSheet(pre){
+/* 過去の記録を直しているときは、その記録の id が入る。新しく記録するときは null。 */
+let shotFormEdit=null;
+function shotSheet(pre,editId){
+  shotFormEdit=editId||null;
   const g=G(), m=M(), last=[...S.shots].reverse()[0];
   form=Object.assign({date:today(),
     beanId:(BEANS.find(b=>b.brew.includes('エスプレッソ'))||BEANS[0]).id,
@@ -2802,8 +2889,9 @@ function shotSheet(pre){
     '：エスプレッソに使うのは '+espLo()+'〜'+espHi()+esc(g.unit)+'、数字が'+(g.finer==='down'?'小さい':'大きい')+
     'ほど細かい設定です。違う場合は「機器の設定」で直してください。</div>'+
     '<div class="note" style="margin-top:10px" id="f-calc"></div></div>';
-  openSheet('抽出を記録する',body,
-    '<button class="btn ghost" data-close style="flex:1">やめる</button><button class="btn" data-act="saveshot" style="flex:2">保存する</button>',
+  openSheet(shotFormEdit?'抽出の記録を直す':'抽出を記録する',body,
+    '<button class="btn ghost" data-close style="flex:1">やめる</button><button class="btn" data-act="saveshot" style="flex:2">'+
+    (shotFormEdit?'直した内容で保存する':'保存する')+'</button>',
     ()=>{$('#f-bean').onchange=e=>{form.beanId=e.target.value;calc()};bindShotInputs();calc()});
 }
 /* 圧力の入力欄。横一直線のバーを指でなぞるだけで 0〜11 を 0.5 刻みで選べる。
@@ -2877,7 +2965,8 @@ function calc(){
   }else h+='　／　時間は記録しません';
   if(form.milkMl>0)h+='<br>牛乳 '+form.milkMl+'ml ＝ エスプレッソ <b>1 : '+
     (form.milkMl/form.yieldG).toFixed(1)+'</b> の濃さ';
-  if(fill>1.15)warn+='<br>⚠ '+M().basketMm+'mmバスケット（約'+M().capacityG+'g）に対して粉が多すぎます';
+  /* 提案（adviseMain）と同じ105%にそろえる。ずれていると、入力中は何も言われずに記録直後に「多すぎ」と言われる */
+  if(fill>1.05)warn+='<br>⚠ '+M().basketMm+'mmバスケット（約'+M().capacityG+'g）に対して粉が多すぎます';
   else if(fill<0.65)warn+='<br>⚠ バスケットに対して粉が少なすぎます';
   const el=$('#f-calc');if(el)el.innerHTML=h+warn;
 }
@@ -2898,13 +2987,47 @@ function stepField(k,d){
   calc();
   if(navigator.vibrate)navigator.vibrate(8);
 }
+/* 過去の記録を、記録フォームに入れて開く。止め方と圧力も、その記録の値をそのまま出す。 */
+function editShotSheet(id){
+  const s=S.shots.find(x=>x.id===id);if(!s)return;
+  shotSheet({date:ymd(new Date(s.at)),beanId:s.beanId,doseG:s.doseG,yieldG:s.yieldG,
+    timeSec:s.timeSec||0,milkMl:s.milkMl||0,grindValue:s.grindValue,
+    presMax:hasPres(s)?+s.presMax:null,stop:s.stop||null},s.id);
+}
+/* 直した内容を元の記録に書き戻す。新しい記録は作らない。評価まちの記録にも触らない。 */
+function saveShotEdit(){
+  const s=S.shots.find(x=>x.id===shotFormEdit);if(!s)return false;
+  const oldBean=s.beanId, oldDose=s.doseG, oldStock=s.stockId;
+  /* 日付を変えていなければ、淹れた時刻はそのまま残す */
+  if(form.date!==ymd(new Date(s.at)))s.at=atFrom(form.date);
+  ['beanId','doseG','yieldG','timeSec','milkMl','grindValue','presMax','stop'].forEach(k=>{s[k]=form[k]});
+  /* 豆か粉の量を直したら、残量も直す。前の量をいったん戻してから、新しい量を引く。
+     ただし、その記録で使った袋がまだ家にあるときだけ。飲み切った袋の記録や、袋を登録する前の記録を
+     直すときに残量を動かすと、その記録とは関係のない、いまの袋が減ってしまう。
+     豆が同じなら同じ袋で差し引きする（別の袋から引くと、袋ごとの残量がずれるため）。 */
+  const bag=oldStock&&(S.stock||[]).find(x=>x.id===oldStock);
+  if(bag&&(s.beanId!==oldBean||s.doseG!==oldDose)){
+    useStock(oldBean,oldDose,-1,oldStock);
+    const used=useStock(s.beanId,s.doseG,1,s.beanId===oldBean?oldStock:'');
+    s.stockId=used?used.id:'';
+  }
+  /* 味を入れる前（評価まち）の記録は、まだ提案を出す材料がそろっていない */
+  if(s.status==='done')s.adv=advise(s);
+  shotFormEdit=null;
+  return true;
+}
 function saveShot(){
   /* 飲んだ日は画面で選べる。記録を作る前に、その入力欄を読む。 */
   const de=$('#f-date');if(de&&de.value)form.date=de.value;
   /* 入力欄を空にしたまま保存されると、レシオも残量の計算も成り立たない */
   if(!(form.doseG>0)||!(form.yieldG>0)){alert('粉の量と出来上がりの量を入れてください');return}
+  if(shotFormEdit){const id=shotFormEdit;
+    /* 別の端末で消された記録などは、直す相手がもう無い。黙って何もしないと押せていないように見える */
+    if(!saveShotEdit()){shotFormEdit=null;alert('この記録はもう見つかりません。消されたのかもしれません。');
+      closeSheet();renderAll();return}
+    save();closeSheet();renderAll();shotDetailSheet(id);return}
   const s=Object.assign({id:uid('s'),at:atFrom(form.date),status:'draft',bal:0,str:0,rating:0,
-    zatsu:null,stop:null,spray:false,timeSec:0,milkMl:0,presMax:null,memo:'',stockId:'',adv:null},form);
+    zatsu:null,doseFeel:null,stop:null,spray:false,timeSec:0,milkMl:0,presMax:null,memo:'',stockId:'',adv:null},form);
   /* 評価まちの記録を捨てて上書きするときは、その1杯ぶんの豆を残量に戻してから捨てる。
      戻さないと、淹れていない豆が減ったままになる。 */
   const d=draft();if(d){useStock(d.beanId,d.doseG,-1,d.stockId);
@@ -2918,8 +3041,35 @@ function saveShot(){
 /* 味の評価画面は、◎や★を押すたびに全部描き直している。
    書きかけのメモが消えてしまわないよう、描き直す前に必ずここを通して s.memo に移す。 */
 function readTasteMemo(s){const e=$('#t-memo');if(e&&s)s.memo=e.value}
-function tasteSheet(id){
+/* 過去の記録の感想を直しているときの写し。ボタンを押すたびに本物を書き換えると、
+   「やめる」で閉じても直しかけの値が残ってしまうので、写しの上で直す。 */
+let tasteEdit=null;
+const TASTE_KEYS=['bal','str','zatsu','doseFeel','rating','spray','memo'];
+/* ◎や★を押したときに書き換える相手。直している最中なら写し、そうでなければ評価まちの記録。 */
+function tasteTarget(){return tasteEdit||S.shots.find(x=>x.status==='draft')}
+function editTasteSheet(id){
   const s=S.shots.find(x=>x.id===id);if(!s)return;
+  tasteEdit={id:s.id};TASTE_KEYS.forEach(k=>{tasteEdit[k]=s[k]});
+  tasteSheet(id);
+}
+/* 「記録して、次の一手を見る」「直した内容で保存する」を押したとき */
+function saveTaste(id){
+  if(tasteEdit&&tasteEdit.id===id){
+    const s=S.shots.find(x=>x.id===id);if(!s){tasteEdit=null;return null}
+    readTasteMemo(tasteEdit);
+    TASTE_KEYS.forEach(k=>{s[k]=tasteEdit[k]});
+    tasteEdit=null;
+    s.status='done';s.adv=advise(s);return s;
+  }
+  const s=S.shots.find(x=>x.id===id);if(!s)return null;
+  readTasteMemo(s);
+  s.status='done';s.adv=advise(s);return s;
+}
+function tasteSheet(id){
+  /* 別の記録を開いたら、直しかけの写しは捨てる */
+  if(tasteEdit&&tasteEdit.id!==id)tasteEdit=null;
+  const s=tasteEdit||S.shots.find(x=>x.id===id);if(!s)return;
+  const editing=!!tasteEdit;
   const seg=(k,opts)=>'<div class="seg">'+opts.map(o=>'<button data-act="tset" data-k="'+k+'" data-v="'+o[0]+
     '" aria-pressed="'+(s[k]===o[0])+'"><span class="g">'+o[1]+'</span>'+o[2]+'</button>').join('')+'</div>';
   const body='<div class="pad">'+
@@ -2949,6 +3099,13 @@ function tasteSheet(id){
         '<button data-act="zset" data-v="2" aria-pressed="'+(s.zatsu===2)+'">強い</button></div>':'')+
       '<p class="tiny" style="margin-top:6px">味の傾向・濃さ・★と合わせて、出しすぎか、湯の通り道かを見分けます。'+
       '押したボタンをもう一度押すと、選択を外せます。</p></div>'+
+    /* 粉の量の手応え（2026-09-24）。ちょうどなら押さない。押すと、挽き目より先に粉の量の提案になる。 */
+    '<div class="field"><label>粉の量（詰めたときの手応え）</label><div class="seg">'+
+      '<button data-act="dfeel" data-v="-1" aria-pressed="'+(dFeel(s)===-1)+'"><span class="g">🪶</span>少なかった</button>'+
+      '<button data-act="dfeel" data-v="1" aria-pressed="'+(dFeel(s)===1)+'"><span class="g">⛰</span>多かった</button></div>'+
+      '<p class="tiny" style="margin-top:6px">ちょうどなら、どちらも押さなくて大丈夫です。'+
+      'バスケットからあふれそう・上の部品に粉の跡が付いた・押し固めにくかった、が「多かった」の目安です。'+
+      '選ぶと、挽き目より先に粉の量を直す提案を出します。押したボタンをもう一度押すと外せます。</p></div>'+
     '<div class="field"><label>総合</label><div class="stars">'+
       [1,2,3,4,5].map(n=>'<button data-act="star" data-v="'+n+'" class="'+(s.rating>=n?'on':'')+'">★</button>').join('')+'</div></div>'+
     /* 数字だけでは「なぜその設定にしたのか」があとから思い出せない。
@@ -2958,7 +3115,9 @@ function tasteSheet(id){
       esc(s.memo||'')+'</textarea>'+
       '<p class="tiny" style="margin-top:6px">あとから「これまでの調整」で読み返せます。'+
       '空のままでも保存できます。</p></div></div>';
-  openSheet('飲んだ感想',body,
+  openSheet(editing?'感想を直す':'飲んだ感想',body,
+    editing?'<button class="btn ghost" data-act="canceltaste" data-id="'+esc(id)+'" style="flex:1">やめる</button>'+
+      '<button class="btn" data-act="donetaste" data-id="'+esc(id)+'" style="flex:2">直した内容で保存する</button>':
     '<button class="btn wide" data-act="donetaste" data-id="'+id+'">記録して、次の一手を見る</button>');
 }
 function grinderSheet(){
@@ -3916,7 +4075,7 @@ document.addEventListener('click',e=>{
     S.log[id]=Object.assign({rate:''},S.log[id],{memo:m,at:Date.now()});save();renderMy();
     t.textContent='保存しました';setTimeout(()=>{t.textContent='ひとことを保存'},1200)}
   else if(a==='shotwith'){closeFull();setView('esp');shotSheet({beanId:id})}
-  else if(a==='newshot'){shotSheet()}
+  else if(a==='newshot'){tasteEdit=null;shotSheet()}
   else if(a==='st'){stepField(t.dataset.k,+t.dataset.d)}
   else if(a==='setsec'){form.timeSec=+t.dataset.v;
     const e=$('#f-timeSec');if(e)e.value=stepVal('timeSec');calc()}
@@ -3994,18 +4153,25 @@ document.addEventListener('click',e=>{
         String(dt.getDate()).padStart(2,'0')}
     renderStockForm()}
   else if(a==='saveshot'){saveShot()}
-  else if(a==='taste'){tasteSheet(id)}
-  else if(a==='tset'){const s=S.shots.find(x=>x.status==='draft');if(!s)return;
+  else if(a==='taste'){tasteEdit=null;tasteSheet(id)}
+  else if(a==='tset'){const s=tasteTarget();if(!s)return;
     readTasteMemo(s);s[t.dataset.k]=+t.dataset.v;save();tasteSheet(s.id)}
-  else if(a==='zset'){const s=S.shots.find(x=>x.status==='draft');if(!s)return;
+  else if(a==='zset'){const s=tasteTarget();if(!s)return;
     readTasteMemo(s);s.zatsu=zsetNext(s,+t.dataset.v,t.dataset.top==='1');save();tasteSheet(s.id)}
-  else if(a==='spray'){const s=S.shots.find(x=>x.status==='draft');if(!s)return;
+  else if(a==='dfeel'){const s=tasteTarget();if(!s)return;
+    readTasteMemo(s);const v=+t.dataset.v;s.doseFeel=dFeel(s)===v?null:v;save();tasteSheet(s.id)}
+  else if(a==='spray'){const s=tasteTarget();if(!s)return;
     readTasteMemo(s);s.spray=t.dataset.v==='1';save();tasteSheet(s.id)}
-  else if(a==='star'){const s=S.shots.find(x=>x.status==='draft');if(!s)return;
+  else if(a==='star'){const s=tasteTarget();if(!s)return;
     readTasteMemo(s);s.rating=+t.dataset.v;save();tasteSheet(s.id)}
-  else if(a==='donetaste'){const s=S.shots.find(x=>x.id===id);if(!s)return;
-    readTasteMemo(s);
-    s.status='done';s.adv=advise(s);save();closeSheet();renderEsp();setView('esp')}
+  else if(a==='donetaste'){const wasEdit=!!(tasteEdit&&tasteEdit.id===id);
+    const s=saveTaste(id);if(!s)return;
+    save();closeSheet();renderAll();
+    /* 直したときは、直した記録の画面に戻して新しい提案を見せる */
+    if(wasEdit)shotDetailSheet(id);else{renderEsp();setView('esp')}}
+  else if(a==='canceltaste'){tasteEdit=null;closeSheet();shotDetailSheet(id)}
+  else if(a==='editshot'){closeSheet();editShotSheet(id)}
+  else if(a==='edittaste'){closeSheet();editTasteSheet(id)}
   else if(a==='shotdetail'){shotDetailSheet(id)}
   else if(a==='savshotmemo'){const sh=S.shots.find(x=>x.id===id);if(!sh)return;
     const e=$('#d-memo');if(e)sh.memo=e.value;
@@ -4014,6 +4180,10 @@ document.addEventListener('click',e=>{
     setTimeout(function(){t.textContent='メモを保存する'},1200)}
   else if(a==='applyadv'){const L=lastDone();shotSheet(Object.assign({beanId:L.beanId,doseG:L.doseG,
     yieldG:L.yieldG,timeSec:L.timeSec||0,milkMl:L.milkMl||0,grindValue:L.grindValue},L.adv.next))}
+  else if(a==='applyalt'){const L=lastDone();const x=L&&L.adv&&L.adv.alts&&L.adv.alts[+t.dataset.i];
+    if(!x||!x.next)return;
+    shotSheet(Object.assign({beanId:L.beanId,doseG:L.doseG,yieldG:L.yieldG,timeSec:L.timeSec||0,
+      milkMl:L.milkMl||0,grindValue:L.grindValue},x.next))}
   else if(a==='reuse'){const s=S.shots.find(x=>x.id===id);if(s)shotSheet({beanId:s.beanId,doseG:s.doseG,
     yieldG:s.yieldG,timeSec:s.timeSec||0,milkMl:s.milkMl||0,grindValue:s.grindValue})}
   else if(a==='gr'){grinderSheet()}
