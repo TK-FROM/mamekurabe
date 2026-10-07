@@ -2370,10 +2370,7 @@ const presWord=sh=>!hasPres(sh)?'記録なし':
   (+sh.presMax).toFixed(1)+'／'+PRES.top+'（'+PRESW[presLv(sh)]+'）';
 
 /* 挽き目を動かしたいが、使える範囲の端まで来ていることがある。
-   そこで「もっと細かく」と言い続けても実行できないので、粉の量に切り替える。
-   粉を増やせば抵抗が増えて時間が伸び、減らせば縮む。挽き目と同じ効果が得られる。 */
-/* 粉を増やす提案の上限。容量の105%を0.5g刻みで切り下げる（14gのバスケットなら14.5g）。 */
-const doseMax=()=>Math.floor(M().capacityG*1.05*2)/2;
+   そこで「もっと細かく」と言い続けても実行できないので、範囲の設定か豆の状態を見直すよう伝える。 */
 function grindOr(sh,fine,n,why,prep){
   const u=G().unit, R=(k,d,t,nx)=>({k,why,doIt:d,tip:t,next:nx||null});
   /* 圧力が上限（9）近くまで上がっているのに「もっと細かく」は実行してはいけない。
@@ -2399,11 +2396,17 @@ function grindOr(sh,fine,n,why,prep){
   if(!fine&&!atCoarsest(sh.grindValue))
     return R('挽き目','挽き目を '+(n*G().step)+u+' ぶん粗く（'+sh.grindValue+' → '+coarser(sh.grindValue,n)+'）',
       '粗くすると湯が早く抜け、出しすぎを抑えられます。',{grindValue:coarser(sh.grindValue,n)});
-  const nd=+(sh.doseG+(fine?0.5:-0.5)).toFixed(1);
-  return R('粉の量','粉を '+nd+'g に'+(fine?'増やす':'減らす'),
-    '挽き目はもう'+(fine?'いちばん細かい（'+espLo()+u+'）':'いちばん粗い（'+espHi()+u+'）')+'ところなので、粉の量で抵抗を変えます。'+
-    (fine?'粉を増やすと湯が通りにくくなり、時間が伸びます。':'粉を減らすと湯が通りやすくなり、時間が縮みます。'),
-    {doseG:nd});
+  /* 挽き目が使う範囲の端まで来ている。以前はここで粉の量を動かしていたが、
+     粉は 14g（バスケットの容量）が前提で、量を減らす提案は論外だと tatsu に言われた（2026-10-08）。
+     端まで来ているなら、グラインダーの範囲の設定を見直すか、豆の状態を疑う。 */
+  /* 端の数字はグラインダーの向きで入れ替わる（数字を増やすと細かくなる機種もある） */
+  const up=G().finer==='up', end=fine?(up?espHi():espLo()):(up?espLo():espHi());
+  return {k:'挽き目の範囲',why:why+'／挽き目は使う範囲の'+
+      (fine?'いちばん細かい':'いちばん粗い')+'（'+end+u+'）ところまで来ています',
+    doIt:'設定で「エスプレッソに使う範囲」を'+(fine?'細かい':'粗い')+'側へ1つ広げる',
+    tip:'粉の量は'+(M().capacityG||14)+'gのまま変えません。'+(fine?'いちばん細かくしても速く抜けるのは、豆が古くなってガスと香りが抜けているときによく起きます。':
+      'いちばん粗くしても詰まるのは、焙煎したての豆でガスが多いときや、深煎りで粉が細かく砕けやすいときに起きます。'),
+    next:null};
 }
 
 /* 一度に変えるのは1つだけ。だから提案も必ず1つに絞る。
@@ -2411,11 +2414,124 @@ function grindOr(sh,fine,n,why,prep){
    味の議論をしても意味がないため。
    どの層で決まった提案にも、苦さ・濃さ・雑味・★・止め方の「読み取り」を必ず添える。
    2026-09-17 に tatsu から「提案が参考にならないときがある。必ず4つを見て」と言われたため。 */
+/* 2026-10-08 に tatsu から「抽出の数字と感想の選択だけで決めているから、提案が合わないことが多い。
+   焙煎日・開封日・豆の特徴も考えて」と言われ、豆の状態（beanCtx）と同じ豆の前回の結果（byHistory）を足した。
+   数字から出した提案（base）より、豆の状態や前回の結果のほうが確かなときは、そちらを本案にして、
+   base は「別の手」の先頭に回す（消さない。今日どうしても直したいときに使えるように）。 */
 function advise(sh){
-  const r=adviseMain(sh);
-  r.read=tasteRead(sh);
-  r.alts=adviseAlts(sh,r);
-  return r;
+  const c=beanCtx(sh), base=adviseMain(sh,c);
+  /* 粉の量の外れと、湯の通り道（飛び散り・粉の準備）は、前回との比較より先に直す。
+     そこが崩れたままだと、前回から何を変えたかに関係なく味が乱れるため（検証で見つかった穴）。 */
+  const physical=base.k==='粉の量'||base.k==='粉の準備';
+  const top=(base.k==='粉の量'?null:byBean(sh,base,c))||(physical?null:byHistory(sh,base))||base;
+  let alts=adviseAlts(sh,base);
+  if(top!==base)alts=[{k:base.k,doIt:base.doIt,tip:(base.why?base.why+'。':'')+base.tip,next:base.next}]
+    .concat(alts.filter(x=>x.k!==top.k&&x.k!==base.k));
+  top.alts=alts.slice(0,2);
+  top.read=tasteRead(sh);
+  top.bean=ctxLine(c);
+  const h=histNote(sh);if(h&&top===base)top.tip=h+top.tip;
+  return top;
+}
+
+/* ===== 豆の状態と個性（2026-10-08） =====
+   エスプレッソは焙煎直後だと炭酸ガスが多く、湯の通り道ができやすい。焙煎度が浅いほど落ち着くまで長くかかる。
+   ESP_REST は「これより若いとまだ早い」日数。一般的な目安（浅煎り10日・中煎り7日・深煎り5日）を置いた。
+   使ってみてずれていたら、この1行だけ直す。 */
+const ESP_REST={'浅':10,'中':7,'深':5};
+const AGEW={young:'まだガスが多い',ok:'飲みごろ',aging:'香りが抜けはじめ',old:'風味おち'};
+function beanCtx(sh){
+  const b=anyById(sh.beanId), g=grp(b?b.roast:5);
+  const st=sh.stockId?(S.stock||[]).find(x=>x.id===sh.stockId):null;
+  /* 判定は「淹れた日」の時点で行う。今日の日付で見ると、昔の記録を見返したときに提案が変わってしまう。 */
+  const day=(sh.at&&!isNaN(new Date(sh.at)))?ymd(new Date(sh.at)):today();
+  /* dayDiff は読めない日付を0日として返すので、そのまま使うと「焙煎から0日（若い）」と誤判定する。先に日付として読めるかを見る。
+     焙煎日が未来（入れ間違い）なら、開封日で見る。 */
+  const okD=v=>/^\d{4}-\d{2}-\d{2}$/.test(String(v||''))&&!isNaN(Date.parse(v+'T00:00:00'));
+  const dr=st&&okD(st.roastDate)?dayDiff(st.roastDate,day):-1, dop=st&&okD(st.openDate)?dayDiff(st.openDate,day):-1;
+  let age=null;
+  if(dr>=0)age={basis:'焙煎',d:dr,stage:dr<ESP_REST[g]?'young':dr<=21?'ok':dr<=35?'aging':'old'};
+  else if(dop>=0)age={basis:'開封',d:dop,stage:dop<=14?'ok':dop<=28?'aging':'old'};
+  const t=(b&&Array.isArray(b.t))?b.t:[], acid=+t[0]||0, bitter=+t[1]||0, proc=(b&&b.process)||'';
+  return {b,g,age,acid,bitter,proc,
+    notes:(b&&Array.isArray(b.notes)?b.notes:[]).slice(0,3).join('・'),
+    acidy:acid>=4, bitty:bitter>=4||g==='深', ferment:proc==='natural'||proc==='anaerobic'};
+}
+/* 提案の上に出す「この豆をどう見たか」の1行。何を材料にしたかが見えないと、提案を信じてよいか判断できない。 */
+function ctxLine(c){
+  if(!c||!c.b)return '';
+  return '豆：'+(c.age?c.age.basis+'から'+c.age.d+'日（'+AGEW[c.age.stage]+'）':'焙煎日・開封日の記録なし')+
+    '／'+grpFull(c.b.roast)+(PROC[c.proc]?'・'+PROC[c.proc].replace(/（.*/,''):'')+
+    (c.acid?'／酸味'+c.acid+'・苦味'+c.bitter:'')+(c.notes?'（'+c.notes+'）':'');
+}
+/* 豆の状態のほうが確かなときに、本案を差し替える。差し替えないときは base の説明に一言足すだけ。 */
+function byBean(sh,base,c){
+  if(!c||!c.b)return null;
+  const Z=zLv(sh), a=c.age, star=+sh.rating||0;
+  const T=TARGET[c.g], fast=sh.timeSec>0&&sh.timeSec<T.tmin;
+  const add=s=>{base.tip=(base.tip||'')+s};
+  /* 若すぎる豆：飛び散り・湯の通り道・酸っぱいのに雑味・速すぎ は、ガスのせいで起きていることが多い。
+     ここで挽き目を動かすと、ガスが抜けた数日後に今度は合わなくなる。 */
+  if(a&&a.stage==='young'){
+    const left=ESP_REST[c.g]-a.d;
+    if(sh.spray||base.k==='粉の準備'||(sh.bal<=-1&&Z>=1)||fast)
+      return {k:'豆の状態',why:'焙煎から'+a.d+'日。'+c.g+'煎りの豆はエスプレッソだと'+ESP_REST[c.g]+'日ほどおかないと、炭酸ガスで抽出が乱れます',
+        doIt:'設定は変えず、あと'+left+'日ほど豆を休ませてから同じ設定で淹れる',
+        tip:'ガスが多いうちは、湯の通り道ができたり、速く抜けたり、酸っぱさと雑味が同時に出たりします。'+
+          'いま挽き目を動かすと、ガスが抜けたあとで今度は合わなくなります。今日どうしても直したいときだけ、下の別の手を使ってください。',next:null};
+    add('焙煎から'+a.d+'日のまだ若い豆です。数日で味が落ち着いて変わることがあるので、1杯だけで大きく動かさないでください。');
+  }
+  /* 古い豆：香りとガスが抜けて、速く・薄く・平たくなる。設定では戻りきらない。 */
+  if(a&&a.stage==='old'){
+    const w=a.basis+'から'+a.d+'日たち、香りとガスが抜けています。';
+    if(base.k==='挽き目の範囲'||(base.k==='豆'))
+      return {k:'豆の状態',why:w+'設定はもう端まで来ています',
+        doIt:'新しい袋（焙煎から3週間以内）で、同じ設定を試す',
+        tip:'古い豆は速く・薄く出て、甘さと香りが平たくなります。新しい袋で★が戻るなら、原因は設定ではなく豆です。',next:null};
+    add(w+'古い豆は速く・薄く出るので、細かくしても戻りきらないことがあります。新しい袋で★が戻るなら、原因は豆です。');
+  }else if(a&&a.stage==='aging')
+    add(a.basis+'から'+a.d+'日で、香りが抜けはじめています。前より速く出るようになっていたら、それは豆の変化です。');
+  /* 豆の個性：酸味（苦味）が持ち味の豆で「やや」なら、失敗と決めつけない。 */
+  if(sh.bal===-1&&c.acidy&&base.k!=='完成')
+    add('この豆は酸味が持ち味です（酸味'+c.acid+'／5'+(c.notes?'・'+c.notes:'')+'）。「やや酸っぱい」が続いても★が高いなら、それは豆の個性です。');
+  if(sh.bal===1&&c.bitty&&base.k!=='完成')
+    add('この豆は苦味が持ち味です（'+grpFull(c.b.roast)+'・苦味'+c.bitter+'／5）。「やや苦い」が続いても★が高いなら、それは豆の個性です。');
+  if(Z>=1&&c.ferment)
+    add((PROC[c.proc]||'').replace(/（.*/,'')+'の豆は、発酵した果実のような香りがあり、雑味と感じることがあります。舌に残る渋さでなければ、豆の個性です。');
+  return null;
+}
+/* 同じ豆の、この記録より前の一杯。淹れた時刻の無い記録（テストや古いデータ）では探さない。 */
+function prevSame(sh){
+  if(!sh||!sh.at)return null;
+  return (S.shots||[]).filter(x=>x!==sh&&x.id!==sh.id&&x.status==='done'&&x.beanId===sh.beanId&&x.at<sh.at)
+    .sort((a,b)=>b.at-a.at)[0]||null;
+}
+/* 前回から何を変えたか。粉の量は14g前提で、端数はグラインダーに残った粉の誤差なので数えない。 */
+function changedFrom(p,sh){
+  const c=[];
+  if(Number.isFinite(+p.grindValue)&&Number.isFinite(+sh.grindValue)&&+p.grindValue!==+sh.grindValue)c.push({k:'挽き目',key:'grindValue',from:+p.grindValue,to:+sh.grindValue,u:G().unit});
+  if(Number.isFinite(p.yieldG-sh.yieldG)&&Math.abs(p.yieldG-sh.yieldG)>=1)c.push({k:'抽出量',key:'yieldG',from:+p.yieldG,to:+sh.yieldG,u:'g'});
+  return c;
+}
+/* 前回から1つだけ変えて★が下がったなら、その変更は逆効果だった。数字から出す提案より、これを先に言う。 */
+function byHistory(sh,base){
+  const p=prevSame(sh), star=+sh.rating||0;
+  if(!p||!(+p.rating>0)||!star||star>=+p.rating||star>=4)return null;
+  const c=changedFrom(p,sh);if(c.length!==1)return null;
+  const x=c[0];
+  return {k:'戻す',why:'前回（★'+p.rating+'）から'+x.k+'を '+x.from+x.u+' → '+x.to+x.u+' に変えて、★'+star+'に下がりました',
+    doIt:x.k+'を前回の '+x.from+x.u+' に戻す',
+    tip:'変えたのはこの1つだけなので、下がった原因はこの変更です。戻して★が戻ったら、次は反対の向きか、別の手を試してください。',
+    next:{[x.key]:x.from}};
+}
+/* 前回より★が上がった・同じ豆で2つ以上いっぺんに変えた、という事実を説明の頭に添える。 */
+function histNote(sh){
+  const p=prevSame(sh), star=+sh.rating||0;
+  if(!p||!(+p.rating>0)||!star)return '';
+  const c=changedFrom(p,sh);
+  if(c.length>=2)return '前回から'+c.map(x=>x.k).join('と')+'をいっぺんに変えたので、どちらが効いたか分かりません。次は1つずつ変えてください。';
+  if(c.length===1&&star>+p.rating)return '前回（★'+p.rating+'）から'+c[0].k+'を '+c[0].from+c[0].u+' → '+c[0].to+c[0].u+' にして★'+star+'に上がりました。この向きは合っています。';
+  return '';
 }
 /* 別の手（2026-09-24）。提案が1つだけだと、それが合わないと感じたときに次の手が無く、
    「挽き目か途中で止めるかの2択しか出ない」と tatsu に言われた。
@@ -2423,20 +2539,13 @@ function advise(sh){
    向きが割れているもの（例：苦いのに濃い＝抽出量は伸ばすとも縮めるとも言えない）は出さない。
    完成・粉の準備（湯の通り道）・豆の見直しのときは、量や挽き目を動かしても直らないので出さない。 */
 function adviseAlts(sh,main){
-  if(main.k==='完成'||main.k==='粉の準備'||main.k==='豆')return [];
-  const b=anyById(sh.beanId), T=TARGET[grp(b?b.roast:5)], m=M(), u=G().unit;
+  /* 粉の量が容量から外れているときは、まずそれを直す。ほかの手を並べると、どれが効いたか分からなくなる。 */
+  if(main.k==='完成'||main.k==='粉の準備'||main.k==='豆'||main.k==='粉の量')return [];
+  const b=anyById(sh.beanId), T=TARGET[grp(b?b.roast:5)], u=G().unit;
   const ratio=sh.yieldG/sh.doseG, Z=zLv(sh), full=sh.stop==='full';
   const slow=sh.timeSec>0&&sh.timeSec>T.tmax, fast=sh.timeSec>0&&sh.timeSec<T.tmin;
   const out=[], add=(k,doIt,tip,next)=>out.push({k,doIt,tip,next});
-  /* 粉の量：濃さと時間で向きを決める。苦い・酸っぱいは量より挽き目と抽出量の仕事なので見ない。 */
-  const dDown=dFeel(sh)===1||sh.str>=1||slow, dUp=dFeel(sh)===-1||sh.str<=-1||fast;
-  if(main.k!=='粉の量'&&dDown!==dUp){
-    const nd=dDown?+(sh.doseG-1).toFixed(1):Math.min(+(sh.doseG+1).toFixed(1),doseMax());
-    if(nd!==sh.doseG&&nd>=m.capacityG*0.65&&nd<=doseMax())
-      add('粉の量','粉を '+nd+'g に'+(dDown?'減らす':'増やす'),
-        dDown?'濃さを抑え、湯の通りを少し速くします。粉が多いと感じた回にも効きます。':
-          '濃さを足し、湯の通りを少し遅くします。',{doseG:nd});
-  }
+  /* 粉の量は別の手にも出さない。14g が前提で、量で味を合わせることはしない（2026-10-08 tatsu）。 */
   /* 挽き目：酸っぱい・速いなら細かく、苦い・遅い・濃いなら粗く。圧力の歯止めは本案と同じ。 */
   const gFine=sh.bal<=-1||fast, gCoarse=sh.bal>=1||slow||sh.str>=1;
   if(main.k!=='挽き目'&&gFine!==gCoarse){
@@ -2477,14 +2586,8 @@ function tasteRead(sh){
     '　濃さ：'+(STRW[String(sh.str||0)]||'—')+
     '　雑味：'+(hasZ(sh)?ZATW[String(sh.zatsu)]:'記録なし')+
     '　総合：'+(sh.rating>0?'★'+sh.rating:'未入力')+
-    '　出し方：'+(STOPW[sh.stop]||'記録なし')+
-    (dFeel(sh)?'　粉の量：'+DFEELW[dFeel(sh)]:'');
+    '　出し方：'+(STOPW[sh.stop]||'記録なし');
 }
-/* 粉の量の手応え。null/undefined は「ちょうど、または記録なし」。1 多かった、-1 少なかった。 */
-const DFEELW={'1':'多かった','-1':'少なかった'};
-/* 手応えは必ずここを通して読む。クラウドから来た値は migrate を通らず、"1" のような文字で届くことがある。
-   表示（DFEELW）は文字でも引けてしまうので、判断だけが素通りして「表示は多かったなのに提案は完成」になっていた。 */
-const dFeel=sh=>{const v=sh?+sh.doseFeel:0;return v===1||v===-1?v:0};
 /* 本案の下に並べる「別の手」。btn が真なら、そのまま記録フォームを開くボタンも付ける。 */
 function altsHtml(a,btn){
   const xs=(a&&a.alts)||[];
@@ -2497,7 +2600,7 @@ function altsHtml(a,btn){
         'data-act="applyalt" data-i="'+i+'">こちらで設定して記録する</button>':'')+
     '</div>').join('')+'</div>':'';
 }
-function adviseMain(sh){
+function adviseMain(sh,c){
   const b=anyById(sh.beanId), g=grp(b?b.roast:5), T=TARGET[g], m=M();
   /* 抽出時間は記録しないことがある。その場合は時間の判定を飛ばして、味だけで見る。 */
   const ratio=sh.yieldG/sh.doseG, hasTime=sh.timeSec>0, big=bigStep();
@@ -2510,25 +2613,14 @@ function adviseMain(sh){
 
   /* レイヤー0：物理的な異常。味を聞く前に止める。
      容量の判定は 115% では甘く、明らかに多い回でも挽き目の提案になっていたので 105% にした（2026-09-24）。 */
-  if(fill>1.05)return R('粉の量','バスケット（'+m.basketMm+'mm・約'+m.capacityG+'g）に対して粉が多すぎます',
-    '粉を '+(sh.doseG-1).toFixed(1)+'g に減らす',
-    '粉が多すぎると、乾いた粉が上の部品に触れて、必ず湯の通り道ができます。',{doseG:+(sh.doseG-1).toFixed(1)});
+  /* 粉はバスケットの容量（14g）が前提。量で味を合わせることはしない（2026-10-08 tatsu）。
+     14.3g のような端数は、グラインダーに残っていた前回の粉が混ざった誤差なので、多すぎるときは容量にそろえるだけ。 */
+  if(fill>1.05)return R('粉の量','バスケット（'+m.basketMm+'mm・約'+m.capacityG+'g）に対して粉が多すぎます（'+sh.doseG+'g）',
+    '粉を '+m.capacityG+'g にそろえる',
+    '粉が多すぎると、乾いた粉が上の部品に触れて、必ず湯の通り道ができます。'+
+    'グラインダーに前回の粉が残っていると、その分だけ増えます。挽く前に空挽きするか、量ってから余分を除いてください。',{doseG:+m.capacityG});
   if(fill<0.65)return R('粉の量','バスケットに対して粉が少なすぎます',
-    '粉を '+m.capacityG.toFixed(1)+'g まで増やす','粉が少ないと湯が素通りして、薄く水っぽくなります。',{doseG:+m.capacityG});
-  /* 粉の量の手応え（2026-09-24）。数字の上では容量に収まっていても、
-     詰めた本人が「多かった」と感じたなら、それがいちばん確かな情報なので、挽き目より先に直す。
-     「明らかに豆が多かったのに、挽き目の提案しか出ない」と tatsu に言われたため。 */
-  if(dFeel(sh)===1&&sh.doseG-1>=m.capacityG*0.65)
-    return R('粉の量','粉が多かったと感じた（'+sh.doseG+'g）','粉を '+(sh.doseG-1).toFixed(1)+'g に減らす',
-      '挽き目と抽出量はそのままにして、粉だけを1g減らします。粉が減ると湯が通りやすくなり、時間が少し縮みます。'+
-      '速くなりすぎたら、次は挽き目を細かくして合わせてください。',{doseG:+(sh.doseG-1).toFixed(1)});
-  /* 増やすのは容量の105%まで（14gなら14.5g）。容量ちょうどで「少ない」と言われたときも提案できるように、
-     1g足すと超える場合は上限まで足す。 */
-  const upTo=Math.min(sh.doseG+1,doseMax());
-  if(dFeel(sh)===-1&&upTo>sh.doseG)
-    return R('粉の量','粉が少なかったと感じた（'+sh.doseG+'g）','粉を '+upTo.toFixed(1)+'g に増やす',
-      '挽き目と抽出量はそのままにして、粉だけを増やします。粉が増えると湯が通りにくくなり、時間が少し伸びます。'+
-      '遅くなりすぎたら、次は挽き目を粗くして合わせてください。',{doseG:upTo});
+    '粉を '+m.capacityG+'g にそろえる','粉が少ないと湯が素通りして、薄く水っぽくなります。',{doseG:+m.capacityG});
   if(sh.spray)return R('粉の準備','抽出中に横へ飛び散った＝湯の通り道ができています',
     '挽き目は変えず、粉のほぐし方を直す',PREP+'ここで挽き目をいじると、かえって悪くなります。');
   /* レイヤー1：抽出時間を目標帯に入れる。時間を測っていなければ丸ごと飛ばす。 */
@@ -2555,6 +2647,16 @@ function adviseMain(sh){
     return R('抽出量',why,(full?'次は途中で止めて、'+Math.round(y)+'g で切る':'抽出量を '+Math.round(y)+'g で止める'),
       (full?'今回は最後まで出し切っています。最後のほうに出てくる成分ほど、えぐみや雑味になります。':'')+tip,
       {yieldG:y});};
+  /* 豆の個性（2026-10-08）。酸味が持ち味の豆で「やや酸っぱい」、深煎りや苦味の強い豆で「やや苦い」と感じても、
+     雑味がなく濃さも合っていて★4以上なら、それはその豆の味。数字だけで「直せ」と言うと、好きな味から遠ざけてしまう。 */
+  if(c&&c.b&&Z===0&&star>=4&&!(+sh.str)&&
+     ((sh.bal===-1&&c.acidy)||(sh.bal===1&&c.bitty&&!presHigh(sh))))
+    return R('完成',(sh.bal===-1?'やや酸っぱいのは、この豆の持ち味です（酸味'+c.acid+'／5':
+        'やや苦いのは、この豆の持ち味です（'+grpFull(b.roast)+'・苦味'+c.bitter+'／5')+
+        (c.notes?'・'+c.notes:'')+'）。雑味がなく★'+star+'です',
+      'この設定を、この豆のベストとして覚えておく',
+      '数字の上では'+(sh.bal===-1?'酸味':'苦味')+'寄りですが、豆の性格どおりに出ています。ここから直すと、この豆らしさが消えます。'+
+      '次に同じ豆を買ったとき、ここから始めてください。');
   if(sh.bal>=1&&sh.str<=-1)
     return R('粉の準備','「苦いのに薄い」は、出しすぎと出し足りないが同時に起きているサインです'+(zw?'（'+zw+'のも同じ理由です）':''),
       '挽き目は変えず、粉のほぐし方を直す',PREP);
@@ -2683,11 +2785,12 @@ function renderEsp(){
     const a=L.adv;
     $('#esp-advice').innerHTML='<div class="advice'+(a.k==='完成'?' ok':'')+'">'+
       '<div class="k">つぎの一手 ／ '+esc(a.k)+'</div>'+
-      (a.read?'<p class="tiny" style="margin:0 0 6px">'+esc(a.read)+'</p>':'')+
+      (a.read?'<p class="tiny" style="margin:0 0 2px">'+esc(a.read)+'</p>':'')+
+      (a.bean?'<p class="tiny" style="margin:0 0 6px">'+esc(a.bean)+'</p>':'')+
       '<div class="muted" style="font-size:13px">'+esc(a.why)+'</div>'+
       '<div class="do">'+esc(a.doIt)+'</div>'+
       '<p class="tiny">'+esc(a.tip)+'</p>'+
-      (stuck()?'<div class="note" style="margin-top:10px">挽き目を3回続けて調整しても良くなっていません。挽き目ではなく、抽出量か粉の量を変えてみてください。豆が焙煎直後で若すぎる可能性もあります。</div>':'')+
+      (stuck()?'<div class="note" style="margin-top:10px">挽き目を3回続けて調整しても良くなっていません。挽き目ではなく、抽出量を変えてみてください。豆が焙煎直後で若すぎるか、古くなっている可能性もあります。</div>':'')+
       (a.next?'<button class="btn wide" style="margin-top:12px" data-act="applyadv">この通りに設定して記録する</button>':
         '<button class="btn ghost wide" style="margin-top:12px" data-act="newshot">同じ設定でもう一杯</button>')+
       altsHtml(a,true)+
@@ -2754,7 +2857,7 @@ function shotDetailSheet(id){
       kv('淹れた日',esc(dateJP(ymd(dt))+' '+dt.getHours()+':'+
         String(dt.getMinutes()).padStart(2,'0')))+
       kv('豆',esc(b?((b.shop?b.shop+' ':'')+b.name):'（いまは無い豆）'))+
-      kv('粉の量','<b>'+s.doseG+'</b> g'+(dFeel(s)?'　<span class="tiny">'+DFEELW[dFeel(s)]+'と感じた</span>':''))+
+      kv('粉の量','<b>'+s.doseG+'</b> g')+
       kv('出来上がり','<b>'+s.yieldG+'</b> g　<span class="tiny">レシオ 1:'+
         (s.yieldG/s.doseG).toFixed(1)+'</span>'+(STOPW[s.stop]?'<br>'+STOPW[s.stop]:''))+
       kv('抽出時間',s.timeSec>0?'<b>'+s.timeSec+'</b> 秒　<span class="tiny">流量 '+
@@ -2796,7 +2899,8 @@ function shotDetailSheet(id){
 function advBlock(s){
   return s.adv?'<div class="advice'+(s.adv.k==='完成'?' ok':'')+'" style="margin:16px 0 0">'+
     '<div class="k">このときの つぎの一手 ／ '+esc(s.adv.k)+'</div>'+
-    (s.adv.read?'<p class="tiny" style="margin:0 0 6px">'+esc(s.adv.read)+'</p>':'')+
+    (s.adv.read?'<p class="tiny" style="margin:0 0 2px">'+esc(s.adv.read)+'</p>':'')+
+    (s.adv.bean?'<p class="tiny" style="margin:0 0 6px">'+esc(s.adv.bean)+'</p>':'')+
     (s.adv.why?'<div class="muted" style="font-size:13px">'+esc(s.adv.why)+'</div>':'')+
     '<div class="do">'+esc(s.adv.doIt)+'</div>'+
     (s.adv.tip?'<p class="tiny">'+esc(s.adv.tip)+'</p>':'')+altsHtml(s.adv,false)+'</div>'
@@ -2838,7 +2942,9 @@ function shotSheet(pre,editId){
        淹れてもいない圧力を記録したことになってしまうため。 */
     presMax:null,stop:null,
     grindValue:+((espLo()+espHi())/2).toFixed(1)},
-    last?{beanId:last.beanId,doseG:last.doseG,yieldG:last.yieldG,timeSec:last.timeSec||0,
+    /* 粉の量は前回から引き継がない。前回の 14.3g のような端数はグラインダーに残った粉の誤差なので、
+       毎回バスケットの容量（14g）から始める。実際に量った数字だけをここで直す（2026-10-08 tatsu）。 */
+    last?{beanId:last.beanId,yieldG:last.yieldG,timeSec:last.timeSec||0,
       milkMl:last.milkMl||0,grindValue:last.grindValue}:{},pre||{});
   /* 数字は input にしてある。＋−で細かく動かすのと、キーボードで一気に打ち込むのを
      両方できるようにするため。抽出量は豆と挽き目で大きく動くので、これが無いと押し続けることになる。 */
@@ -3027,7 +3133,7 @@ function saveShot(){
       closeSheet();renderAll();return}
     save();closeSheet();renderAll();shotDetailSheet(id);return}
   const s=Object.assign({id:uid('s'),at:atFrom(form.date),status:'draft',bal:0,str:0,rating:0,
-    zatsu:null,doseFeel:null,stop:null,spray:false,timeSec:0,milkMl:0,presMax:null,memo:'',stockId:'',adv:null},form);
+    zatsu:null,stop:null,spray:false,timeSec:0,milkMl:0,presMax:null,memo:'',stockId:'',adv:null},form);
   /* 評価まちの記録を捨てて上書きするときは、その1杯ぶんの豆を残量に戻してから捨てる。
      戻さないと、淹れていない豆が減ったままになる。 */
   const d=draft();if(d){useStock(d.beanId,d.doseG,-1,d.stockId);
@@ -3044,7 +3150,7 @@ function readTasteMemo(s){const e=$('#t-memo');if(e&&s)s.memo=e.value}
 /* 過去の記録の感想を直しているときの写し。ボタンを押すたびに本物を書き換えると、
    「やめる」で閉じても直しかけの値が残ってしまうので、写しの上で直す。 */
 let tasteEdit=null;
-const TASTE_KEYS=['bal','str','zatsu','doseFeel','rating','spray','memo'];
+const TASTE_KEYS=['bal','str','zatsu','rating','spray','memo'];
 /* ◎や★を押したときに書き換える相手。直している最中なら写し、そうでなければ評価まちの記録。 */
 function tasteTarget(){return tasteEdit||S.shots.find(x=>x.status==='draft')}
 function editTasteSheet(id){
@@ -3099,13 +3205,8 @@ function tasteSheet(id){
         '<button data-act="zset" data-v="2" aria-pressed="'+(s.zatsu===2)+'">強い</button></div>':'')+
       '<p class="tiny" style="margin-top:6px">味の傾向・濃さ・★と合わせて、出しすぎか、湯の通り道かを見分けます。'+
       '押したボタンをもう一度押すと、選択を外せます。</p></div>'+
-    /* 粉の量の手応え（2026-09-24）。ちょうどなら押さない。押すと、挽き目より先に粉の量の提案になる。 */
-    '<div class="field"><label>粉の量（詰めたときの手応え）</label><div class="seg">'+
-      '<button data-act="dfeel" data-v="-1" aria-pressed="'+(dFeel(s)===-1)+'"><span class="g">🪶</span>少なかった</button>'+
-      '<button data-act="dfeel" data-v="1" aria-pressed="'+(dFeel(s)===1)+'"><span class="g">⛰</span>多かった</button></div>'+
-      '<p class="tiny" style="margin-top:6px">ちょうどなら、どちらも押さなくて大丈夫です。'+
-      'バスケットからあふれそう・上の部品に粉の跡が付いた・押し固めにくかった、が「多かった」の目安です。'+
-      '選ぶと、挽き目より先に粉の量を直す提案を出します。押したボタンをもう一度押すと外せます。</p></div>'+
+    /* 2026-09-24 に足した「粉の量の手応え（多かった／少なかった）」は 2026-10-08 に外した。
+       粉は 14g が前提で、量は抽出の画面で数字を入れているので、感想で聞く必要がないと tatsu に言われたため。 */
     '<div class="field"><label>総合</label><div class="stars">'+
       [1,2,3,4,5].map(n=>'<button data-act="star" data-v="'+n+'" class="'+(s.rating>=n?'on':'')+'">★</button>').join('')+'</div></div>'+
     /* 数字だけでは「なぜその設定にしたのか」があとから思い出せない。
@@ -3142,7 +3243,7 @@ function grinderSheet(){
       '<p class="tiny" style="margin-top:6px">ここが提案のいちばん大事な設定です。'+
       'ソリス スカラプラスは21段階ありますが、極細挽き（エスプレッソ用）は1〜4あたりだけです。'+
       '全体の21段階で刻みを計算すると「5目盛り細かく」のような実行できない提案が出てしまうので、'+
-      '<b>実際に使う狭い範囲</b>を入れてください。範囲の端まで来たら、提案は自動で粉の量の調整に切り替わります。</p></div>'+
+      '<b>実際に使う狭い範囲</b>を入れてください。範囲の端まで来たら、範囲を広げるか、豆の状態を見直す提案に切り替わります（粉の量は変えません）。</p></div>'+
     '<div class="field"><label>いちばん小さい調整の幅</label>'+
       '<input type="number" id="g-step" value="'+g.step+'" step="0.25" inputmode="decimal"></div>'+
     '<div class="hr" style="margin:20px 0"></div>'+
@@ -4158,8 +4259,6 @@ document.addEventListener('click',e=>{
     readTasteMemo(s);s[t.dataset.k]=+t.dataset.v;save();tasteSheet(s.id)}
   else if(a==='zset'){const s=tasteTarget();if(!s)return;
     readTasteMemo(s);s.zatsu=zsetNext(s,+t.dataset.v,t.dataset.top==='1');save();tasteSheet(s.id)}
-  else if(a==='dfeel'){const s=tasteTarget();if(!s)return;
-    readTasteMemo(s);const v=+t.dataset.v;s.doseFeel=dFeel(s)===v?null:v;save();tasteSheet(s.id)}
   else if(a==='spray'){const s=tasteTarget();if(!s)return;
     readTasteMemo(s);s.spray=t.dataset.v==='1';save();tasteSheet(s.id)}
   else if(a==='star'){const s=tasteTarget();if(!s)return;
@@ -4178,13 +4277,14 @@ document.addEventListener('click',e=>{
     if(!save()){alert('保存できませんでした。端末の容量がいっぱいのようです。');return}
     renderEsp();t.textContent='保存しました';
     setTimeout(function(){t.textContent='メモを保存する'},1200)}
-  else if(a==='applyadv'){const L=lastDone();shotSheet(Object.assign({beanId:L.beanId,doseG:L.doseG,
+  /* 粉の量は渡さない。shotSheet が毎回バスケットの容量（14g）から始める（2026-10-08） */
+  else if(a==='applyadv'){const L=lastDone();shotSheet(Object.assign({beanId:L.beanId,
     yieldG:L.yieldG,timeSec:L.timeSec||0,milkMl:L.milkMl||0,grindValue:L.grindValue},L.adv.next))}
   else if(a==='applyalt'){const L=lastDone();const x=L&&L.adv&&L.adv.alts&&L.adv.alts[+t.dataset.i];
     if(!x||!x.next)return;
-    shotSheet(Object.assign({beanId:L.beanId,doseG:L.doseG,yieldG:L.yieldG,timeSec:L.timeSec||0,
+    shotSheet(Object.assign({beanId:L.beanId,yieldG:L.yieldG,timeSec:L.timeSec||0,
       milkMl:L.milkMl||0,grindValue:L.grindValue},x.next))}
-  else if(a==='reuse'){const s=S.shots.find(x=>x.id===id);if(s)shotSheet({beanId:s.beanId,doseG:s.doseG,
+  else if(a==='reuse'){const s=S.shots.find(x=>x.id===id);if(s)shotSheet({beanId:s.beanId,
     yieldG:s.yieldG,timeSec:s.timeSec||0,milkMl:s.milkMl||0,grindValue:s.grindValue})}
   else if(a==='gr'){grinderSheet()}
   else if(a==='gset'){readGear();S.grinder[t.dataset.k]=t.dataset.v;save();grinderSheet()}
