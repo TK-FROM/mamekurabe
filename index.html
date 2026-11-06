@@ -617,6 +617,9 @@ details .in{padding:0 18px 18px}
    スマホの一画面に入る情報が目に見えて減る。 */
 .kv{display:grid;grid-template-columns:84px 1fr;gap:4px 10px;font-size:14px;line-height:1.55}
 .kv dt{color:var(--mute);font-size:11.5px;font-weight:700;letter-spacing:.05em;line-height:1.6}
+.kv.dates{grid-template-columns:auto 1fr auto 1fr;gap:2px 8px;font-size:13px;margin:0 0 10px}
+.kv.dates dd{margin:0;white-space:nowrap}
+.kv.dates dd.wide{grid-column:2/-1;white-space:normal}
 .kv dd{margin:0}
 .note{background:var(--chip);border-radius:var(--r-m);padding:13px 15px;font-size:12.5px;color:var(--sub);
   line-height:1.8}
@@ -2447,11 +2450,19 @@ function beanCtx(sh){
   const day=(sh.at&&!isNaN(new Date(sh.at)))?ymd(new Date(sh.at)):today();
   /* dayDiff は読めない日付を0日として返すので、そのまま使うと「焙煎から0日（若い）」と誤判定する。先に日付として読めるかを見る。
      焙煎日が未来（入れ間違い）なら、開封日で見る。 */
-  const okD=v=>/^\d{4}-\d{2}-\d{2}$/.test(String(v||''))&&!isNaN(Date.parse(v+'T00:00:00'));
-  const dr=st&&okD(st.roastDate)?dayDiff(st.roastDate,day):-1, dop=st&&okD(st.openDate)?dayDiff(st.openDate,day):-1;
+  const dr=st&&okDate(st.roastDate)?dayDiff(st.roastDate,day):-1, dop=st&&okDate(st.openDate)?dayDiff(st.openDate,day):-1;
   let age=null;
-  if(dr>=0)age={basis:'焙煎',d:dr,stage:dr<ESP_REST[g]?'young':dr<=21?'ok':dr<=35?'aging':'old'};
-  else if(dop>=0)age={basis:'開封',d:dop,stage:dop<=14?'ok':dop<=28?'aging':'old'};
+  /* 密封パック（カルディ・スタバなど）は、開けてからの日数で見る。焙煎から1か月たって店に並ぶのが普通なので、
+     焙煎日で見ると買った初日から「風味おち」になってしまう（2026-11-07 tatsu の指摘）。
+     まだガスが多い若い豆だけは、袋に関係なく焙煎日で見る。 */
+  if(st&&packOf(st).k==='sealed'&&!(dr>=0&&dr<ESP_REST[g])){
+    const ex=okDate(st.bestBy)?dayDiff(st.bestBy,day):-1;
+    if(ex>0)age={basis:'賞味期限',d:ex,stage:'old',pack:'sealed',expired:true};
+    else if(dop>=0)age={basis:'開封',d:dop,stage:openStage(dop),pack:'sealed',roastD:dr};
+    else if(dr>=0)age={basis:'焙煎',d:dr,stage:'ok',pack:'sealed',noOpen:true};
+  }
+  else if(dr>=0)age={basis:'焙煎',d:dr,stage:dr<ESP_REST[g]?'young':dr<=21?'ok':dr<=35?'aging':'old'};
+  else if(dop>=0)age={basis:'開封',d:dop,stage:openStage(dop)};
   const t=(b&&Array.isArray(b.t))?b.t:[], acid=+t[0]||0, bitter=+t[1]||0, proc=(b&&b.process)||'';
   return {b,g,age,acid,bitter,proc,
     notes:(b&&Array.isArray(b.notes)?b.notes:[]).slice(0,3).join('・'),
@@ -2460,9 +2471,18 @@ function beanCtx(sh){
 /* 提案の上に出す「この豆をどう見たか」の1行。何を材料にしたかが見えないと、提案を信じてよいか判断できない。 */
 function ctxLine(c){
   if(!c||!c.b)return '';
-  return '豆：'+(c.age?c.age.basis+'から'+c.age.d+'日（'+AGEW[c.age.stage]+'）':'焙煎日・開封日の記録なし')+
+  return '豆：'+ageText(c.age)+
     '／'+grpFull(c.b.roast)+(PROC[c.proc]?'・'+PROC[c.proc].replace(/（.*/,''):'')+
     (c.acid?'／酸味'+c.acid+'・苦味'+c.bitter:'')+(c.notes?'（'+c.notes+'）':'');
+}
+function ageText(a){
+  if(!a)return '焙煎日・開封日の記録なし';
+  if(a.pack==='sealed'){
+    if(a.expired)return '賞味期限を'+a.d+'日すぎ（風味おち・密封パック）';
+    if(a.noOpen)return '焙煎から'+a.d+'日（密封パック・開封日の記録なし）';
+    return '開封から'+a.d+'日（'+AGEW[a.stage]+'・密封パック'+(a.roastD>=0?'／焙煎から'+a.roastD+'日':'')+'）';
+  }
+  return a.basis+'から'+a.d+'日（'+AGEW[a.stage]+'）';
 }
 /* 豆の状態のほうが確かなときに、本案を差し替える。差し替えないときは base の説明に一言足すだけ。 */
 function byBean(sh,base,c){
@@ -2483,10 +2503,10 @@ function byBean(sh,base,c){
   }
   /* 古い豆：香りとガスが抜けて、速く・薄く・平たくなる。設定では戻りきらない。 */
   if(a&&a.stage==='old'){
-    const w=a.basis+'から'+a.d+'日たち、香りとガスが抜けています。';
+    const w=(a.expired?'賞味期限を'+a.d+'日すぎ':a.basis+'から'+a.d+'日たち')+'、香りとガスが抜けています。';
     if(base.k==='挽き目の範囲'||(base.k==='豆'))
       return {k:'豆の状態',why:w+'設定はもう端まで来ています',
-        doIt:'新しい袋（焙煎から3週間以内）で、同じ設定を試す',
+        doIt:a.pack==='sealed'?'新しい袋を開けて、同じ設定を試す':'新しい袋（焙煎から3週間以内）で、同じ設定を試す',
         tip:'古い豆は速く・薄く出て、甘さと香りが平たくなります。新しい袋で★が戻るなら、原因は設定ではなく豆です。',next:null};
     add(w+'古い豆は速く・薄く出るので、細かくしても戻りきらないことがあります。新しい袋で★が戻るなら、原因は豆です。');
   }else if(a&&a.stage==='aging')
@@ -3492,8 +3512,65 @@ const FRESH=[
 /* 判定に使う日付は 焙煎日 ＞ 開封日 ＞ 賞味期限 の順。上から順に、豆の状態を
    よく言い当てる順番になっている。line は画面に1行で出すための文字列で、
    賞味期限のときだけ「あと何日」と向きが逆になるため、ここで作ってしまう。 */
+/* ===== 袋の種類（2026-11-07） =====
+   カルディやスタバの豆は、店に並んだ日にはもう焙煎から1か月以上たっていることが多い（スタバは5か月の例も）。
+   こうした店は、ガス抜きバルブ付きのアルミ袋などで密封して、長く置けるようにして売っている。
+   開けるまでは空気にほとんど触れないので、焙煎からの日数ほどは香りが落ちない。
+   そこで「密封パック」の袋は、焙煎からの日数ではなく、開けてからの日数で鮮度を見る。
+   焙煎店の袋（焼いてすぐ売る店）は今までどおり焙煎日で見る。
+   決め方：袋ごとに自分で選んだもの ＞ 店の名前 ＞ 買った日に焙煎からPACK_GAP日以上たっていたか。 */
+const SEALED_SHOPS=['スターバックス','スタバ','カルディ','KALDI','タリーズ','ドトール','無印','MUJI',
+  'キーコーヒー','KEY COFFEE','UCC','上島珈琲','業務スーパー','コストコ','COSTCO',
+  'ファミリーマート','ファミマ','ローソン','セブン','コメダ','成城石井'];
+const PACKW={fresh:'焙煎店の袋',sealed:'密封パック'};
+const PACK_GAP=14;
+const okDate=v=>/^\d{4}-\d{2}-\d{2}$/.test(String(v||''))&&!isNaN(Date.parse(v+'T00:00:00'));
+function packOf(st){
+  if(!st)return {k:'fresh',auto:true,why:''};
+  if(st.pack==='fresh'||st.pack==='sealed')return {k:st.pack,auto:false,why:'自分で選んだ種類'};
+  const b=anyById(st.beanId), shop=String((b&&b.shop)||'').toUpperCase();
+  /* 英字の店名は単語として一致したときだけ（「SUCCESS COFFEE」が UCC に当たらないように）。 */
+  const hit=shop&&SEALED_SHOPS.find(s=>/^[A-Z ]+$/.test(s)?
+    new RegExp('(^|[^A-Z])'+s+'([^A-Z]|$)').test(shop):shop.includes(s));
+  if(hit)return {k:'sealed',auto:true,why:b.shop+'の豆は、密封した袋で長く置いて売られています'};
+  if(okDate(st.roastDate)&&okDate(st.buyDate)){
+    const g=dayDiff(st.roastDate,st.buyDate);
+    if(g>=PACK_GAP)return {k:'sealed',auto:true,why:'買った日に、もう焙煎から'+g+'日たっていました'};
+  }
+  return {k:'fresh',auto:true,why:''};
+}
+/* 開けてからの日数の区切り。開けた袋は2週間が目安、4週間で味が平たくなる。 */
+const openStage=d=>d<=14?'ok':d<=28?'aging':'old';
+/* 密封パックの鮮度。焼きたて（ガス抜きまち）と賞味期限ぎれだけは、袋に関係なく先に見る。 */
+function sealedFresh(st,now,p){
+  const dr=okDate(st.roastDate)?dayDiff(st.roastDate,now):-1;
+  const rl=dr>=0?'焙煎から'+dr+'日・':'';
+  if(dr>=0&&dr<=FRESH[0].max)
+    return Object.assign({basis:'焙煎',days:dr,line:'焙煎から'+dr+'日',pack:p},FRESH[0]);
+  const be=okDate(st.bestBy)?dayDiff(now,st.bestBy):null;
+  if(be!==null&&be<0)return {basis:'賞味期限',days:-be,line:rl+'賞味期限を'+(-be)+'日すぎています',
+    k:'期限ぎれ',tone:'bad',pack:p,say:'賞味期限を'+(-be)+'日すぎています。香りはかなり抜けているはずです。'};
+  const why='密封パックの豆なので、焙煎からの日数ではなく、開けてからの日数で見ています。';
+  if(okDate(st.openDate)&&dayDiff(st.openDate,now)>=0){
+    const d=dayDiff(st.openDate,now), s=openStage(d), o={basis:'開封',days:d,line:rl+'開封から'+d+'日',pack:p};
+    if(s==='ok')return Object.assign(o,{k:'飲みごろ',tone:'ok',say:why+'開封から'+d+'日、まだ大丈夫です。'});
+    if(s==='aging')return Object.assign(o,{k:'そろそろ',tone:'warn',
+      say:why+'開けてから'+d+'日たち、香りが抜けはじめています。早めに飲み切ってください。'});
+    return Object.assign(o,{k:'風味おち',tone:'bad',say:why+'開けてから4週間以上たち、味が平たくなっています。'});
+  }
+  /* 開封日を入れ忘れたまま飲み進めた袋を「未開封」と言い続けないように、減っていたら開封済みとみなす。 */
+  if(st.startG>0&&st.leftG<st.startG)
+    return {basis:'開封',days:null,line:rl+'開封日が未記録',k:'開封日なし',tone:'warn',pack:p,
+      say:'残りが減っているので、もう開けた袋のようです。'+why+'「なおす」で開封日を入れると、飲みごろが分かります。'};
+  const soon=be!==null&&be<=30;
+  return {basis:'未開封',days:dr>=0?dr:null,line:rl+'未開封',k:soon?'そろそろ':'未開封',tone:soon?'warn':'ok',pack:p,
+    say:'密封パックなので、開けるまでは香りが保たれています。開けたら「今日あけた」を押してください。'+
+      'そこから2週間ほどが飲みごろです。'+(soon?'賞味期限まであと'+be+'日なので、早めに開けてください。':'')};
+}
 function freshness(st,now){
   now=now||today();
+  const p=packOf(st);
+  if(st&&p.k==='sealed')return sealedFresh(st,now,p);
   if(st&&st.roastDate){
     const d=dayDiff(st.roastDate,now);
     return Object.assign({basis:'焙煎',days:d,line:'焙煎から'+d+'日'},
@@ -3577,6 +3654,17 @@ function stockNotes(beanId){
 /* no は「何袋目か」。同じ豆を複数持っているときだけ 1 以上が入る。
    同じ名前のカードが2枚並ぶと、どちらを直しているのか分からなくなるため、
    番号と買った日で見分けられるようにしてある。 */
+/* 袋に入れた日付を4つとも並べる。入れていないものは「—」と出して、未入力だと分かるようにする。
+   以前は判定に使った1つ（焙煎から◯日 など）しか出ず、登録した日付が見えなかった（2026-11-07 tatsu の指摘）。
+   同じ豆を2袋持っているときも、買った日・開封日で見分けられる。 */
+function stockDates(st){
+  const p=packOf(st);
+  const it=(l,v)=>'<dt>'+l+'</dt><dd>'+(v?esc(dateJP(v)):'<span style="color:var(--mute)">—</span>')+'</dd>';
+  return '<dl class="kv dates">'+it('買った日',st.buyDate)+it('焙煎日',st.roastDate)+
+    it('開封日',st.openDate)+it('賞味期限',st.bestBy)+
+    '<dt>袋</dt><dd class="wide">'+esc(PACKW[p.k])+
+      (p.why?'<span class="tiny">（'+esc(p.why)+'）</span>':'')+'</dd></dl>';
+}
 function stockCard(st,no){
   const b=anyById(st.beanId);if(!b)return '';
   const f=freshness(st), col=TONECOL[f.tone];
@@ -3590,12 +3678,13 @@ function stockCard(st,no){
       '<span class="badge" style="background:'+col+';color:#fff">'+esc(f.k)+'</span></div>'+
     '<p class="tiny" style="margin:6px 0 9px">'+
       esc(f.line)+
-      '　／　残り <b>'+st.leftG+'g</b>'+(cups>0?'（あと'+cups+'杯ぶん）':'（もうすぐ無くなります）')+
-      (no&&st.buyDate?'<br>'+esc(dateJP(st.buyDate))+'に買ったぶん':'')+'</p>'+
+      '　／　残り <b>'+st.leftG+'g</b>'+(cups>0?'（あと'+cups+'杯ぶん）':'（もうすぐ無くなります）')+'</p>'+
+      stockDates(st)+
     '<span class="track"><i class="fill" style="width:'+pct+'%;background:'+col+'"></i></span>'+
     '<p class="tiny" style="margin:10px 0 0">'+esc(f.say)+'</p>'+
     '<div class="cardacts">'+
-      (st.openDate?'':'<button class="chip" data-act="openbag" data-id="'+st.id+'">今日あけた</button>')+
+      /* 開封日が未来（入れ間違い）なら未開封扱いなので、ボタンも出す */
+      (okDate(st.openDate)&&dayDiff(st.openDate,today())>=0?'':'<button class="chip" data-act="openbag" data-id="'+st.id+'">今日あけた</button>')+
       '<button class="chip" data-act="editstock" data-id="'+st.id+'">なおす</button>'+
       '<button class="chip" data-act="usedup" data-id="'+st.id+'" style="margin-left:auto">使い切った</button>'+
     '</div></div>';
@@ -3867,6 +3956,7 @@ function renderStockForm(){
       '<b>空欄なら「不明」として扱い、何も決めつけません。</b>'+
       'ただし賞味期限は焙煎日よりずっと先に決められているので、'+
       '上の2つが入っているときは、そちらを優先して飲みごろを出します。</p></div>'+
+    packField(f)+
     '<div class="field"><label>買ったときの量と、いまの残り</label>'+
       '<div class="row"><input type="number" id="st-start" inputmode="decimal" value="'+(f.startG||'')+
         '" placeholder="200" style="flex:1"><span>g 買った</span>'+
@@ -3886,6 +3976,19 @@ function renderStockForm(){
       const b=anyById(stForm.beanId);
       if(stForm._new&&b&&b.sizeG>0){stForm.startG=b.sizeG;stForm.leftG=b.sizeG}
       renderStockForm()}});
+}
+/* 袋の種類。ふだんは「自動」のままで、店の判断が外れたときだけ選び直す。 */
+function packField(f){
+  const auto=packOf(Object.assign({},f,{pack:''}));
+  const chip=(v,l)=>'<button class="chip" data-act="stpack" data-v="'+v+'" aria-pressed="'+
+    ((f.pack||'')===v)+'">'+l+'</button>';
+  return '<div class="field"><label>袋の種類</label>'+
+    '<div class="chips">'+chip('','自動で決める')+chip('fresh',PACKW.fresh)+chip('sealed',PACKW.sealed)+'</div>'+
+    '<p class="tiny" style="margin-top:6px">自動だと<b>'+esc(PACKW[auto.k])+'</b>'+
+      (auto.why?'（'+esc(auto.why)+'）':'')+'になります。<br>'+
+    '<b>密封パック</b>（カルディ・スタバなど）は、焙煎から1か月以上たって店に並ぶのがふつうです。'+
+    'ガス抜きバルブ付きの袋で密封されているので、<b>焙煎からではなく開けてからの日数</b>で飲みごろを見ます。'+
+    '<b>焙煎店の袋</b>（焼いてすぐ売る店）は、焙煎からの日数で見ます。</p></div>';
 }
 function readStockForm(){
   if(!stForm)return;
@@ -4244,6 +4347,8 @@ document.addEventListener('click',e=>{
     if(back<0)hForm[k]='';
     else{const dt=new Date();dt.setDate(dt.getDate()-back);hForm[k]=ymd(dt)}
     renderHistoryForm()}
+  else if(a==='stpack'){readStockForm();
+    const v=t.dataset.v;stForm.pack=(v==='fresh'||v==='sealed')?v:'';renderStockForm()}
   else if(a==='stdate'){readStockForm();
     const KMAP={roast:'roastDate',open:'openDate',buy:'buyDate',best:'bestBy'};
     const k=KMAP[t.dataset.k]||'openDate', back=+t.dataset.d;
