@@ -1248,7 +1248,8 @@ const DEF=()=>({schemaVersion:6,fav:[],log:{},pref:null,shots:[],
      espMin/espMax は「エスプレッソに実際に使う目盛りの範囲」。ソリス スカラプラスは
      21段階あるが極細挽きは1〜4なので、ここが狭い。提案の刻みはこの範囲から計算する。 */
   grinder:{name:'ソリス スカラプラス',unit:'目盛り',min:1,max:21,step:1,finer:'down',espMin:1,espMax:5},
-  machine:{name:'デロンギ EM450J',basketMm:51,capacityG:14,bottomless:true},
+  /* capacityG はダブルのバスケット、capacitySingleG はシングルのバスケットの容量（2026-11-07 にシングルを足した）。 */
+  machine:{name:'デロンギ EM450J',basketMm:51,capacityG:14,capacitySingleG:7,bottomless:true},
   /* 知りたい順序が「①どのお店で買えるか ②どの豆か」なので、お店から入る */
   cmp:[],mode:'shop',filter:{mood:[],roast:[],area:[],shop:[],pmax:8000},
   sort:'reco',theme:null,lastExport:null});
@@ -1261,7 +1262,10 @@ let lastUid=0;
 function migrate(d){
   d=Object.assign(DEF(),d||{});
   d.grinder=Object.assign(DEF().grinder,d.grinder||{});
+  /* シングルの容量が無い古い設定は、ダブルの半分から始める（ダブルを18gに変えている人に7gを出さないため） */
+  const hadSingle=!!(d.machine&&+d.machine.capacitySingleG>0);
   d.machine=Object.assign(DEF().machine,d.machine||{});
+  if(!hadSingle)d.machine.capacitySingleG=+(d.machine.capacityG/2).toFixed(1)||7;
   d.filter=Object.assign(DEF().filter,d.filter||{});
   if(!Array.isArray(d.myBeans))d.myBeans=[];
   if(!d.photos||typeof d.photos!=='object')d.photos={};
@@ -2331,6 +2335,20 @@ function renderMap(){
    ========================================================================= */
 const TARGET={'浅':{rmin:2.0,rmax:2.6,tmin:28,tmax:36},'中':{rmin:1.8,rmax:2.2,tmin:25,tmax:32},'深':{rmin:1.4,rmax:1.9,tmin:20,tmax:27}};
 const G=()=>S.grinder, M=()=>S.machine;
+/* バスケット（2026-11-07）。それより前の記録には basket が無いので、印の無い記録は必ずダブルとして読む。
+   クラウドから来た記録は migrate を通らないので、記録を書き換えるのではなく、読むときにそろえる。 */
+const BASKETW={double:'ダブル',single:'シングル'};
+const bkOf=s=>s&&s.basket==='single'?'single':'double';
+/* そのバスケットの容量。シングルの容量が壊れていたら、ダブルの半分を使う。 */
+function capOf(bk){
+  const m=M(), d=+m.capacityG>0?+m.capacityG:14;
+  if(bk!=='single')return d;
+  return +m.capacitySingleG>0?+m.capacitySingleG:+(d/2).toFixed(1);
+}
+/* ミルクの種類（2026-11-07）。印の無い記録は牛乳として読む。 */
+const MILKW={milk:'牛乳',almond:'アーモンドミルク'};
+const milkOf=s=>s&&s.milkType==='almond'?'almond':'milk';
+const milkName=s=>MILKW[milkOf(s)];
 /* エスプレッソに実際に使う目盛りの範囲。ソリス スカラプラスは21段階あるが、
    極細挽きは1〜4しかない。全体の範囲で刻みを決めると、範囲外の提案が出てしまう。 */
 const espLo=()=>Math.min(G().espMin,G().espMax);
@@ -2407,7 +2425,7 @@ function grindOr(sh,fine,n,why,prep){
   return {k:'挽き目の範囲',why:why+'／挽き目は使う範囲の'+
       (fine?'いちばん細かい':'いちばん粗い')+'（'+end+u+'）ところまで来ています',
     doIt:'設定で「エスプレッソに使う範囲」を'+(fine?'細かい':'粗い')+'側へ1つ広げる',
-    tip:'粉の量は'+(M().capacityG||14)+'gのまま変えません。'+(fine?'いちばん細かくしても速く抜けるのは、豆が古くなってガスと香りが抜けているときによく起きます。':
+    tip:'粉の量は'+capOf(bkOf(sh))+'gのまま変えません。'+(fine?'いちばん細かくしても速く抜けるのは、豆が古くなってガスと香りが抜けているときによく起きます。':
       'いちばん粗くしても詰まるのは、焙煎したての豆でガスが多いときや、深煎りで粉が細かく砕けやすいときに起きます。'),
     next:null};
 }
@@ -2520,10 +2538,11 @@ function byBean(sh,base,c){
     add((PROC[c.proc]||'').replace(/（.*/,'')+'の豆は、発酵した果実のような香りがあり、雑味と感じることがあります。舌に残る渋さでなければ、豆の個性です。');
   return null;
 }
-/* 同じ豆の、この記録より前の一杯。淹れた時刻の無い記録（テストや古いデータ）では探さない。 */
+/* 同じ豆の、この記録より前の一杯。淹れた時刻の無い記録（テストや古いデータ）では探さない。
+   シングルとダブルは粉の量も抽出量も別物なので、同じバスケット同士だけを比べる（2026-11-07）。 */
 function prevSame(sh){
   if(!sh||!sh.at)return null;
-  return (S.shots||[]).filter(x=>x!==sh&&x.id!==sh.id&&x.status==='done'&&x.beanId===sh.beanId&&x.at<sh.at)
+  return (S.shots||[]).filter(x=>x!==sh&&x.id!==sh.id&&x.status==='done'&&x.beanId===sh.beanId&&x.at<sh.at&&bkOf(x)===bkOf(sh))
     .sort((a,b)=>b.at-a.at)[0]||null;
 }
 /* 前回から何を変えたか。粉の量は14g前提で、端数はグラインダーに残った粉の誤差なので数えない。 */
@@ -2625,7 +2644,8 @@ function adviseMain(sh,c){
   /* 抽出時間は記録しないことがある。その場合は時間の判定を飛ばして、味だけで見る。 */
   const ratio=sh.yieldG/sh.doseG, hasTime=sh.timeSec>0, big=bigStep();
   const flow=hasTime?sh.yieldG/sh.timeSec:0;
-  const fill=m.capacityG?sh.doseG/m.capacityG:1;
+  /* 容量はその一杯で使ったバスケット（ダブル／シングル）で見る */
+  const bk=bkOf(sh), cap=capOf(bk), fill=cap?sh.doseG/cap:1;
   const R=(k,why,doIt,tip,next)=>({k,why,doIt,tip,next:next||null});
   const PREP='細い針で粉を全体にほぐし（WDT）、表面を平らにしてから、まっすぐ水平に押し固めてください。'+
     (m.bottomless?'ボトムレスなので、抽出中に横へ飛び散らないかを見れば、うまくいったか一目で分かります。':'')+
@@ -2635,12 +2655,13 @@ function adviseMain(sh,c){
      容量の判定は 115% では甘く、明らかに多い回でも挽き目の提案になっていたので 105% にした（2026-09-24）。 */
   /* 粉はバスケットの容量（14g）が前提。量で味を合わせることはしない（2026-10-08 tatsu）。
      14.3g のような端数は、グラインダーに残っていた前回の粉が混ざった誤差なので、多すぎるときは容量にそろえるだけ。 */
-  if(fill>1.05)return R('粉の量','バスケット（'+m.basketMm+'mm・約'+m.capacityG+'g）に対して粉が多すぎます（'+sh.doseG+'g）',
-    '粉を '+m.capacityG+'g にそろえる',
+  if(fill>1.05)return R('粉の量',BASKETW[bk]+'のバスケット（'+m.basketMm+'mm・約'+cap+'g）に対して粉が多すぎます（'+sh.doseG+'g）',
+    '粉を '+cap+'g にそろえる',
     '粉が多すぎると、乾いた粉が上の部品に触れて、必ず湯の通り道ができます。'+
-    'グラインダーに前回の粉が残っていると、その分だけ増えます。挽く前に空挽きするか、量ってから余分を除いてください。',{doseG:+m.capacityG});
-  if(fill<0.65)return R('粉の量','バスケットに対して粉が少なすぎます',
-    '粉を '+m.capacityG+'g にそろえる','粉が少ないと湯が素通りして、薄く水っぽくなります。',{doseG:+m.capacityG});
+    'グラインダーに前回の粉が残っていると、その分だけ増えます。挽く前に空挽きするか、量ってから余分を除いてください。',{doseG:cap});
+  if(fill<0.65)return R('粉の量',BASKETW[bk]+'のバスケット（約'+cap+'g）に対して粉が少なすぎます',
+    '粉を '+cap+'g にそろえる','粉が少ないと湯が素通りして、薄く水っぽくなります。'+
+    (bk==='double'&&sh.doseG<=capOf('single')*1.05?'シングルで淹れたなら、記録の「バスケット」をシングルにしてください。':''),{doseG:cap});
   if(sh.spray)return R('粉の準備','抽出中に横へ飛び散った＝湯の通り道ができています',
     '挽き目は変えず、粉のほぐし方を直す',PREP+'ここで挽き目をいじると、かえって悪くなります。');
   /* レイヤー1：抽出時間を目標帯に入れる。時間を測っていなければ丸ごと飛ばす。 */
@@ -2730,7 +2751,7 @@ function adviseMain(sh,c){
     return R('抽出量','味の方向は良いですが薄いです',
     (full?'次は途中で止めて、'+Math.round(y)+'g で切る':'抽出量を '+Math.round(y)+'g に減らす'),
     'バランスは崩さず濃さだけ上げます。アイスラテにするなら、ここは短めに切るのが正解です。'+
-    (sh.milkMl>0?'牛乳を '+Math.max(50,sh.milkMl-30)+'ml に減らしても同じ効果があります。':''),
+    (sh.milkMl>0?milkName(sh)+'を '+Math.max(50,sh.milkMl-30)+'ml に減らしても同じ効果があります。':''),
     {yieldG:y});
   }
   if(sh.str>=1){
@@ -2762,14 +2783,15 @@ function adviseMain(sh,c){
   }
   return R('完成','ちょうどいい一杯です（1:'+ratio.toFixed(1)+(hasTime?'／'+sh.timeSec+'秒':'')+
     (hasPres(sh)?'／圧力'+(+sh.presMax).toFixed(1):'')+
-    (sh.milkMl>0?'／牛乳'+sh.milkMl+'ml':'')+
+    (bk==='single'?'／シングル':'')+
+    (sh.milkMl>0?'／'+milkName(sh)+sh.milkMl+'ml':'')+
     (STOPW[sh.stop]?'／'+STOPW[sh.stop]:'')+'）',
     'この設定を、この豆のベストとして覚えておく',
     (Z===1?'雑味が少しありますが★'+star+'なので、設定は変えません。気になる日は、いつもより1〜2g早く止めてみてください。':'')+
     (star===3?'★3なので、もう一段おいしくしたい日は、抽出量を1〜2gだけ伸ばして甘さが増えるか試してください。':'')+
     (star?'':'★を入れておくと、次からは好みまで見て判断できます。')+
     '次に同じ豆を買ったとき、ここから始めればダイヤルインは一発で終わります。'+
-    (sh.milkMl>0?'牛乳の量も一緒に覚えておくので、同じ濃さのアイスカフェラテを再現できます。':''));
+    (sh.milkMl>0?'ミルクの量も一緒に覚えておくので、同じ濃さのアイスカフェラテを再現できます。':''));
 }
 /* 同じ手を3回打って★が伸びていないなら、別の変数に切り替えるよう促す */
 function stuck(){
@@ -2782,10 +2804,12 @@ function draft(){return S.shots.find(s=>s.status==='draft')}
 
 /* 1杯ぶんの設定を短くまとめる。時間と牛乳は記録していないことがあるので、あるときだけ出す。 */
 function shotLine(s){
-  return s.doseG+'g → '+s.yieldG+'g（1:'+(s.yieldG/s.doseG).toFixed(1)+'）'+
+  /* ダブルがふだんの淹れ方なので、シングルのときだけ頭に付ける（行を短く保つため） */
+  return (bkOf(s)==='single'?'シングル ':'')+
+    s.doseG+'g → '+s.yieldG+'g（1:'+(s.yieldG/s.doseG).toFixed(1)+'）'+
     (s.timeSec>0?'／'+s.timeSec+'秒':'')+
     (hasPres(s)?'／圧力'+(+s.presMax).toFixed(1):'')+
-    (s.milkMl>0?'／牛乳'+s.milkMl+'ml':'')+
+    (s.milkMl>0?'／'+milkName(s)+s.milkMl+'ml':'')+
     (s.stop==='cut'?'／途中で止めた':s.stop==='full'?'／最後まで抽出':'')+
     '／挽き目 '+s.grindValue+G().unit;
 }
@@ -2817,9 +2841,10 @@ function renderEsp(){
       '</div>';
   }else $('#esp-advice').innerHTML='';
 
+  /* 同じ豆でも、シングルとダブルでは設定が違うので別々に残す */
   const best={};
-  S.shots.filter(s=>s.status==='done'&&s.rating>=4).forEach(s=>{
-    if(!best[s.beanId]||s.rating>=best[s.beanId].rating)best[s.beanId]=s});
+  S.shots.filter(s=>s.status==='done'&&s.rating>=4).forEach(s=>{const key=s.beanId+'|'+bkOf(s);
+    if(!best[key]||s.rating>=best[key].rating)best[key]=s});
   const bs=Object.values(best);
   $('#esp-best').innerHTML=bs.length?'<div class="sec-title">うまくいったレシピ</div>'+bs.map(s=>{
     const b=anyById(s.beanId);return '<div class="card"><div class="between"><strong>'+
@@ -2833,7 +2858,7 @@ function renderEsp(){
   $('#esp-history').innerHTML=done.length?'<div class="card">'+done.map(s=>{
     const b=anyById(s.beanId);
     /* 挽き目は毎回変える値なので必ず出す。時間と味は入っていれば足す。 */
-    const nums=['挽き目'+s.grindValue+esc(G().unit)]
+    const nums=(bkOf(s)==='single'?['シングル']:[]).concat(['挽き目'+s.grindValue+esc(G().unit)])
       .concat(s.timeSec>0?[s.timeSec+'秒']:[])
       .concat(hasPres(s)?['圧'+(+s.presMax).toFixed(1)]:[])
       .concat(BALS[String(s.bal||0)]?[BALS[String(s.bal||0)]]:[])
@@ -2855,7 +2880,7 @@ function renderEsp(){
     '右のごみ箱で1件ずつ消せます。</p></div>':
     '<div class="empty" style="padding:24px"><span class="g">☕</span>まだ記録がありません。<br>1杯目を記録すると、次にどう調整すればいいかを提案します。'+
     '<p class="tiny" style="margin-top:16px;text-align:left">いまの設定<br>'+
-    '・'+esc(M().name)+'（'+M().basketMm+'mm・約'+M().capacityG+'g'+(M().bottomless?'・ボトムレス':'')+'）<br>'+
+    '・'+esc(M().name)+'（'+M().basketMm+'mm・ダブル約'+capOf('double')+'g／シングル約'+capOf('single')+'g'+(M().bottomless?'・ボトムレス':'')+'）<br>'+
     '・'+esc(G().name)+'（エスプレッソに使う範囲 '+espLo()+'〜'+espHi()+esc(G().unit)+'）</p></div>';
 }
 
@@ -2877,13 +2902,14 @@ function shotDetailSheet(id){
       kv('淹れた日',esc(dateJP(ymd(dt))+' '+dt.getHours()+':'+
         String(dt.getMinutes()).padStart(2,'0')))+
       kv('豆',esc(b?((b.shop?b.shop+' ':'')+b.name):'（いまは無い豆）'))+
+      kv('バスケット',BASKETW[bkOf(s)]+'（約'+capOf(bkOf(s))+'g）')+
       kv('粉の量','<b>'+s.doseG+'</b> g')+
       kv('出来上がり','<b>'+s.yieldG+'</b> g　<span class="tiny">レシオ 1:'+
         (s.yieldG/s.doseG).toFixed(1)+'</span>'+(STOPW[s.stop]?'<br>'+STOPW[s.stop]:''))+
       kv('抽出時間',s.timeSec>0?'<b>'+s.timeSec+'</b> 秒　<span class="tiny">流量 '+
         (s.yieldG/s.timeSec).toFixed(1)+' g/秒</span>':'測っていない')+
       kv('挽き目','<b>'+s.grindValue+'</b> '+esc(G().unit))+
-      (s.milkMl>0?kv('牛乳',s.milkMl+' ml'):'')+
+      (s.milkMl>0?kv('ミルク',milkName(s)+' '+s.milkMl+' ml'):'')+
       (M().bottomless?kv('抽出の様子',s.spray?'横に飛び散った':'まっすぐ落ちた'):'')+
       kv('味の傾向',esc(BALW[String(s.bal||0)]||'—'))+
       kv('濃さ',esc(STRW[String(s.str||0)]||'—'))+
@@ -2955,17 +2981,26 @@ let shotFormEdit=null;
 function shotSheet(pre,editId){
   shotFormEdit=editId||null;
   const g=G(), m=M(), last=[...S.shots].reverse()[0];
+  /* バスケットとミルクの種類は前回のものを引き継ぐ（いつもシングル・いつもアーモンドミルク、の人が毎回選び直さずに済む）。
+     粉の量の初期値はそのバスケットの容量にする。 */
+  const bk=bkOf(pre&&pre.basket?pre:last), cap=capOf(bk);
   form=Object.assign({date:today(),
     beanId:(BEANS.find(b=>b.brew.includes('エスプレッソ'))||BEANS[0]).id,
-    doseG:m.capacityG,yieldG:+(m.capacityG*2).toFixed(1),timeSec:0,milkMl:150,
+    basket:bk,milkType:'milk',
+    doseG:cap,yieldG:+(cap*2).toFixed(1),timeSec:0,milkMl:150,
     /* 圧力だけは前回の値を引き継がない。見なかった回に前回の数字が残ると、
        淹れてもいない圧力を記録したことになってしまうため。 */
     presMax:null,stop:null,
     grindValue:+((espLo()+espHi())/2).toFixed(1)},
     /* 粉の量は前回から引き継がない。前回の 14.3g のような端数はグラインダーに残った粉の誤差なので、
        毎回バスケットの容量（14g）から始める。実際に量った数字だけをここで直す（2026-10-08 tatsu）。 */
-    last?{beanId:last.beanId,yieldG:last.yieldG,timeSec:last.timeSec||0,
-      milkMl:last.milkMl||0,grindValue:last.grindValue}:{},pre||{});
+    /* 前回の抽出量は、前回と同じバスケットのときだけ引き継ぐ（シングルの 14g をダブルに持ち込まない） */
+    last?Object.assign({beanId:last.beanId,timeSec:last.timeSec||0,
+      milkMl:last.milkMl||0,milkType:milkOf(last),grindValue:last.grindValue},
+      bkOf(last)===bk?{yieldG:last.yieldG}:{}):{},pre||{});
+  form.basket=bkOf(form);form.milkType=milkOf(form);
+  const seg=(act,cur,opts)=>'<div class="seg">'+opts.map(o=>
+    '<button data-act="'+act+'" data-v="'+o[0]+'" aria-pressed="'+(cur===o[0])+'">'+o[1]+'</button>').join('')+'</div>';
   /* 数字は input にしてある。＋−で細かく動かすのと、キーボードで一気に打ち込むのを
      両方できるようにするため。抽出量は豆と挽き目で大きく動くので、これが無いと押し続けることになる。 */
   const step=(k,label,unit,dec)=>'<div class="field"><label>'+label+'</label><div class="step">'+
@@ -2989,6 +3024,9 @@ function shotSheet(pre,editId){
         (p.id===form.beanId?' selected':'')+'>'+esc(p.shop+' '+p.name)+'</option>').join('')+'</optgroup>'+
       '<optgroup label="産地から">'+BEANS.map(b=>'<option value="'+b.id+'"'+
         (b.id===form.beanId?' selected':'')+'>'+esc(b.name)+'</option>').join('')+'</optgroup></select></div>'+
+    /* ダブルかシングルか。切り替えると粉の量と抽出量もそのバスケットに合わせる（2026-11-07） */
+    '<div class="field"><label>バスケット</label>'+
+      seg('setbasket',form.basket,[['double','ダブル（約'+capOf('double')+'g）'],['single','シングル（約'+capOf('single')+'g）']])+'</div>'+
     step('doseG','粉の量（ドーズ）','g',1)+
     step('yieldG','出来上がりの量','g',1)+
     /* 止め方は前回の値を引き継がない（圧力と同じ理由。選ばなかった回は「記録なし」） */
@@ -3005,13 +3043,14 @@ function shotSheet(pre,editId){
       [20,24,26,28,30,32,36].map(v=>'<button class="chip" data-act="setsec" data-v="'+v+'">'+v+'秒</button>').join('')+
       '</div><p class="tiny" style="margin-top:6px">時間がないときは、味だけを見て次の一手を出します。</p></div>'+
     presField()+
-    step('milkMl','牛乳の量（アイスカフェラテ用）','ml',0)+
-    '<div class="field"><div class="chips">'+
+    step('milkMl','ミルクの量（アイスカフェラテ用）','ml',0)+
+    '<div class="field">'+seg('setmilktype',form.milkType,[['milk','🥛 牛乳'],['almond','🌰 アーモンドミルク']])+
+    '<div class="chips" style="margin-top:8px">'+
       '<button class="chip" data-act="setmilk" data-v="0">入れない</button>'+
       [100,120,150,180,200,250].map(v=>'<button class="chip" data-act="setmilk" data-v="'+v+'">'+v+'ml</button>').join('')+
       '</div></div>'+
     step('grindValue','挽き目','',1)+
-    '<div class="note">'+esc(m.name)+'（'+m.basketMm+'mm・約'+m.capacityG+'g）／'+esc(g.name)+
+    '<div class="note">'+esc(m.name)+'（'+m.basketMm+'mm・ダブル約'+capOf('double')+'g／シングル約'+capOf('single')+'g）／'+esc(g.name)+
     '：エスプレッソに使うのは '+espLo()+'〜'+espHi()+esc(g.unit)+'、数字が'+(g.finer==='down'?'小さい':'大きい')+
     'ほど細かい設定です。違う場合は「機器の設定」で直してください。</div>'+
     '<div class="note" style="margin-top:10px" id="f-calc"></div></div>';
@@ -3074,7 +3113,8 @@ function bindShotInputs(){
   if(p)p.oninput=ev=>{form.presMax=+ev.target.value;paintPres('f-pres',form.presMax);calc()};
 }
 function calc(){
-  const r=form.doseG>0?form.yieldG/form.doseG:0, fill=form.doseG/M().capacityG;
+  const bk=bkOf(form), cap=capOf(bk);
+  const r=form.doseG>0?form.yieldG/form.doseG:0, fill=form.doseG/cap;
   let h='レシオ <b>1:'+(r>0?r.toFixed(1):'—')+'</b>', warn='';
   if(hasPres(form)){
     h+='　／　圧力 <b>'+(+form.presMax).toFixed(1)+'</b>／'+PRES.top+'（'+PRESW[presLv(form)]+'）';
@@ -3089,11 +3129,11 @@ function calc(){
     if(f>2.5)warn='<br>⚠ 流れが速すぎます（挽き目が粗すぎるか、湯の通り道ができています）';
     else if(f<0.7)warn='<br>⚠ 流れが遅すぎます（挽き目が細かすぎるか、粉が多すぎます）';
   }else h+='　／　時間は記録しません';
-  if(form.milkMl>0)h+='<br>牛乳 '+form.milkMl+'ml ＝ エスプレッソ <b>1 : '+
+  if(form.milkMl>0)h+='<br>'+milkName(form)+' '+form.milkMl+'ml ＝ エスプレッソ <b>1 : '+
     (form.milkMl/form.yieldG).toFixed(1)+'</b> の濃さ';
   /* 提案（adviseMain）と同じ105%にそろえる。ずれていると、入力中は何も言われずに記録直後に「多すぎ」と言われる */
-  if(fill>1.05)warn+='<br>⚠ '+M().basketMm+'mmバスケット（約'+M().capacityG+'g）に対して粉が多すぎます';
-  else if(fill<0.65)warn+='<br>⚠ バスケットに対して粉が少なすぎます';
+  if(fill>1.05)warn+='<br>⚠ '+BASKETW[bk]+'のバスケット（約'+cap+'g）に対して粉が多すぎます';
+  else if(fill<0.65)warn+='<br>⚠ '+BASKETW[bk]+'のバスケットに対して粉が少なすぎます';
   const el=$('#f-calc');if(el)el.innerHTML=h+warn;
 }
 const STEP_INC={doseG:0.1,yieldG:0.5,timeSec:1,milkMl:10,grindValue:1};
@@ -3113,11 +3153,31 @@ function stepField(k,d){
   calc();
   if(navigator.vibrate)navigator.vibrate(8);
 }
+/* バスケットを切り替えたら、粉の量はそのバスケットの容量に、抽出量は同じレシオのまま容量の比で直す。
+   ダブルの 28g のままシングルにすると、1:4 の薄い一杯を記録することになるため。 */
+function setBasket(v){
+  const nb=v==='single'?'single':'double', ob=bkOf(form);
+  if(nb!==ob){const c0=form.doseG>0?form.doseG:capOf(ob), c1=capOf(nb);
+    form.basket=nb;form.doseG=c1;
+    /* いま入っている粉と抽出量の比（レシオ）を保ったまま、新しい粉の量に合わせる */
+    if(form.yieldG>0)form.yieldG=+(form.yieldG*c1/c0).toFixed(1);
+    ['doseG','yieldG'].forEach(k=>{const e=$('#f-'+k);if(e)e.value=stepVal(k)})}
+  document.querySelectorAll('[data-act="setbasket"]').forEach(b=>
+    b.setAttribute('aria-pressed',String(b.dataset.v===form.basket)));
+  calc();
+}
+function setMilkType(v){
+  form.milkType=v==='almond'?'almond':'milk';
+  document.querySelectorAll('[data-act="setmilktype"]').forEach(b=>
+    b.setAttribute('aria-pressed',String(b.dataset.v===form.milkType)));
+  calc();
+}
 /* 過去の記録を、記録フォームに入れて開く。止め方と圧力も、その記録の値をそのまま出す。 */
 function editShotSheet(id){
   const s=S.shots.find(x=>x.id===id);if(!s)return;
   shotSheet({date:ymd(new Date(s.at)),beanId:s.beanId,doseG:s.doseG,yieldG:s.yieldG,
     timeSec:s.timeSec||0,milkMl:s.milkMl||0,grindValue:s.grindValue,
+    basket:bkOf(s),milkType:milkOf(s),
     presMax:hasPres(s)?+s.presMax:null,stop:s.stop||null},s.id);
 }
 /* 直した内容を元の記録に書き戻す。新しい記録は作らない。評価まちの記録にも触らない。 */
@@ -3126,7 +3186,8 @@ function saveShotEdit(){
   const oldBean=s.beanId, oldDose=s.doseG, oldStock=s.stockId;
   /* 日付を変えていなければ、淹れた時刻はそのまま残す */
   if(form.date!==ymd(new Date(s.at)))s.at=atFrom(form.date);
-  ['beanId','doseG','yieldG','timeSec','milkMl','grindValue','presMax','stop'].forEach(k=>{s[k]=form[k]});
+  ['beanId','basket','doseG','yieldG','timeSec','milkMl','milkType','grindValue','presMax','stop'].forEach(k=>{s[k]=form[k]});
+  s.basket=bkOf(s);s.milkType=milkOf(s);
   /* 豆か粉の量を直したら、残量も直す。前の量をいったん戻してから、新しい量を引く。
      ただし、その記録で使った袋がまだ家にあるときだけ。飲み切った袋の記録や、袋を登録する前の記録を
      直すときに残量を動かすと、その記録とは関係のない、いまの袋が減ってしまう。
@@ -3154,6 +3215,7 @@ function saveShot(){
     save();closeSheet();renderAll();shotDetailSheet(id);return}
   const s=Object.assign({id:uid('s'),at:atFrom(form.date),status:'draft',bal:0,str:0,rating:0,
     zatsu:null,stop:null,spray:false,timeSec:0,milkMl:0,presMax:null,memo:'',stockId:'',adv:null},form);
+  s.basket=bkOf(s);s.milkType=milkOf(s);
   /* 評価まちの記録を捨てて上書きするときは、その1杯ぶんの豆を残量に戻してから捨てる。
      戻さないと、淹れていない豆が減ったままになる。 */
   const d=draft();if(d){useStock(d.beanId,d.doseG,-1,d.stockId);
@@ -3272,9 +3334,13 @@ function grinderSheet(){
     '<div class="field"><label>バスケットの直径（mm）</label>'+
       '<input type="number" id="m-mm" value="'+m.basketMm+'" inputmode="decimal"></div>'+
     '<div class="field"><label>バスケットの容量（g）</label>'+
-      '<input type="number" id="m-cap" value="'+m.capacityG+'" step="0.5" inputmode="decimal">'+
-      '<p class="tiny" style="margin-top:6px">51mmのバスケットは14g前後、58mmなら18g前後が目安です。'+
-      'ここを入れておくと、粉の入れすぎ・少なすぎを自動で警告します。</p></div>'+
+      '<div class="row" style="gap:8px;align-items:center">'+
+        '<span style="white-space:nowrap">ダブル</span>'+
+        '<input type="number" id="m-cap" value="'+m.capacityG+'" step="0.5" inputmode="decimal" style="flex:1;min-width:0">'+
+        '<span style="white-space:nowrap">シングル</span>'+
+        '<input type="number" id="m-cap1" value="'+capOf('single')+'" step="0.5" inputmode="decimal" style="flex:1;min-width:0"></div>'+
+      '<p class="tiny" style="margin-top:6px">51mmのダブルは14g前後（シングルはその半分の7g前後）、58mmのダブルなら18g前後が目安です。'+
+      'ここを入れておくと、記録で選んだバスケットに合わせて、粉の入れすぎ・少なすぎを自動で警告します。</p></div>'+
     '<div class="field"><label>ポルタフィルターの種類</label><div class="seg">'+
       [['1','ボトムレス（底が抜けている）'],['0','ふつう（注ぎ口がある）']].map(o=>
       '<button data-act="mset" data-k="bottomless" data-v="'+o[0]+'" aria-pressed="'+((o[0]==='1')===!!m.bottomless)+'">'+o[1]+'</button>').join('')+
@@ -3298,6 +3364,9 @@ function readGear(){
   m.name=str('m-name',m.name);
   m.basketMm=num('m-mm',m.basketMm);
   m.capacityG=Math.max(1,num('m-cap',m.capacityG));
+  /* シングルはダブルより多くならない。0以下は今の値のまま */
+  const c1=num('m-cap1',capOf('single'));
+  m.capacitySingleG=Math.min(+m.capacityG||14,c1>0?c1:capOf('single'));
 }
 
 /* =========================================================================
@@ -3622,9 +3691,10 @@ const stockOf=id=>{
   const left=a.filter(x=>x.leftG>0);
   return (left.length?left:a).slice().sort(bagOrder)[0];
 };
-/* 1杯ぶんの粉の量。直近の記録から取り、まだ何も記録が無ければ機械の標準量を使う。 */
-const oneDose=()=>{const s=[...S.shots].reverse().find(x=>x.doseG>0);
-  return s?s.doseG:(M().capacityG||14)};
+/* 1杯ぶんの粉の量。直近のダブルの記録から取り、無ければダブルの容量を使う。
+   シングルの記録を混ぜると「あと◯杯」が倍に跳ねるので、いつもダブルで数える。 */
+const oneDose=()=>{const s=[...S.shots].reverse().find(x=>x.doseG>0&&bkOf(x)==='double');
+  return s?s.doseG:capOf('double')};
 const cupsLeft=st=>{const d=oneDose();return d>0?Math.floor(st.leftG/d):0};
 /* 使ったぶんだけ残りを減らす。sign を -1 にすると足し戻す（記録を消したとき）。
    手で引き算させると必ず続かなくなるので、抽出の記録と連動させている。 */
@@ -4292,6 +4362,8 @@ document.addEventListener('click',e=>{
   else if(a==='setstop'){form.stop=form.stop===t.dataset.v?null:t.dataset.v;
     document.querySelectorAll('[data-act="setstop"]').forEach(b=>
       b.setAttribute('aria-pressed',String(b.dataset.v===form.stop)))}
+  else if(a==='setbasket'){setBasket(t.dataset.v)}
+  else if(a==='setmilktype'){setMilkType(t.dataset.v)}
   else if(a==='setmilk'){form.milkMl=+t.dataset.v;
     const e=$('#f-milkMl');if(e)e.value=stepVal('milkMl');calc()}
   else if(a==='delshot'){if(!confirm('この記録を消しますか？'))return;
@@ -4383,14 +4455,14 @@ document.addEventListener('click',e=>{
     renderEsp();t.textContent='保存しました';
     setTimeout(function(){t.textContent='メモを保存する'},1200)}
   /* 粉の量は渡さない。shotSheet が毎回バスケットの容量（14g）から始める（2026-10-08） */
-  else if(a==='applyadv'){const L=lastDone();shotSheet(Object.assign({beanId:L.beanId,
-    yieldG:L.yieldG,timeSec:L.timeSec||0,milkMl:L.milkMl||0,grindValue:L.grindValue},L.adv.next))}
+  else if(a==='applyadv'){const L=lastDone();shotSheet(Object.assign({beanId:L.beanId,basket:bkOf(L),
+    yieldG:L.yieldG,timeSec:L.timeSec||0,milkMl:L.milkMl||0,milkType:milkOf(L),grindValue:L.grindValue},L.adv.next))}
   else if(a==='applyalt'){const L=lastDone();const x=L&&L.adv&&L.adv.alts&&L.adv.alts[+t.dataset.i];
     if(!x||!x.next)return;
-    shotSheet(Object.assign({beanId:L.beanId,yieldG:L.yieldG,timeSec:L.timeSec||0,
-      milkMl:L.milkMl||0,grindValue:L.grindValue},x.next))}
-  else if(a==='reuse'){const s=S.shots.find(x=>x.id===id);if(s)shotSheet({beanId:s.beanId,
-    yieldG:s.yieldG,timeSec:s.timeSec||0,milkMl:s.milkMl||0,grindValue:s.grindValue})}
+    shotSheet(Object.assign({beanId:L.beanId,basket:bkOf(L),yieldG:L.yieldG,timeSec:L.timeSec||0,
+      milkMl:L.milkMl||0,milkType:milkOf(L),grindValue:L.grindValue},x.next))}
+  else if(a==='reuse'){const s=S.shots.find(x=>x.id===id);if(s)shotSheet({beanId:s.beanId,basket:bkOf(s),
+    yieldG:s.yieldG,timeSec:s.timeSec||0,milkMl:s.milkMl||0,milkType:milkOf(s),grindValue:s.grindValue})}
   else if(a==='gr'){grinderSheet()}
   else if(a==='gset'){readGear();S.grinder[t.dataset.k]=t.dataset.v;save();grinderSheet()}
   else if(a==='mset'){readGear();S.machine.bottomless=t.dataset.v==='1';save();grinderSheet()}
@@ -5569,6 +5641,9 @@ function cloudApply(col,docs){
 function cloudSetFix(){
   if(!Array.isArray(S.hidden))S.hidden=[];
   if(!Array.isArray(S.fav))S.fav=[];
+  /* シングルの容量を足す前の設定がクラウドから来たら、ダブルの半分で補う（2026-11-07） */
+  if(S.machine&&typeof S.machine==='object'&&!(+S.machine.capacitySingleG>0))
+    S.machine.capacitySingleG=capOf('single');
 }
 function cloudSettings(){
   const o={};
